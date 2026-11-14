@@ -1,5 +1,42 @@
 # Jurnalul etapelor
 
+## Etapa 3 — Agent 01: motorul de politici și rutare (2026-11-14)
+
+### Ce s-a făcut
+- `config/policies.yaml`: politică externă (montată în `api` la `/config/policies.yaml`, neinclusă în JAR) cu definiții per storage (`DATABASE`, `S3`, `FTP`) și per categorie (`METER_READING`, `FAULT_RECORD`, `CONNECTION_DOCUMENT`, `DRONE_VIDEO`) conform `ARCHITECTURE.md` §A.4 (`detection`, `primary`, `fallbacks`, `constraints`, `weights`, `retry`, `sla`).
+- Migrația Flyway `V2__policy_version.sql` în `meta-db`: tabel append-only `policy_version` (versiune, sursă `FILE`/`ADMIN`, autor, conținut YAML, `content_sha256`, `diff` JSONB).
+- Pachetul `ro.filegrid.policy`:
+  - `Policy`, `PolicyProperties`, `PolicyParser` (parsare YAML strictă: chei necunoscute/duplicate și durate), `PolicyValidator` (raportează toate erorile în română), `PolicyDiff` (diff structural per cale punctată);
+  - `PolicyService`: versionare tranzacțională cu blocare exclusivă pe tabel, păstrarea versiunii anterioare la eroare, sincronizare periodică din DB între instanțe;
+  - `PolicyFileWatcher` (profil `api`): reîncarcă `config/policies.yaml` fără restart prin `WatchService` și verificare periodică SHA-256 (`FILEGRID_POLICY_CHECK_INTERVAL`, implicit `10s`) pentru bind mount-urile Windows; o versiune `ADMIN` mai nouă păstrează prioritatea față de fișierul nemodificat;
+  - `PolicyController`: `GET /api/policies`, `GET /api/policies/history`, `PUT /api/admin/policies` (cu `CurrentActorProvider` și `AccessPolicy`, răspuns `ProblemDetail` în română la politică invalidă).
+- Pachetul `ro.filegrid.classification`: `ClassificationService`, `ClassificationRequest`, `ClassificationResult` — combină categoria declarată, tipul MIME detectat cu Apache Tika din primii 64 KB (magic bytes), extensia și câmpurile de context obligatorii; înregistrează avertismente (`DECLARED_DIFFERS_FROM_DETECTED`, `AMBIGUOUS_DETECTION`, `MISSING_REQUIRED_FIELDS`, `UNCLASSIFIED`) fără a bloca încărcarea.
+- Pachetul `ro.filegrid.routing`:
+  - `RoutingEngine`: motor determinist și fără I/O; verifică constrângerile hard (`maxSizeBytes` din storage/categorie/adaptor, `needsResumable`, `needsImmediateRead`, `idempotent`), disponibilitatea din `storage_health`, calculează scorul ponderat și construiește explicația în română exclusiv din motive structurate prin template-uri;
+  - `HealthTableStorageStateProvider`: citește `storage_health` și tratează ca `UNKNOWN` probele mai vechi decât `FILEGRID_ROUTING_HEALTH_MAX_AGE` (implicit `30s`);
+  - `RoutingService`: salvează `routing_decision` înainte de transfer, trece fișierul în `DESTINATION_SELECTED` (cu cheie UUID din `StorageKeys`) sau `PENDING` (când niciun storage nu este eligibil și disponibil) și scrie evenimentul în `file_event`;
+  - `DecisionController`: `GET /api/files/{id}/decision`.
+- Pachetul `ro.filegrid.text` (`Texts`, `Sizes`) și `i18n/texts_ro.properties`: mesaje în română centralizate pentru clasificator, rutare și validarea politicii.
+- Configurare: variabilele `FILEGRID_POLICY_CHECK_INTERVAL` și `FILEGRID_ROUTING_HEALTH_MAX_AGE` adăugate în `.env.example` și `infra/docker-compose.yml`.
+- Teste: unitare (`PolicyValidationTest`, `ClassificationServiceTest`, `RoutingEngineTest`) și de integrare cu Testcontainers (`PolicyAndRoutingIT`).
+
+### Cum se verifică
+- `cd backend && ./mvnw verify` (sau `.\mvnw.cmd verify` pe Windows) → 75 de teste trec (36 unitare, 39 de integrare cu Testcontainers).
+- `.\start.ps1` / `./start.sh` → toate serviciile (inclusiv `api` și cele 4 servicii `worker-*`) sunt `healthy`.
+- `curl -k https://localhost/api/policies` → returnează politica activă (`v1`). Modificarea `maxSizeBytes` în `config/policies.yaml` creează o nouă versiune în ~10 s, vizibilă în `GET /api/policies` și `GET /api/policies/history` fără restart.
+
+### Decizii luate în afara promptului
+- **`StreamReadFeature.STRICT_DUPLICATE_DETECTION` în `PolicyParser`:** `DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY` verifică doar `JsonNode`, nu și deserializarea directă în record-ul `Policy`; activarea `STRICT_DUPLICATE_DETECTION` garantează respingerea cheilor YAML duplicate.
+- **`String` în `PolicyProperties` (`filePath()`):** legarea directă la `java.nio.file.Path` în `ServletWebServerApplicationContext` determina Tomcat să interpreteze valoarea implicită `../config/policies.yaml` ca `ServletContextResource` (eșuând la pornirea containerelor `worker-*`). Folosirea `String` + `Path.of(...)` evită rezolvarea ca resursă servlet în orice profil.
+- **Rafinarea `ClassificationService`:** detecția MIME folosește `tika.detect(head, fileName)` fără suprascrierea manuală a `text/plain`/`octet-stream` din extensie (o extensie falsă `.mp4` pe text/PDF nu mai ascunde magic bytes), iar avertismentul `DECLARED_DIFFERS_FROM_DETECTED` verifică `isTopMatch` (scor maxim + potrivire MIME).
+- **Fix `start.ps1` pentru Windows PowerShell 5.1:** setarea temporară a `$ErrorActionPreference = 'Continue'` în jurul apelurilor `docker` / `docker compose` cu stderr redirectat sau informativ (`No stopped containers`), verificând `$LASTEXITCODE`.
+- **Latența folosită la scorare (`HEALTH_PROBE`):** până la introducerea metricilor reale p95 de transfer (Etapa 8), `HealthTableStorageStateProvider` furnizează latența ultimului probe din `storage_health`, iar fiecare decizie înregistrează explicit sursa (`HEALTH_PROBE`).
+
+### Limitări cunoscute
+- `RoutingService` și `ClassificationService` sunt apelate direct din teste și API-ul de decizie; conectarea automată în pipeline-ul de upload (`tus` + RabbitMQ) vine în Etapa 4.
+- Latența din factorul `measuredLatencyP95` provine din probe-ul de stare (`HEALTH_PROBE`); p95 măsurat pe transferuri reale vine în Etapa 8.
+- Pe bind mount-uri Windows, detectarea modificărilor din `config/policies.yaml` se face prin verificarea periodică a checksum-ului SHA-256 (implicit la 10 s).
+
 ## Etapa 2 — Backend: model de date + adaptoare de storage (2026-11-14)
 
 ### Ce s-a făcut

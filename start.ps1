@@ -145,8 +145,11 @@ function Wait-Healthy([int]$timeoutSeconds) {
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Fail 'Docker is not installed or not on PATH.' }
+$ErrorActionPreference = 'Continue'
 & docker info *> $null
-if ($LASTEXITCODE -ne 0) { Fail 'Docker is not running. Start Docker Desktop first.' }
+$dockerOk = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = 'Stop'
+if (-not $dockerOk) { Fail 'Docker is not running. Start Docker Desktop first.' }
 
 Write-Host '==> 1/4 Environment'
 Initialize-Env
@@ -162,10 +165,13 @@ if ($mode -eq 'lite') {
     $otherWorkers = @('worker-all')
 }
 $env:COMPOSE_PROFILES = 'full,lite'
+$ErrorActionPreference = 'Continue'
 & docker compose rm --stop --force @otherWorkers *> $null
 $env:COMPOSE_PROFILES = $mode
 & docker compose up -d --build
-if ($LASTEXITCODE -ne 0) { Fail 'docker compose up failed.' }
+$upExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($upExit -ne 0) { Fail 'docker compose up failed.' }
 
 Write-Host '==> 4/4 Waiting for services to become healthy'
 Wait-Healthy 300

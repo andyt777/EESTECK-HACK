@@ -96,6 +96,15 @@ filegrid:
       max-object-bytes: ${DATABASE_STORAGE_MAX_BYTES:67108864}   # 64 MB
       read-chunk-bytes: 4194304                                  # 4 MB
 
+  # Agent 01: routing policy. The file is mounted, never packaged in the jar.
+  policy:
+    file: ${FILEGRID_POLICY_FILE:../config/policies.yaml}
+    # How often the file checksum (and the latest stored version) is re-checked.
+    check-interval: ${FILEGRID_POLICY_CHECK_INTERVAL:10s}
+  routing:
+    # A health probe older than this is not trusted (the storage counts as unavailable).
+    health-max-age: ${FILEGRID_ROUTING_HEALTH_MAX_AGE:30s}
+
   worker:
     categories: ${WORKER_CATEGORIES:}
     # Transfers handled at the same time by one worker instance (per category queue).

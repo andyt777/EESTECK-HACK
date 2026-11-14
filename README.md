@@ -4,7 +4,7 @@ Punctul unic de intrare pentru fișierele operaționale ale unui operator de dis
 
 Arhitectura este descrisă în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), iar progresul pe etape în [docs/CHANGELOG-ETAPE.md](docs/CHANGELOG-ETAPE.md).
 
-> **Stadiu:** Etapa 2 — infrastructura Docker plus backend-ul (API și workeri) cu modelul de date și cele trei adaptoare de storage. Upload-ul, rutarea, frontend-ul și simulatorul vin în etapele următoare.
+> **Stadiu:** Etapa 3 — Agent 01: motorul determinist de politici și rutare explicabilă (`config/policies.yaml`, clasificare Tika, scorare, versionare în DB, reîncărcare la cald). Pipeline-ul de upload, frontend-ul și simulatorul vin în etapele următoare.
 
 ## Cerințe preliminare
 
@@ -87,6 +87,8 @@ apoi rulează `wsl --shutdown` într-un terminal și repornește Docker Desktop.
 | --- | --- | --- |
 | Grafana | https://localhost/grafana | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` din `.env` |
 | Starea API-ului | https://localhost/api/actuator/health | — (răspunde `{"status":"UP"}`) |
+| Politica activă (Agent 01) | https://localhost/api/policies | — (versiunea activă, YAML-ul și starea fișierului `policies.yaml`) |
+| Istoricul politicilor | https://localhost/api/policies/history | — (versiuni și diff-uri structurale) |
 
 Gateway-ul (Traefik) este singurul serviciu care publică porturi. HTTP este redirecționat către HTTPS, iar TLS minim este 1.2. Din actuator este expusă în exterior doar starea; metricile (`/actuator/prometheus`) rulează pe un port separat, accesibil numai din rețeaua internă.
 

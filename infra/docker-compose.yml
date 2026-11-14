@@ -83,6 +83,8 @@ x-backend-env: &backend-env
   RABBITMQ_HOST: rabbitmq
   RABBITMQ_USER: ${RABBITMQ_USER:?run scripts/init-env.sh first}
   RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?run scripts/init-env.sh first}
+  FILEGRID_POLICY_CHECK_INTERVAL: ${FILEGRID_POLICY_CHECK_INTERVAL:-10s}
+  FILEGRID_ROUTING_HEALTH_MAX_AGE: ${FILEGRID_ROUTING_HEALTH_MAX_AGE:-30s}
 
 # JVM memory is set explicitly (heap, direct, metaspace, code cache) instead of
 # as a percentage, so every part of the process fits the container limit.
@@ -180,9 +182,14 @@ services:
         limits:
           memory: ${API_MEMORY_LIMIT:-640M}
     networks: [edge, internal]
+    # The directory is mounted (not the single file): editors replace the file
+    # on save, and a single-file bind mount would keep pointing at the old one.
+    volumes:
+      - ../config:/config:ro
     environment:
       <<: *backend-env
       SPRING_PROFILES_ACTIVE: api
+      FILEGRID_POLICY_FILE: /config/policies.yaml
       JAVA_TOOL_OPTIONS: "${API_JAVA_OPTS:--Xmx320m -XX:MaxDirectMemorySize=64m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseG1GC}"
     depends_on: *backend-depends-on
 

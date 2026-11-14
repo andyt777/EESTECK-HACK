@@ -83,12 +83,18 @@ def _obj(props: dict, required: list[str] | None = None) -> dict:
 
 
 class Toolbox:
-    """The tools the assistant may call. All read-only."""
+    """The tools the assistant may call. All read-only.
 
-    def __init__(self, api, agent02, docs: DocsIndex):
+    ``permissions`` = the asking user's permissions (None = unrestricted, e.g. internal use). Api-backed tools
+    are enforced by the api itself through the user's token; local sources (Agent 02 findings read from the
+    database) are checked here against the same permission the HTTP endpoint requires.
+    """
+
+    def __init__(self, api, agent02, docs: DocsIndex, permissions: frozenset[str] | None = None):
         self.api = api
         self.agent02 = agent02
         self.docs = docs
+        self.permissions = permissions
         s = {"type": "string"}
         self.tools: dict[str, Tool] = {t.name: t for t in [
             Tool("search_files", "Caută fișiere în FileGrid după text (nume, descriere, stație) și/sau categorie.",
@@ -178,7 +184,14 @@ class Toolbox:
             return ToolResult(data, f"sumarul pe categorii nu este disponibil ({_err(data)})")
         return ToolResult(data, "sumar pe categorii încărcat", [{"label": "Categorii", "href": "/"}])
 
+    def scoped(self, api, permissions: frozenset[str]) -> Toolbox:
+        """A request-scoped toolbox acting as the asking user (same Agent 02 and docs index)."""
+        return Toolbox(api, self.agent02, self.docs, permissions)
+
     def grid_findings(self, args: dict) -> ToolResult:
+        if self.permissions is not None and "intelligence:read" not in self.permissions:
+            return ToolResult({"error": "acces interzis: constatările Agent 02 necesită permisiunea intelligence:read"},
+                              "acces interzis la constatările Agent 02")
         if self.agent02 is None:
             return ToolResult({"error": "Agent 02 indisponibil"}, "Agent 02 indisponibil")
         try:
@@ -356,10 +369,11 @@ class SimulatedProvider:
     def __init__(self, toolbox: Toolbox):
         self.toolbox = toolbox
 
-    def answer(self, message: str, history: list[dict], context: dict | None) -> dict:
+    def answer(self, message: str, history: list[dict], context: dict | None, toolbox: Toolbox | None = None) -> dict:
+        toolbox = toolbox or self.toolbox
         steps, citations, parts = [], [], []
         for name, args in route_intents(message, context):
-            result = self.toolbox.call(name, args)
+            result = toolbox.call(name, args)
             steps.append({"tool": name, "input": args, "outputSummary": result.summary})
             citations.extend(result.citations)
             parts.append(compose(name, result))
@@ -394,7 +408,8 @@ class AnthropicProvider:
                 self.use_fallbacks = False
         return self.client.messages.create(**params)
 
-    def answer(self, message: str, history: list[dict], context: dict | None) -> dict:
+    def answer(self, message: str, history: list[dict], context: dict | None, toolbox: Toolbox | None = None) -> dict:
+        toolbox = toolbox or self.toolbox
         messages = [{"role": h["role"], "content": str(h.get("content", ""))} for h in history[-10:]
                     if h.get("role") in ("user", "assistant") and h.get("content")]
         text = message
@@ -417,7 +432,7 @@ class AnthropicProvider:
             results = []
             for block in uses:
                 args = block.input if isinstance(block.input, dict) else {}
-                result = self.toolbox.call(block.name, args)
+                result = toolbox.call(block.name, args)
                 steps.append({"tool": block.name, "input": args, "outputSummary": result.summary})
                 citations.extend(result.citations)
                 payload = json.dumps(result.data, ensure_ascii=False, default=str)[:MAX_TOOL_CHARS]
@@ -448,7 +463,8 @@ class OpenAICompatibleProvider:
         return [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                   "parameters": t.schema}} for t in self.toolbox.tools.values()]
 
-    def answer(self, message: str, history: list[dict], context: dict | None) -> dict:
+    def answer(self, message: str, history: list[dict], context: dict | None, toolbox: Toolbox | None = None) -> dict:
+        toolbox = toolbox or self.toolbox
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
         messages += [{"role": h["role"], "content": str(h.get("content", ""))} for h in history[-10:]
                      if h.get("role") in ("user", "assistant") and h.get("content")]
@@ -475,7 +491,7 @@ class OpenAICompatibleProvider:
                 except json.JSONDecodeError:
                     args = {}
                 args = args if isinstance(args, dict) else {}
-                result = self.toolbox.call(fn.get("name", ""), args)
+                result = toolbox.call(fn.get("name", ""), args)
                 steps.append({"tool": fn.get("name", ""), "input": args, "outputSummary": result.summary})
                 citations.extend(result.citations)
                 payload = json.dumps(result.data, ensure_ascii=False, default=str)[:MAX_TOOL_CHARS]
@@ -505,7 +521,9 @@ class Assistant:
             log.exception("LLM provider %s unavailable, using SIMULATED", provider)
         log.info("assistant provider: %s", self.llm.name if self.llm else "SIMULATED")
 
-    def chat(self, message: str, history: list[dict] | None = None, context: dict | None = None) -> dict:
+    def chat(self, message: str, history: list[dict] | None = None, context: dict | None = None,
+             toolbox: Toolbox | None = None) -> dict:
+        """``toolbox``: the request-scoped toolbox acting as the asking user (see ``Toolbox.scoped``)."""
         history = history or []
         refusal = guard(message)
         if refusal:
@@ -515,13 +533,13 @@ class Assistant:
         result = None
         if self.llm is not None:
             try:
-                result = self.llm.answer(message, history, context)
+                result = self.llm.answer(message, history, context, toolbox)
                 provider = self.llm
             except Exception as exc:  # noqa: BLE001 - fall back to the deterministic provider
                 log.warning("%s call failed, using SIMULATED: %s", self.llm.name, exc)
                 note = "Modelul de limbaj nu a răspuns; s-a folosit modul SIMULATED."
         if result is None:
-            result = self.simulated.answer(message, history, context)
+            result = self.simulated.answer(message, history, context, toolbox)
         unique, seen = [], set()
         for c in result["citations"]:
             if c["href"] not in seen:

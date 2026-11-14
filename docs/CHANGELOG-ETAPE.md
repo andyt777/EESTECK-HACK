@@ -1,5 +1,27 @@
 # Jurnalul etapelor
 
+## Etapa 11 (partea Python) — autentificare în intelligence și simulator (2026-11-14)
+
+Contractul: `docs/AUTH-DESIGN.md` (§3 matricea endpoint → permisiune, §4 „/api/intelligence”, „Assistant tools”, „Simulator”).
+
+### Ce s-a făcut
+- **intelligence — `auth.py`**: dependența FastAPI `require(permission)` citește `Authorization: Bearer`, întreabă `GET {FILEGRID_API_URL}/me` cu același token și păstrează răspunsul în cache pe `sha256(token)` până la `exp` (payload-ul JWT e decodat fără verificare doar pentru `exp`; verificarea o face api-ul). Fail-closed: fără token / token invalid → 401 (`WWW-Authenticate: Bearer`), fără permisiune → 403, api indisponibil sau neconfigurat → 503.
+- Matricea aplicată: `findings`, `findings/{id}`, `summary`, `grid`, `evaluation`, `voice/calls` → `intelligence:read`; `findings/{id}/status`, `analyze` → `intelligence:write`; `assistant/chat` → `assistant:use`; `voice/call` → `voice:use`; `voice/field-report` → `voice:use` (+ `incident:create` când `create=true`). `/health` și `/api/intelligence/health` rămân publice, `/metrics` rămâne intern.
+- **Asistent și voce acționează ca utilizatorul**: `FileGridApi.with_token(...)` creează un client per cerere cu tokenul celui care întreabă (aceeași conexiune partajată), deci instrumentele văd exact ce are voie să vadă utilizatorul. Constatările Agent 02 (citite direct din DB) sunt oferite asistentului doar dacă utilizatorul are `intelligence:read`. Incidentul din raportul vocal e creat în numele utilizatorului. Header-ul `X-Actor` a fost eliminat.
+- **Agent 02 în fundal** (bucla și incidentele `GRID_ANOMALY`) folosește tokenul de serviciu `filegrid-intelligence` (client_credentials): în cache, reîmprospătat cu 30 s înainte de expirare, un singur retry după 401.
+- **Simulator**: `ClientCredentialsToken` (asincron, `asyncio.Lock` ca loturile concurente să ceară un singur token), reîmprospătare cu 30 s înainte de expirare, retry o singură dată pe 401 cu token nou (aceeași `Idempotency-Key`, fără backoff). Dacă Keycloak nu răspunde, lotul se reia cu backoff ca la orice eroare tranzitorie (nicio citire pierdută). Fără `KC_SIMULATOR_SECRET` se trimite fără token (rulări locale).
+- Tokenul nu ajunge niciodată în prompturi, în rezultatele instrumentelor, în loguri sau în `repr` (secretele sunt `repr=False`).
+- Variabile noi în `.env.example`: `KC_TOKEN_URL`, `KC_SIMULATOR_CLIENT_ID`, `KC_SIMULATOR_SECRET`, `KC_INTELLIGENCE_CLIENT_ID`, `KC_INTELLIGENCE_SECRET`.
+
+### Cum se verifică
+- `cd intelligence && uv run pytest -q && uv run ruff check src tests` (67 de teste, dintre care 21 noi în `tests/test_auth.py`: allow/deny, cache, expirare, 503, 401, toate rutele protejate, tokenul transmis instrumentelor și absent din răspuns/loguri, refresh token de serviciu, retry pe 401).
+- `cd simulator && uv run pytest -q && uv run ruff check src tests` (23 de teste, 7 noi în `tests/test_auth.py`).
+
+### Limitări cunoscute
+- Testele folosesc api și Keycloak simulate (`httpx.MockTransport`); integrarea reală (realm, `/api/me`, issuer pe backchannel) nu a fost verificată în stack.
+- `/api/intelligence/docs` și `/api/intelligence/openapi.json` (generate de FastAPI) rămân publice; nu expun date, doar schema.
+- O schimbare de roluri în Keycloak devine vizibilă în intelligence la următorul token (cache până la `exp`, maxim 10 minute).
+
 ## Etapele 15 și 16 — serviciul intelligence: Agent 02, AI Operations Assistant, voce simulată (2026-11-14)
 
 ### Ce s-a făcut

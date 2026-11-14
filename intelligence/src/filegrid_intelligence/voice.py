@@ -86,8 +86,9 @@ class VoiceService:
         self.db, self.api, self.provider = db, api, provider
         self.fallback = SimulatedVoiceProvider()
 
-    def call(self, incident_id: str, role: str, message: str | None) -> dict:
-        detail = self.api.get(f"/incidents/{incident_id}")
+    def call(self, incident_id: str, role: str, message: str | None, api=None) -> dict:
+        """``api``: request-scoped client acting as the asking user (the incident is read with their rights)."""
+        detail = (api or self.api).get(f"/incidents/{incident_id}")
         incident = None
         if isinstance(detail, dict) and not detail.get("error"):
             incident = detail.get("incident", detail)

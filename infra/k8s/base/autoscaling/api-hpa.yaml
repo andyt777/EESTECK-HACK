@@ -1,0 +1,28 @@
+# CPU-based HPA for the api (needs metrics-server; scripts/k8s/up.sh installs
+# the pinned v0.9.1 manifest). The target is deliberately high and scale-up is
+# damped, so the moderate `make k8s-storm` load does not scale the api: the
+# demo must show ONLY worker-fault scaling. Lower averageUtilization to see the
+# api scale on CPU too.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 85
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120
+    scaleDown:
+      stabilizationWindowSeconds: 300

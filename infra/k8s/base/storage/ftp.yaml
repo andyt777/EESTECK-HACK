@@ -1,0 +1,101 @@
+# ftp: pure-ftpd, the "FTP" storage. Same image as docker-compose.
+#
+# Passive mode: in compose the server advertises its network hostname `ftp`.
+# Here PUBLICHOST is the pod IP (downward API), and the Service is headless, so
+# clients connect straight to <pod-ip>:30000-30099 without a Service port per
+# passive port (Kubernetes Services have no port ranges).
+apiVersion: v1
+kind: Service
+metadata:
+  name: ftp
+  labels:
+    app.kubernetes.io/name: ftp
+    app.kubernetes.io/part-of: filegrid
+    filegrid.io/storage: "true"
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: ftp
+  ports:
+    - name: ftp
+      port: 21
+      targetPort: ftp
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ftp
+  labels:
+    app.kubernetes.io/name: ftp
+    app.kubernetes.io/part-of: filegrid
+spec:
+  serviceName: ftp
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ftp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ftp
+        app.kubernetes.io/part-of: filegrid
+        filegrid.io/storage: "true"
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: ftp
+          image: stilliard/pure-ftpd:latest
+          env:
+            - name: PUBLICHOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: FTP_PASSIVE_PORTS
+              value: "30000:30099"
+            - name: FTP_MAX_CLIENTS
+              value: "50"
+            - name: FTP_MAX_CONNECTIONS
+              value: "50"
+            - name: FTP_USER_HOME
+              value: /home/ftpusers/filegrid
+            - name: FTP_USER_NAME
+              valueFrom:
+                secretKeyRef: {name: ftp-secret, key: FTP_USER_NAME}
+            - name: FTP_USER_PASS
+              valueFrom:
+                secretKeyRef: {name: ftp-secret, key: FTP_USER_PASS}
+          ports:
+            - name: ftp
+              containerPort: 21
+          readinessProbe:
+            tcpSocket:
+              port: 21
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 21
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {memory: 64Mi}
+          volumeMounts:
+            - name: data
+              mountPath: /home/ftpusers
+            - name: passwd
+              mountPath: /etc/pure-ftpd/passwd
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 10Gi
+    - metadata:
+        name: passwd
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 16Mi

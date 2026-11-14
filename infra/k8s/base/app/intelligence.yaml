@@ -1,0 +1,118 @@
+# intelligence: FastAPI - Agent 02 (anomalies), AI Operations Assistant, field
+# voice. Reached through the ingress at /api/intelligence (no path rewrite, as
+# with Traefik in compose). LLM keys come from `intelligence-secrets`; the
+# provider/model choice from `intelligence-llm` (both generated from .env by
+# scripts/k8s/generate.sh). Empty keys = SIMULATED assistant.
+#
+# RAG sources: /app/docs (docs/*.md, the `filegrid-docs` ConfigMap; the PDF is
+# left out because of the 1 MiB ConfigMap limit) and /app/config.
+apiVersion: v1
+kind: Service
+metadata:
+  name: intelligence
+  labels:
+    app.kubernetes.io/name: intelligence
+    app.kubernetes.io/part-of: filegrid
+spec:
+  selector:
+    app.kubernetes.io/name: intelligence
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intelligence
+  labels:
+    app.kubernetes.io/name: intelligence
+    app.kubernetes.io/part-of: filegrid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intelligence
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intelligence
+        app.kubernetes.io/part-of: filegrid
+        filegrid.io/db-reader: "true"
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: intelligence
+          image: filegrid/intelligence:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: intelligence-secrets
+            - configMapRef:
+                name: intelligence-llm
+          env:
+            - name: META_DB_HOST
+              value: meta-db
+            - name: STORE_DB_HOST
+              value: store-db
+            - name: FILEGRID_API_URL
+              value: http://api:8080/api
+            - name: TOPOLOGY_PATH
+              value: /app/topology/topology.yaml
+            - name: GROUND_TRUTH_PATH
+              value: /simulator-output/injected_anomalies.json
+            - name: DOCS_DIRS
+              value: /app/docs:/app/config
+            - name: INTELLIGENCE_ANALYSIS_INTERVAL_SECONDS
+              value: "60"
+            - name: INTELLIGENCE_WINDOW_HOURS
+              value: "24"
+            - name: INTELLIGENCE_INCIDENT_MIN_CONFIDENCE
+              value: "0.8"
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10003
+            allowPrivilegeEscalation: false
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {memory: 384Mi}
+          volumeMounts:
+            - name: topology
+              mountPath: /app/topology
+              readOnly: true
+            - name: simulator-output
+              mountPath: /simulator-output
+              readOnly: true
+            - name: docs
+              mountPath: /app/docs
+              readOnly: true
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+      volumes:
+        - name: topology
+          configMap:
+            name: simulator-topology
+        - name: simulator-output
+          persistentVolumeClaim:
+            claimName: simulator-output
+            readOnly: true
+        - name: docs
+          configMap:
+            name: filegrid-docs
+        - name: config
+          configMap:
+            name: filegrid-config

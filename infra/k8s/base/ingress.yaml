@@ -1,0 +1,79 @@
+# ingress-nginx: the k8s equivalent of the Traefik gateway (infra/traefik/dynamic/routes.yml).
+#   /api/actuator/health -> api:8081/actuator/health (the ONLY actuator path exposed)
+#   /api/intelligence    -> intelligence:8000 (no rewrite)
+#   /api                 -> api:8080
+#   /                    -> frontend:8080
+# ingress-nginx picks the longest matching prefix, which gives the same
+# precedence as the Traefik priorities. TLS uses the `filegrid-tls` Secret
+# (scripts/k8s/generate.sh, from infra/certs/ made by scripts/gen-certs.sh).
+#
+# /grafana is not routed: observability is not deployed in k8s (see README).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: filegrid
+  labels:
+    app.kubernetes.io/part-of: filegrid
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # tus chunks (8 MB) and multipart uploads up to FILEGRID_UPLOAD_MAX_BYTES:
+    # no body-size limit, stream the request body to the api instead of buffering it.
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    # SSE (live Village / Passport) and long downloads.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [localhost]
+      secretName: filegrid-tls
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /api/intelligence
+            pathType: Prefix
+            backend:
+              service:
+                name: intelligence
+                port: {name: http}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port: {name: http}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port: {name: http}
+---
+# Separate Ingress because rewrite-target applies to every path of an Ingress.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: filegrid-api-health
+  labels:
+    app.kubernetes.io/part-of: filegrid
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /actuator/health
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [localhost]
+      secretName: filegrid-tls
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /api/actuator/health
+            pathType: Exact
+            backend:
+              service:
+                name: api
+                port: {name: management}

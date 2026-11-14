@@ -1,0 +1,35 @@
+# Shared volumes.
+#
+# staging-data: the api writes uploaded files here and every worker streams them
+# to the storages from here (docs/ARCHITECTURE.md A.2). On kind it is a
+# ReadWriteOnce volume from the default `standard` StorageClass (local-path
+# provisioner, a directory on the single node). ReadWriteOnce means "one NODE",
+# not "one pod": every pod on the same node can mount it, which is why the kind
+# cluster has exactly one node. A multi-node cluster needs a ReadWriteMany
+# volume (NFS, CephFS, EFS, ...) instead - see infra/k8s/README.md.
+#
+# simulator-output: written by the simulator (injected_anomalies.json), read by
+# intelligence (ground truth for the detector evaluation). Same reasoning.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: staging-data
+  labels:
+    app.kubernetes.io/part-of: filegrid
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: simulator-output
+  labels:
+    app.kubernetes.io/part-of: filegrid
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 256Mi

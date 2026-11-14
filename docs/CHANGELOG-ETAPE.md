@@ -329,3 +329,43 @@ Consum măsurat în repaus (niciun container OOMKilled):
 
 ### Limitări cunoscute
 - Citirea exclusă nu apare ca constatare în `/grid`; integritatea ei e semnalată separat (incident INTEGRITY_MISMATCH).
+
+## Etapa 19 — Kubernetes (kind): scalare per categorie cu KEDA (2026-11-14)
+
+### Ce s-a făcut
+- `infra/k8s/` cu Kustomize (`base/` + `overlays/kind/`): Deployments pentru api, worker-meter/-fault/-document/-video,
+  intelligence, frontend, simulator; StatefulSets simple pentru meta-db, store-db, s3 (aceeași imagine Silo, fixată cu
+  digest), ftp, rabbitmq; Job `s3-init` care rulează `infra/minio/init.sh`; Services; PVC-uri `staging-data` și
+  `simulator-output`.
+- Ingress ingress-nginx cu TLS (secret `filegrid-tls` din `infra/certs/`), aceleași rute ca Traefik; fără limită de body și
+  fără buffering pentru tus/SSE.
+- NetworkPolicies: storage-urile (store-db, s3, ftp) și meta-db/rabbitmq acceptă trafic doar de la api/workeri
+  (+ intelligence la baze de date, ca în Compose; + s3-init la s3; + operatorul KEDA la RabbitMQ).
+- KEDA 2.21.0: câte un ScaledObject (scaler `rabbitmq`, `QueueLength`) per categorie, fiecare pe coada lui
+  `filegrid.jobs.<categorie>`; HPA pe CPU pentru api (metrics-server v0.9.1).
+- `scripts/k8s/generate.sh`: Secrets + ConfigMaps din `.env` și din fișierele repo-ului, în
+  `infra/k8s/overlays/kind/generated/` (ignorat de git). `scripts/k8s/up.sh`, `storm.sh`, `down.sh`; target-uri
+  `make k8s-up`, `k8s-storm`, `k8s-status`, `k8s-down`. Versiuni fixate și verificate: kind node v1.36.4 (digest),
+  ingress-nginx controller-v1.15.1, metrics-server v0.9.1, KEDA 2.21.0 (testat cu Kubernetes 1.34–1.36).
+- `k8s-storm`: Job cu 6 pod-uri × 150 fișiere de 256 KiB (`category=FAULT_RECORD`, `dataOrigin=SIMULATED`) prin
+  `POST /api/files`; afișează pod-urile workerilor și replicile înainte/după.
+- `enableServiceLinks: false` pe toate pod-urile (altfel `RABBITMQ_PORT`/`FTP_PORT` injectate de Kubernetes ar strica
+  configurarea Spring).
+- Placeholder `TODO(keycloak)` în `infra/k8s/overlays/kind/kustomization.yaml`.
+
+### Cum se verifică
+- Offline: `kubectl kustomize infra/k8s/overlays/kind` (randează 40 de obiecte, fără erori).
+- Pe cluster: `make k8s-up` → `kubectl --context kind-filegrid -n filegrid get pods` (toate Running) →
+  `curl -k https://localhost:9443/api/actuator/health`.
+- Criteriul de acceptare: într-un terminal `kubectl --context kind-filegrid -n filegrid get pods -w`, în altul
+  `make k8s-storm`; doar `worker-fault` trebuie să crească peste 1 replică.
+
+### Limitări cunoscute
+- **Neverificat pe un cluster real**: pe mașina de dezvoltare nu sunt instalate `kind`, `helm` și `make`, iar stack-ul
+  Compose rula; s-a validat doar randarea Kustomize, sintaxa scripturilor (`bash -n`), parsarea YAML și generarea
+  Secrets/ConfigMaps cu un fișier env fictiv. Criteriul de acceptare (doar worker-fault scalează) rămâne de confirmat.
+- Observabilitatea în k8s (kube-prometheus-stack, Loki, Tempo) nu este instalată; rămâne în Compose.
+- Valorile de tuning din `.env` (JVM, pool-uri, SIM_*) nu sunt preluate în k8s; se folosesc valorile implicite din Compose.
+- Volumul de staging este `ReadWriteOnce` pe un cluster cu un singur nod; multi-nod necesită `ReadWriteMany`.
+- Pe Windows, `umask 077` nu restrânge permisiunile fișierelor generate pe NTFS; directorul rămâne ignorat de git.
+- Keycloak, Toxiproxy și drill-urile de haos nu sunt portate în k8s.

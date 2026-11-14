@@ -1,0 +1,87 @@
+# simulator: simulated smart meters (dataOrigin=SIMULATED), normal mode.
+# It talks to the api inside the cluster. Kept in `normal` mode on purpose: in
+# this mode the meter queue stays almost empty, so during `make k8s-storm` only
+# worker-fault scales. Switch mode with:
+#   kubectl -n filegrid set env deployment/simulator MODE=peak
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  labels:
+    app.kubernetes.io/name: simulator
+    app.kubernetes.io/part-of: filegrid
+spec:
+  replicas: 1
+  # One writer for simulator-output (state.json, injected_anomalies.json).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: simulator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: simulator
+        app.kubernetes.io/part-of: filegrid
+    spec:
+      # The volume comes from the local-path provisioner; let the simulator
+      # user (uid 10002, see simulator/Dockerfile) write into it.
+      initContainers:
+        - name: output-permissions
+          image: busybox:1.37-musl
+          command: ["sh", "-c", "chown 10002 /app/output && chmod 755 /app/output"]
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests: {cpu: 10m, memory: 8Mi}
+            limits: {memory: 16Mi}
+          volumeMounts:
+            - name: output
+              mountPath: /app/output
+      enableServiceLinks: false
+      containers:
+        - name: simulator
+          image: filegrid/simulator:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_URL
+              value: http://api:8080/api
+            - name: MODE
+              value: normal
+            - name: METERS
+              value: "2000"
+            - name: INTERVAL_SECONDS
+              value: "60"
+            - name: TIME_SCALE
+              value: "1"
+            - name: BATCH_SIZE
+              value: "250"
+            - name: CONCURRENCY
+              value: "4"
+            - name: DUPLICATE_RATE
+              value: "0.01"
+            - name: SIM_SEED
+              value: "42"
+            - name: OUTPUT_DIR
+              value: /app/output
+          ports:
+            - name: metrics
+              containerPort: 9105
+          readinessProbe:
+            httpGet: {path: /metrics, port: metrics}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10002
+            allowPrivilegeEscalation: false
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 160Mi}
+          volumeMounts:
+            - name: output
+              mountPath: /app/output
+      volumes:
+        - name: output
+          persistentVolumeClaim:
+            claimName: simulator-output

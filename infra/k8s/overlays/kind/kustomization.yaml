@@ -1,0 +1,31 @@
+# FileGrid PPC - kind overlay (single-node local cluster, `make k8s-up`).
+#
+# Apply order (scripts/k8s/up.sh does it):
+#   1. bash scripts/k8s/generate.sh       -> generated/*.yaml (Secrets + ConfigMaps, git-ignored)
+#   2. kubectl apply -f infra/k8s/overlays/kind/generated/
+#   3. kubectl apply -k infra/k8s/overlays/kind
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  # TODO(keycloak): authentication (Keycloak) is being added to docker-compose in
+  # parallel. When its service, realm import and env vars are final, add here:
+  #   - keycloak.yaml   (Deployment/StatefulSet + Service, realm ConfigMap, its DB)
+  #   - an Ingress path for it (e.g. /auth) in ../../base/ingress.yaml
+  #   - its admin/client secrets in scripts/k8s/generate.sh (from .env)
+  #   - the api/frontend issuer and client settings in ../../base/app/
+  #   - a NetworkPolicy if it gets its own database
+  # Not guessed here on purpose: copy the final compose configuration.
+
+patches:
+  # Every Deployment runs a locally built image (filegrid/*:local) that
+  # `kind load docker-image` copies into the node. Never pull: these tags do not
+  # exist in any registry, so a pull attempt could only fail.
+  - target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=filegrid
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never

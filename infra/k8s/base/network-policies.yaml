@@ -1,0 +1,119 @@
+# NetworkPolicies - the k8s version of "storages have no published port and live
+# only on the internal network" (docs/ARCHITECTURE.md A.3 #9).
+#
+# Pods are selected by label:
+#   filegrid.io/backend=true   api + every worker (the only storage clients)
+#   filegrid.io/db-reader=true intelligence (reads meta-db and the meter readings
+#                              in store-db for Agent 02, exactly as in compose)
+#   filegrid.io/s3-init=true   the one-shot bucket bootstrap Job
+#
+# kind enforces NetworkPolicy out of the box since v0.24 (kindnet +
+# kube-network-policies). Once a pod is selected by a policy, everything not
+# listed here is denied for it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: store-db-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: store-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              filegrid.io/backend: "true"
+        - podSelector:
+            matchLabels:
+              filegrid.io/db-reader: "true"
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: s3-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: s3
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              filegrid.io/backend: "true"
+        - podSelector:
+            matchLabels:
+              filegrid.io/s3-init: "true"
+      ports:
+        - port: 9000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ftp-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ftp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              filegrid.io/backend: "true"
+      ports:
+        # control channel + passive data ports (FTP_PASSIVE_PORTS)
+        - port: 21
+          protocol: TCP
+        - port: 30000
+          endPort: 30099
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: meta-db-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: meta-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              filegrid.io/backend: "true"
+        - podSelector:
+            matchLabels:
+              filegrid.io/db-reader: "true"
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# RabbitMQ: the backend pods, plus the KEDA operator (namespace `keda`), which
+# reads the queue depth for the ScaledObjects.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              filegrid.io/backend: "true"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: keda
+      ports:
+        - port: 5672
+          protocol: TCP

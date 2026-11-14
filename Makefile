@@ -43,3 +43,18 @@ sim-storm: ## simulator in storm mode (normal rate + x10 bursts)
 
 sim-stats: ## meter ingestion statistics (GET /api/meters/stats)
 	curl -sk https://localhost:$${GATEWAY_HTTPS_PORT:-443}/api/meters/stats; echo
+
+# --- Kubernetes on kind (Stage 19): scaling demo; Docker Compose stays the main path ---
+.PHONY: k8s-up k8s-storm k8s-down k8s-status
+
+k8s-up: ## kind cluster + ingress-nginx + metrics-server + KEDA, build/load images, apply manifests
+	bash scripts/k8s/up.sh
+
+k8s-storm: ## fault-record storm: only worker-fault scales (watch: kubectl -n filegrid get pods -w)
+	bash scripts/k8s/storm.sh
+
+k8s-status: ## pods, autoscalers and ingress of the kind deployment
+	kubectl --context kind-filegrid -n filegrid get pods,scaledobject,hpa,ingress
+
+k8s-down: ## delete the kind cluster (Docker Compose is not touched)
+	bash scripts/k8s/down.sh

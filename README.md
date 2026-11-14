@@ -247,3 +247,28 @@ AI Assistant (`/assistant` + panou lateral global), Comunicare teren (`/field`),
 Toate textele UI sunt în `frontend/src/app/core/texts.ts`. Detalii: `frontend/README.md`.
 
 Rebuild doar frontend: `docker compose up -d --build --no-deps frontend`.
+
+## Kubernetes (kind)
+
+Calea principală rămâne Docker Compose (`./start.sh`). Kubernetes pe **kind** există pentru demonstrarea scalării
+per categorie: o furtună de înregistrări de avarie umple doar coada `filegrid.jobs.fault`, iar KEDA scalează **doar**
+`worker-fault`. Detalii complete (structură, versiuni, rețea, volum de staging, limitări): `infra/k8s/README.md`.
+
+**Cerințe:** Docker Desktop, `kubectl` (vine cu Docker Desktop), `kind` (recomandat v0.33.0). Helm nu e necesar.
+Oprește stack-ul Compose înainte (`docker compose down`, volumele rămân) dacă Docker are sub ~10 GiB memorie.
+
+| Comandă (make) | Fără make, din Git Bash | Ce face |
+| --- | --- | --- |
+| `make k8s-up` | `bash scripts/k8s/up.sh` | cluster kind cu un nod, ingress-nginx, metrics-server, KEDA 2.21.0 (versiuni fixate), build + `kind load` imagini, Secrets/ConfigMaps generate din `.env`, `kubectl apply -k infra/k8s/overlays/kind` |
+| `make k8s-storm` | `bash scripts/k8s/storm.sh` | Job care încarcă 900 de fișiere de avarie mici prin `POST /api/files`; afișează pod-urile workerilor și numărul de replici înainte/după |
+| `make k8s-status` | `kubectl --context kind-filegrid -n filegrid get pods,scaledobject,hpa,ingress` | starea deployment-ului |
+| `make k8s-down` | `bash scripts/k8s/down.sh` | șterge clusterul kind (Compose nu este atins) |
+
+Din PowerShell: `& "C:\Program Files\Git\bin\bash.exe" scripts/k8s/up.sh` (la fel pentru `storm.sh` / `down.sh`).
+
+**Demo de scalare:** într-un terminal `kubectl --context kind-filegrid -n filegrid get pods -w`, în altul
+`make k8s-storm`. Așteptat: apar pod-uri noi doar pentru `worker-fault` (până la 4), apoi revin la 1 la ~60 s după ce
+coada se golește. Aplicația: https://localhost:9443 (porturile 9080/9443, ca să nu se ciocnească de gateway-ul Compose).
+
+Secretele Kubernetes sunt generate local de `scripts/k8s/generate.sh` în `infra/k8s/overlays/kind/generated/`
+(ignorat de git); nimic din `.env` nu ajunge în repository.

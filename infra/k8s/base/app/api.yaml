@@ -1,0 +1,130 @@
+# api: Spring Boot, profile `api` (tus upload, search, File Passport, policies,
+# incidents, SSE). Image filegrid/backend:local, built by docker compose and
+# loaded into kind by scripts/k8s/up.sh.
+#
+# No `replicas` field: the HorizontalPodAutoscaler (autoscaling/api-hpa.yaml)
+# owns it, and re-applying the manifests must not reset it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/part-of: filegrid
+spec:
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: management
+      port: 8081
+      targetPort: management
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/part-of: filegrid
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/part-of: filegrid
+        filegrid.io/backend: "true"
+    spec:
+      terminationGracePeriodSeconds: 40
+      # The staging volume (local-path) is created by the provisioner; make it
+      # owned by the backend user (uid 10001, see backend/Dockerfile) before the
+      # api writes uploads into it. Runs as root, does only this chown/chmod.
+      initContainers:
+        - name: staging-permissions
+          image: busybox:1.37-musl
+          command: ["sh", "-c", "chown 10001:10001 /data/staging && chmod 770 /data/staging"]
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests: {cpu: 10m, memory: 8Mi}
+            limits: {memory: 16Mi}
+          volumeMounts:
+            - name: staging
+              mountPath: /data/staging
+      enableServiceLinks: false
+      containers:
+        - name: api
+          image: filegrid/backend:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: backend-env
+            - secretRef:
+                name: backend-secrets
+            - secretRef:
+                name: api-notify-secrets
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: api
+            - name: FILEGRID_POLICY_FILE
+              value: /config/policies.yaml
+            - name: NOTIFY_ROUTING_FILE
+              value: /config/notification-routing.yaml
+            # A separate mount (not /config/templates): a ConfigMap volume cannot
+            # hold a sub-directory.
+            - name: NOTIFY_TEMPLATES_DIR
+              value: /config-templates
+            - name: NOTIFY_MODE
+              value: SIMULATED
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xmx320m -XX:MaxDirectMemorySize=64m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseG1GC"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 8081
+          startupProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+          # CPU request is required by the CPU-based HPA (utilization = usage / request).
+          resources:
+            requests: {cpu: 250m, memory: 384Mi}
+            limits: {memory: 640Mi}
+          volumeMounts:
+            - name: staging
+              mountPath: /data/staging
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: templates
+              mountPath: /config-templates
+              readOnly: true
+      volumes:
+        - name: staging
+          persistentVolumeClaim:
+            claimName: staging-data
+        - name: config
+          configMap:
+            name: filegrid-config
+        - name: templates
+          configMap:
+            name: filegrid-templates

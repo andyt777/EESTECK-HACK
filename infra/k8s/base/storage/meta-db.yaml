@@ -1,0 +1,87 @@
+# meta-db: PostgreSQL 16 + pgvector (metadata, decisions, audit, incidents,
+# embeddings). Same image and tuning as infra/docker-compose.yml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: meta-db
+  labels:
+    app.kubernetes.io/name: meta-db
+    app.kubernetes.io/part-of: filegrid
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: meta-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: meta-db
+  labels:
+    app.kubernetes.io/name: meta-db
+    app.kubernetes.io/part-of: filegrid
+spec:
+  serviceName: meta-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: meta-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: meta-db
+        app.kubernetes.io/part-of: filegrid
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          args:
+            - -c
+            - shared_buffers=64MB
+            - -c
+            - max_connections=80
+            - -c
+            - work_mem=4MB
+          env:
+            - name: POSTGRES_DB
+              value: filegrid_meta
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: {name: meta-db-secret, key: POSTGRES_USER}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: meta-db-secret, key: POSTGRES_PASSWORD}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {memory: 384Mi}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi

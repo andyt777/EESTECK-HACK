@@ -1,0 +1,96 @@
+# worker-document: same image as the api, profile `worker`, consumes ONLY
+# filegrid.jobs.document (WORKER_CATEGORIES=CONNECTION_DOCUMENT) - one pool per category
+# (bulkhead).
+#
+# No `replicas` field: KEDA (autoscaling/scaledobjects.yaml) owns it through the
+# HPA it creates, scaling on the depth of filegrid.jobs.document.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-document
+  labels:
+    app.kubernetes.io/name: worker-document
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: filegrid
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker-document
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker-document
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: filegrid
+        filegrid.io/backend: "true"
+    spec:
+      # Time to finish a transfer; an unacknowledged job is redelivered anyway.
+      terminationGracePeriodSeconds: 60
+      enableServiceLinks: false
+      # Same as `depends_on: api: service_healthy` in compose: the api runs the
+      # Flyway migrations, so a worker starts only once the api reports UP.
+      initContainers:
+        - name: wait-for-api
+          image: busybox:1.37-musl
+          command: ["sh", "-c", "until wget -q -T 3 -O - http://api:8081/actuator/health | grep -q UP; do echo waiting for api; sleep 3; done"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+          resources:
+            requests: {cpu: 10m, memory: 8Mi}
+            limits: {memory: 16Mi}
+      containers:
+        - name: worker
+          image: filegrid/backend:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: backend-env
+            - secretRef:
+                name: backend-secrets
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: worker
+            - name: WORKER_CATEGORIES
+              value: CONNECTION_DOCUMENT
+            - name: META_DB_POOL_SIZE
+              value: "5"
+            - name: STORE_DB_POOL_SIZE
+              value: "5"
+            - name: WORKER_CONCURRENCY
+              value: "4"
+            - name: WORKER_PREFETCH
+              value: "1"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xmx208m -XX:MaxDirectMemorySize=48m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseG1GC"
+          ports:
+            - name: management
+              containerPort: 8081
+          startupProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /actuator/health, port: management}
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 448Mi}
+          volumeMounts:
+            - name: staging
+              mountPath: /data/staging
+      volumes:
+        - name: staging
+          persistentVolumeClaim:
+            claimName: staging-data

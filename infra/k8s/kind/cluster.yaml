@@ -1,0 +1,28 @@
+# kind cluster for FileGrid PPC (Stage 19). Single node on purpose: the staging
+# volume (ReadWriteOnce, local-path) is shared by the api and every worker pod,
+# which is only possible when they all run on the same node.
+#
+# Node image pinned by tag + digest, taken from the kind v0.33.0 release notes.
+# Kubernetes 1.36 is inside the window tested by KEDA 2.21 (1.34 - 1.36).
+#
+# Host ports 9080/9443 (not 80/443): the Docker Compose gateway already uses
+# 8080/443 on the host, so both stacks can run side by side.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: filegrid
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 9080
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 9443
+        protocol: TCP

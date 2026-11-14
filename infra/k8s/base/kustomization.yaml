@@ -1,0 +1,45 @@
+# FileGrid PPC - Kubernetes base (Stage 19).
+#
+# NOT included here, created by scripts/k8s/generate.sh from .env and the repo
+# files (never committed, see infra/k8s/README.md):
+#   Secrets:    backend-secrets, api-notify-secrets, intelligence-secrets,
+#               meta-db-secret, store-db-secret, s3-secret, ftp-secret,
+#               rabbitmq-secret, keda-rabbitmq, filegrid-tls
+#   ConfigMaps: filegrid-config, filegrid-templates, filegrid-docs,
+#               simulator-topology, rabbitmq-config, s3-init, intelligence-llm
+# They are built from files outside this directory (config/, docs/,
+# infra/minio/, infra/rabbitmq/), which Kustomize's load restrictor forbids, and
+# from .env, which must never end up in a rendered manifest in git.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: filegrid
+
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - namespace.yaml
+  - volumes.yaml
+  # storages and broker (StatefulSets)
+  - storage/meta-db.yaml
+  - storage/store-db.yaml
+  - storage/s3.yaml
+  - storage/ftp.yaml
+  - storage/rabbitmq.yaml
+  # application
+  - app/backend-env.yaml
+  - app/api.yaml
+  - app/worker-meter.yaml
+  - app/worker-fault.yaml
+  - app/worker-document.yaml
+  - app/worker-video.yaml
+  - app/intelligence.yaml
+  - app/frontend.yaml
+  - app/simulator.yaml
+  # edge, isolation, scaling
+  - ingress.yaml
+  - network-policies.yaml
+  - autoscaling/keda.yaml
+  - autoscaling/api-hpa.yaml

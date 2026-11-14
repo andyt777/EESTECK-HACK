@@ -1,5 +1,5 @@
 # FileGrid PPC — convenience targets (wrappers around docker compose).
-.PHONY: up up-lite down logs ps mem reload-config reset
+.PHONY: up up-lite down logs ps mem reload-config reset sim-normal sim-peak sim-storm sim-stats
 
 up: ## full mode: init-env, gen-certs, build, start, wait until healthy
 	./start.sh
@@ -30,3 +30,16 @@ reset: ## stop and DELETE all data volumes (asks for confirmation)
 	else \
 		echo "Aborted."; \
 	fi
+
+# --- Meter simulator (Stage 5): recreate the simulator with another mode ---
+sim-normal: ## simulator in normal mode (default rate)
+	SIM_MODE=normal docker compose up -d --no-deps --force-recreate simulator
+
+sim-peak: ## simulator in peak mode (x10 readings per minute)
+	SIM_MODE=peak docker compose up -d --no-deps --force-recreate simulator
+
+sim-storm: ## simulator in storm mode (normal rate + x10 bursts)
+	SIM_MODE=storm docker compose up -d --no-deps --force-recreate simulator
+
+sim-stats: ## meter ingestion statistics (GET /api/meters/stats)
+	curl -sk https://localhost:$${GATEWAY_HTTPS_PORT:-443}/api/meters/stats; echo

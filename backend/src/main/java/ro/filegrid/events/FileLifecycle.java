@@ -55,6 +55,12 @@ public class FileLifecycle {
      */
     public FileRecord changeStatus(FileRecord file, FileStatus status, FileEventType eventType, String actor,
                                    ObjectNode details, StorageType storage, String message) {
+        return changeStatus(file, status, eventType, actor, details, storage, message, null);
+    }
+
+    /** Same, with the number of bytes already transferred shown in the live event. */
+    public FileRecord changeStatus(FileRecord file, FileStatus status, FileEventType eventType, String actor,
+                                   ObjectNode details, StorageType storage, String message, Long bytesTransferred) {
         file.setStatus(status);
         FileRecord saved = files.save(file);
         ObjectNode auditDetails = details == null ? details() : details;
@@ -62,8 +68,13 @@ public class FileLifecycle {
             auditDetails.put("status", status.name());
         }
         audit(saved, eventType, actor, auditDetails);
-        broadcast(saved, status.name(), storage, message, null);
+        broadcast(saved, status.name(), storage, message, bytesTransferred);
         return saved;
+    }
+
+    /** Name of a storage as shown to users ("Database", "S3", "FTP"). */
+    public String storageName(StorageType storage) {
+        return texts.get("storage." + storage.name());
     }
 
     /** Appends an audit entry without changing the status. */
@@ -72,9 +83,15 @@ public class FileLifecycle {
                 file.getTraceId(), Instant.now()));
     }
 
-    /** Broadcasts a live event (progress, fallback, mismatch) without touching the database. */
+    /**
+     * Broadcasts a live event (progress, fallback, mismatch) without touching the database.
+     * Without an explicit byte count, a verified file reports its full size and any other state 0.
+     */
     public void broadcast(FileRecord file, String status, StorageType storage, String message, Long bytesTransferred) {
-        live.publish(new LiveEvent(file.getId(), file.getCategory(), status, storage, message, bytesTransferred,
-                file.getSizeBytes(), Instant.now(), file.getTraceId()));
+        long bytes = bytesTransferred != null ? bytesTransferred
+                : FileStatus.STORED_VERIFIED.name().equals(status) ? file.getSizeBytes() : 0L;
+        String traceId = file.getTraceId() != null ? file.getTraceId() : file.getId().toString().replace("-", "");
+        live.publish(new LiveEvent(file.getId(), file.getCategory(), status, storage, message, bytes,
+                file.getSizeBytes(), Instant.now(), traceId));
     }
 }

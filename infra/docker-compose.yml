@@ -41,12 +41,12 @@ x-defaults: &defaults
   logging: *default-logging
 
 # Backend (Spring Boot): ONE image, used by the api and by every worker.
+# Only the api declares `build`: building the same tag from five services at
+# once makes the exports collide; the workers reuse the image built for the api.
 x-backend: &backend
   restart: unless-stopped
   logging: *default-logging
   image: filegrid/backend:local
-  build:
-    context: ../backend
   networks: [internal]
   healthcheck:
     test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
@@ -85,6 +85,8 @@ x-backend-env: &backend-env
   RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?run scripts/init-env.sh first}
   FILEGRID_POLICY_CHECK_INTERVAL: ${FILEGRID_POLICY_CHECK_INTERVAL:-10s}
   FILEGRID_ROUTING_HEALTH_MAX_AGE: ${FILEGRID_ROUTING_HEALTH_MAX_AGE:-30s}
+  FILEGRID_INGESTION_RECOVERY_INTERVAL: ${FILEGRID_INGESTION_RECOVERY_INTERVAL:-30s}
+  FILEGRID_UPLOAD_MAX_BYTES: ${FILEGRID_UPLOAD_MAX_BYTES:-5368709120}
 
 # JVM memory is set explicitly (heap, direct, metaspace, code cache) instead of
 # as a percentage, so every part of the process fits the container limit.
@@ -93,6 +95,7 @@ x-backend-env: &backend-env
 # Worker defaults: small DB pools (one worker = few concurrent transfers).
 x-worker: &worker
   <<: *backend
+  pull_policy: never
   deploy:
     resources:
       limits:
@@ -110,6 +113,7 @@ x-worker-env: &worker-env
   META_DB_POOL_SIZE: "5"
   STORE_DB_POOL_SIZE: "5"
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+  WORKER_PREFETCH: ${WORKER_PREFETCH:-1}
   JAVA_TOOL_OPTIONS: "${WORKER_JAVA_OPTS:--Xmx208m -XX:MaxDirectMemorySize=48m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseG1GC}"
 
 # Workers that move large videos: bigger limit, at most 2 transfers at a time.
@@ -147,6 +151,7 @@ volumes:
   alloy-data:
   health-bin:
   staging-data:
+  simulator-output:
 
 services:
   # ---------------------------------------------------------------- gateway
@@ -180,6 +185,8 @@ services:
   # ------------------------------------------------------------------- api
   api:
     <<: *backend
+    build:
+      context: ../backend
     deploy:
       resources:
         limits:
@@ -246,6 +253,41 @@ services:
     environment:
       <<: *worker-large-env
       WORKER_CATEGORIES: METER_READING,FAULT_RECORD,CONNECTION_DOCUMENT,DRONE_VIDEO
+
+  # --------------------------------------------------------------- simulator
+  # Simulated smart meters (dataOrigin=SIMULATED). Normal mode by default;
+  # `make sim-peak` / `make sim-normal` / `make sim-storm` recreate it with
+  # another mode. It talks to the api inside the internal network.
+  # output/ (state.json, injected_anomalies.json) lives in a volume.
+  simulator:
+    <<: *defaults
+    image: filegrid/simulator:local
+    build:
+      context: ../simulator
+      target: runtime
+    deploy:
+      resources:
+        limits:
+          memory: ${SIM_MEMORY_LIMIT:-160M}
+    networks: [internal]
+    environment:
+      API_URL: http://api:8080/api
+      MODE: ${SIM_MODE:-normal}
+      METERS: ${SIM_METERS:-2000}
+      INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-60}
+      RATE_MULTIPLIER: ${SIM_RATE_MULTIPLIER:-}
+      TIME_SCALE: ${SIM_TIME_SCALE:-1}
+      DURATION: ${SIM_DURATION:-}
+      BATCH_SIZE: ${SIM_BATCH_SIZE:-250}
+      CONCURRENCY: ${SIM_CONCURRENCY:-4}
+      DUPLICATE_RATE: ${SIM_DUPLICATE_RATE:-0.01}
+      SIM_SEED: ${SIM_SEED:-42}
+      OUTPUT_DIR: /app/output
+    volumes:
+      - simulator-output:/app/output
+    depends_on:
+      api:
+        condition: service_healthy
 
   # ------------------------------------------------------------ metadata DB
   meta-db:

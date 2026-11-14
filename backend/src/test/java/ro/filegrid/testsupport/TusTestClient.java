@@ -147,8 +147,9 @@ public class TusTestClient {
      */
     public long getOffset(URI uploadUri) throws IOException, InterruptedException {
         HttpResponse<Void> response = sendHead(uploadUri, Collections.emptyMap());
-        if (response.statusCode() != 200) {
-            throw new AssertionError("Expected HTTP 200 OK from HEAD but got " + response.statusCode());
+        // tus 1.0: a HEAD answer is "200 OK or 204 No Content".
+        if (response.statusCode() != 200 && response.statusCode() != 204) {
+            throw new AssertionError("Expected HTTP 200/204 from HEAD but got " + response.statusCode());
         }
         verifyTusResumableHeader(response);
         return Long.parseLong(response.headers().firstValue("Upload-Offset")

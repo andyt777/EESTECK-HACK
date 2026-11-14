@@ -1,5 +1,82 @@
 # Jurnalul etapelor
 
+## Etapa 5 — Simulatorul de contoare + ingestie idempotentă (2026-11-14)
+
+### Ce s-a făcut
+- **Backend, pachetul `ro.filegrid.meter`:**
+  - `POST /api/meters/readings` (`MeterController`, `MeterIngestionService`): lot de cel mult 500 de citiri, antet `Idempotency-Key` obligatoriu, validare completă cu toate erorile în română (`ProblemDetail`, 400). Fiecare citire este un fișier JSON mic (≤ 64 KB, lotul ≤ 16 MB, conform regulii de buffere); `readingId = SHA-256(meterId|periodStart)`, SHA-256 calculat pe octeții exacți ai citirii.
+  - Răspuns `202` **doar după ce RabbitMQ a confirmat fiecare citire** (`MeterReadingPublisher`: mesaje persistente pe `filegrid.jobs.meter`, tip `meter-reading`, publisher confirms așteptate împreună). Răspunsul listează `accepted` / `duplicate`. Același `Idempotency-Key` → același răspuns, fără republicare (`Idempotent-Replayed: true`); aceeași cheie cu alt conținut → 422; coadă indisponibilă → 503 + `Retry-After`.
+  - `worker-meter` (`MeterQueueListener` + `MeterReadingWriter`): consum pe loturi (`filegrid.worker.meter-batch-size`, implicit 200), un singur `INSERT … SELECT unnest(…) ON CONFLICT DO NOTHING RETURNING` în store-db, read-back în aceeași tranzacție (`encode(sha256(content),'hex') = sha256`, altfel rollback), apoi `file_record` cu `idempotency_key = readingId` (+ `file_context`, `file_event VERIFIED`) în meta-db, tot `ON CONFLICT DO NOTHING`. Ack doar după commit; la eroare, lotul se reia. Mesajele alterate în tranzit (hash/id) merg în DLQ.
+  - Migrații: store-db `V2__meter_reading_blob.sql` (PK `reading_id` + UNIQUE `(meter_id, period_start)`), meta-db `V4__meter_ingestion.sql` (`meter_batch` pentru idempotența loturilor, `meter_counter` pentru totaluri).
+  - Reconciliere la 1 minut (`MeterReconciliation`, doar în `api`): gap-uri de `seq` per contor (ultimele 24 h), duplicate respinse, duplicate scrise numărate independent în store-db și meta-db → `filegrid_meter_gaps_total`, `filegrid_meter_duplicates_rejected_total`, `filegrid_meter_duplicates_written_total` (trebuie să fie 0), `filegrid_meter_readings_stored_total`, `filegrid_meter_meters_active`.
+  - `GET /api/meters/stats`: citiri în ultimul minut, medie pe 5 minute, total, contoare active, gap-uri, duplicate respinse/scrise, `dataOrigin`.
+- **Simulator** (`simulator/`, Python 3.12, uv, httpx async, prometheus-client):
+  - `topology.yaml` (generat determinist de `tools/gen_topology.py`): 3 regiuni (Muntenia, Banat, Dobrogea), 12 stații, 60 de posturi de transformare cu coordonate schematice x/y, linii MV/HV; 2000 de contoare (`METERS`) atribuite determinist posturilor, ~10% prosumatori cu PV.
+  - Profiluri: curbă zilnică (vârf dimineața/seara), weekend, efect de temperatură (încălzire sub 15 °C), producție solară pentru prosumatori; 15 eșantioane pe minut per citire (~2 KB).
+  - Anomalii din `anomalies.yaml`: `ZERO_CONSUMPTION`, `SPIKE`, `MISSING_READINGS`, `REPEATED_VALUES`, `LOW_VOLTAGE` (per post), `NIGHT_EXPORT`, `IMPOSSIBLE_VALUES`, repetate zilnic pe alte contoare; ground truth în `output/injected_anomalies.json`.
+  - Moduri `normal`, `peak` (x10), `storm` (normal + rafale x10); `METERS`, `INTERVAL_SECONDS`, `RATE_MULTIPLIER`, `TIME_SCALE`, `DURATION` din env/CLI.
+  - Retrimite până la ack cu **același** `Idempotency-Key` și același corp; ~1% duplicate intenționate; stare persistată (`output/state.json`), deci la repornire continuă de la primul tick neconfirmat. Metrici proprii pe `:9105` (sent, acked, accepted, duplicates sent/reported, retried, rejected, latență).
+  - Serviciu `simulator` în compose (mod normal implicit, volum `simulator-output`, 160 MB), scrape în Prometheus; `make sim-normal`, `make sim-peak`, `make sim-storm`, `make sim-stats`.
+- Teste: `MeterIngestionIT` (6 teste, Testcontainers: meta-db, store-db, RabbitMQ; api + worker în același context), 16 teste pytest pentru simulator (generator, profiluri, anomalii, ground truth, client cu retry, buclă și reluare după repornire), rulate cu ruff în `docker build --target test simulator`.
+
+### Cum se verifică
+- `cd backend && ./mvnw verify` → testul „același lot trimis de 3 ori → exact o înregistrare per readingId” (`MeterIngestionIT`).
+- `docker build --target test simulator` → ruff + 16 teste pytest.
+- `.\start.ps1` → simulatorul pornește healthy; `curl -k https://localhost/api/meters/stats` de câteva ori: `readingsLastMinute` ≈ 2000, `readingsStored` crește continuu, `duplicatesWritten` = 0, `duplicatesRejected` > 0 (duplicatele intenționate), `dataOrigin` = `SIMULATED`.
+- `make sim-peak` (PowerShell: `$env:SIM_MODE='peak'; docker compose up -d --no-deps --force-recreate simulator`) → după ~1 minut `readingsLastMinute` crește de ~10 ori.
+
+### Decizii luate în afara promptului
+- **Aceeași coadă pentru citiri și pentru fișierele de contor încărcate din UI** (`filegrid.jobs.meter`), deosebite prin tipul mesajului AMQP; listener-ul pe loturi tratează joburile de transfer cu `TransferWorker` ca înainte.
+- **`readingId` cu `periodStart` în ISO-8601 UTC** (`Instant.toString()`), ca aceeași perioadă să dea mereu același id indiferent de formatul trimis.
+- **Contorii totali în meta-db (`meter_counter`)**, scriși de api și de toți workerii, publicați ca metrici de un singur proces (api) — altfel valorile s-ar dubla sau s-ar pierde între replici. Metricile `*_total` cerute sunt `FunctionCounter`; gap-urile sunt valoarea curentă calculată (pot scădea dacă sosesc citiri întârziate).
+- **Limită de lot 16 MB** (pe lângă 500 de citiri), pentru regula „buffere maxim 16 MB”.
+- **Ceas simulat:** fiecare tick acoperă `INTERVAL_MINUTES` (15) de timp simulat; implicit un tick pe minut real, deci ziua simulată trece în 96 de minute. `TIME_SCALE` accelerează suplimentar.
+- **Testele Python rulează în Docker** (stage `test` din Dockerfile), fiindcă pe mașina de dezvoltare nu există `uv`/Python 3.12; `uv.lock` a fost generat în container.
+
+### Limitări cunoscute
+- Citirile nu emit evenimente SSE individuale (ar fi ~2000/min); starea lor se vede în `/api/meters/stats` și în metrici.
+- Gap-urile includ intenționat anomaliile `MISSING_READINGS` (sunt citiri care chiar lipsesc).
+- Măsurătoarea de memorie „simulator pornit 5 minute” din Etapa 1 se face acum cu stack-ul complet (vezi mai jos la Etapa 4).
+
+## Etapa 4 — Pipeline-ul de încărcare: tus, cozi per categorie, stări live (2026-11-14)
+
+Începută de alt agent (upload tus/multipart, ingestie, cozi, SSE, teste), finalizată în această sesiune.
+
+### Ce s-a făcut
+- **Upload:** tus 1.0 la `/api/uploads` (chunk-uri în `/data/staging/tus`, mutate prin rename în `/data/staging/<fileId>` la finalizare, fără copiere), `POST /api/files` multipart pentru fișiere mici; metadate `category`, `zone`, `station`, `equipment`, `eventType`, `eventTime`, `description`, `dataOrigin`; limită `FILEGRID_UPLOAD_MAX_BYTES` (5 GB); curățarea upload-urilor abandonate > 24 h.
+- **Ingestie:** `RECEIVED → ANALYZING (SHA-256 în flux) → CATEGORIZED → DESTINATION_SELECTED`, job publicat cu publisher confirms pe `filegrid.jobs.<categorie>` (durabile, persistente, DLQ per coadă); fiecare pas în `file_event` și pe exchange-ul fanout `filegrid.events`.
+- **Worker** (pachetul `ro.filegrid.worker`, nou în această sesiune):
+  - `WorkerListenerConfiguration`: un container RabbitMQ per categorie din `WORKER_CATEGORIES`, ack manual, concurență și prefetch configurabile per categorie (`WORKER_CONCURRENCY`, `WORKER_PREFETCH`, `filegrid.worker.per-category.*`).
+  - `TransferWorker`: `TRANSFERRING` cu progres la ~5% sau 16 MB → put în flux din staging → read-back + SHA-256 → `STORED_VERIFIED` + `VERIFIED_INTACT` și ștergerea din staging. Neconcordanță → `MISMATCH` + `INTEGRITY_INCIDENT`, obiectul corupt șters, retry; dacă însăși copia din staging nu mai corespunde hash-ului original, `TRANSFER_FAILED` fără reîncercări inutile.
+  - Erori de storage → retry cu backoff exponențial + jitter din politică (`Backoff`), apoi fallback pe lanțul politicii (eveniment `FALLBACK`, decizia de rutare actualizată), iar dacă toate cad → `PENDING`, fișierul rămâne în staging.
+  - S3 multipart reluabil: `S3StorageAdapter.putResumable` + `MultipartCheckpoint`, persistat în `s3_multipart_transfer` (migrația `V3`); după un crash sau o pană S3, transferul continuă de la ultima parte confirmată (`TRANSFER_RESUMED`).
+  - Idempotență: un job pentru un fișier `STORED_VERIFIED` este confirmat fără nicio scriere; un advisory lock PostgreSQL (pe conexiune dedicată, eliberat automat dacă workerul moare) garantează un singur worker per fișier, inclusiv între replici.
+- **Reluare automată** (`RecoveryScheduler`, api): fișierele `PENDING` sunt re-rutate când `storage_health` raportează un storage al categoriei `UP`; ingestiile întrerupte de o repornire sunt reluate.
+- **SSE** `GET /api/events/stream?fileId=&category=` cu payload-ul cerut; `bytesTransferred` este mereu numeric; numele storage-urilor afișate („Database”) vin din texte.
+
+### Corecturi față de codul preluat
+- Contextul `api` nu pornea deloc: `LiveEventRelay` își referea propria coadă din aceeași clasă (referință circulară). Topologia a fost mutată în `LiveEventTopology`.
+- Publisher confirms nu erau activate în `application.yml`: orice publicare de job aștepta 10 s și eșua (fișierul ajungea `PENDING`). Acum `publisher-confirm-type: correlated`, `publisher-returns`, `template.mandatory`.
+- Upload-ul tus era șters imediat după finalizare (HEAD dădea 404, contrar protocolului), iar fișierul de date era căutat într-o cale greșită (se copia tot fișierul). Acum se mută `uploads/<id>/data`, iar finalizarea se declanșează doar de PATCH-ul care completează upload-ul (sau POST-ul unui upload gol), o singură dată.
+- `UploadCleanupScheduler` ștergea fișierele rămase în `RECEIVED`/`ANALYZING` după 24 h — contrar principiului A.3.7. Acum copia din staging a unui fișier neverificat nu se șterge niciodată.
+- Evenimentele live se pot reordona între canale AMQP diferite (s-a văzut `ANALYZING` înaintea lui `RECEIVED`): `LiveEventPublisher` folosește acum o conexiune proprie cu un singur canal.
+- Gateway-ul (Traefik v3) tăia orice corp de cerere citit mai mult de 60 s (`readTimeout` implicit): un PATCH tus mare se oprea la ~58 s cu 499. Entrypoint-ul HTTPS are acum `readTimeout: 1h`, `writeTimeout: 0s` (SSE), `idleTimeout: 180s`.
+- Build-ul paralel al imaginii `filegrid/backend:local` din 5 servicii eșua la export: doar `api` are `build`, workerii refolosesc imaginea (`pull_policy: never`).
+- Testele preluate aveau presupuneri greșite, corectate: HEAD tus poate fi 200 sau 204; DLX este `direct`; cozile nu se redeclară fără DLQ; coloanele `stored_blob`; cheia S3 în bucket; regex-ul mesajelor Agentului 01 aliniat la textele reale și generat din bundle; un singur `read()` nu umple un buffer; fișierele goale prin multipart sunt acceptate.
+- Teste noi: `S3OutageRecoveryIT` (S3 oprit în mijlocul transferului → retry → fallback FTP → `PENDING` → S3 repornit → reluare multipart → `STORED_VERIFIED`), `LargeResumableUploadIT` (1,5 GB prin tus, întrerupt la 40%, reluat, S3 multipart, read-back, heap ≤ 256 MB), teste unitare pentru backoff, progres și listener; politică de test cu retry rapid (`src/test/resources/policy/fast-retry-policies.yaml`); `@DirtiesContext` pe testele de integrare, ca listener-ele să nu rămână active între clase.
+
+### Cum se verifică
+- `cd backend && ./mvnw verify`.
+- `curl -N -k https://localhost/api/events/stream` + upload tus cu `curl` (comenzile din README) → `RECEIVED → … → STORED_VERIFIED`.
+- `docker compose stop s3` în timpul transferului unui video → `FALLBACK` / `PENDING` → `docker compose start s3` → `TRANSFER_RESUMED` → `STORED_VERIFIED`.
+- `bash scripts/mem-report.sh` în timpul upload-ului de 1,5 GB; `docker compose up -d --scale worker-video=3`.
+
+### Limitări cunoscute
+- Un fișier rămas în `DESTINATION_SELECTED` pentru că api-ul a căzut exact între salvarea deciziei și publicarea jobului nu este republicat automat (fereastră de milisecunde); restul stărilor intermediare se reiau singure.
+- Reluarea FTP după un crash al workerului pornește de la începutul fișierului `.part` existent doar în cadrul aceluiași apel (adaptorul din Etapa 2); un worker nou reia de la offset-ul `.part` de pe server.
+- Ordinea evenimentelor este garantată per proces; între api și worker se bazează pe cauzalitate (workerul pornește după publicarea jobului).
+
+
 ## Etapa 3 — Agent 01: motorul de politici și rutare (2026-11-14)
 
 ### Ce s-a făcut

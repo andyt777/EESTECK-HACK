@@ -1,0 +1,57 @@
+# Anomalies injected into the simulated readings.
+#
+# Every occurrence is written to output/injected_anomalies.json (ground truth
+# for evaluating Agent 02). Ticks count readings of a meter: one tick covers
+# INTERVAL_MINUTES of simulated time (15 by default, so 96 ticks = one day).
+#
+#   startTick       first tick of the first occurrence
+#   durationTicks   how many consecutive ticks it lasts
+#   repeatEveryTicks  start a new occurrence (on other meters) every N ticks; 0 = only once
+#   meters / transformers  how many are affected (chosen deterministically from SIM_SEED)
+#
+# Types:
+#   ZERO_CONSUMPTION  consumption drops to 0 suddenly
+#   SPIKE             consumption multiplied by `factor`
+#   MISSING_READINGS  the meter sends nothing (seq still advances -> visible gap)
+#   REPEATED_VALUES   the meter repeats exactly the same samples
+#   LOW_VOLTAGE       voltage lowered by `voltageDrop` V for every meter of a transformer post
+#   NIGHT_EXPORT      a prosumer exports energy at night
+#   IMPOSSIBLE_VALUES negative energy and 0 V samples
+anomalies:
+  - type: ZERO_CONSUMPTION
+    meters: 4
+    startTick: 12
+    durationTicks: 16
+    repeatEveryTicks: 96
+  - type: SPIKE
+    meters: 4
+    startTick: 20
+    durationTicks: 2
+    factor: 8
+    repeatEveryTicks: 96
+  - type: MISSING_READINGS
+    meters: 4
+    startTick: 28
+    durationTicks: 6
+    repeatEveryTicks: 96
+  - type: REPEATED_VALUES
+    meters: 3
+    startTick: 36
+    durationTicks: 12
+    repeatEveryTicks: 96
+  - type: LOW_VOLTAGE
+    transformers: 1
+    startTick: 44
+    durationTicks: 8
+    voltageDrop: 28
+    repeatEveryTicks: 96
+  - type: NIGHT_EXPORT
+    meters: 2
+    startTick: 60
+    durationTicks: 8
+    repeatEveryTicks: 96
+  - type: IMPOSSIBLE_VALUES
+    meters: 2
+    startTick: 72
+    durationTicks: 1
+    repeatEveryTicks: 96

@@ -141,7 +141,7 @@ public class IngestionService {
             return;
         }
         lifecycle.broadcast(file, FileStatus.DESTINATION_SELECTED.name(), decision.getSelectedStorage(),
-                lifecycle.message("DESTINATION_SELECTED", decision.getSelectedStorage().name()), null);
+                lifecycle.message("DESTINATION_SELECTED", lifecycle.storageName(decision.getSelectedStorage())), null);
         TransferJob job = new TransferJob(file.getId(), file.getCategory(), stagingFile(fileId).toString(),
                 file.getSizeBytes(), file.getSha256Plain(), decision.getSelectedStorage(), file.getStorageKey(),
                 file.getTraceId(), Instant.now());

@@ -16,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import ro.filegrid.file.FileCategory;
+import ro.filegrid.file.FileRecordRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,7 +52,9 @@ class TusUploadControllerTest {
             }
         };
 
-        controller = new TusUploadController(tusFileUploadService, stagingProperties, metadataParser, eventPublisher);
+        FileRecordRepository files = org.mockito.Mockito.mock(FileRecordRepository.class);
+        controller = new TusUploadController(tusFileUploadService, stagingProperties, metadataParser, eventPublisher,
+                files);
     }
 
     private String encode(String val) {

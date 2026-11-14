@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -35,6 +36,7 @@ import ro.filegrid.testsupport.TestImages;
  * - F6: Small File Multipart Endpoint (POST /api/files streaming direct to staging)
  * - F7: Shared Staging Volume Mount & File Creation (/data/staging/{fileId})
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("api")
 @Testcontainers
@@ -192,7 +194,7 @@ class MultipartUploadIT {
         DeterministicContent content = new DeterministicContent(77, 128 * 1024);
         byte[] bytes = new byte[(int) content.size()];
         try (var in = content.open()) {
-            int read = in.read(bytes);
+            int read = in.readNBytes(bytes, 0, bytes.length);
             assertThat(read).isEqualTo(bytes.length);
         }
 

@@ -3,7 +3,6 @@ package ro.filegrid.upload;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -18,6 +17,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+import ro.filegrid.file.FileRecordRepository;
 
 /**
  * Resumable upload controller handling Tus 1.0 protocol methods ({@code POST}, {@code PATCH},
@@ -34,13 +34,16 @@ public class TusUploadController {
     private final StagingProperties stagingProperties;
     private final TusMetadataParser metadataParser;
     private final ApplicationEventPublisher eventPublisher;
+    private final FileRecordRepository files;
 
     public TusUploadController(
             TusFileUploadService tusFileUploadService,
             StagingProperties stagingProperties,
             TusMetadataParser metadataParser,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            FileRecordRepository files) {
         this.tusFileUploadService = tusFileUploadService;
+        this.files = files;
         this.stagingProperties = stagingProperties;
         this.metadataParser = metadataParser;
         this.eventPublisher = eventPublisher;
@@ -59,10 +62,21 @@ public class TusUploadController {
     public void processTus(HttpServletRequest request, HttpServletResponse response) throws IOException {
         tusFileUploadService.process(request, response);
 
-        String uri = request.getRequestURI();
+        // Only the request that wrote the last bytes completes an upload: a PATCH, or a
+        // POST creating an empty upload. HEAD and OPTIONS never trigger ingestion again.
+        String method = request.getMethod();
+        String uri;
+        if ("PATCH".equalsIgnoreCase(method)) {
+            uri = request.getRequestURI();
+        } else if ("POST".equalsIgnoreCase(method) && response.getStatus() == HttpServletResponse.SC_CREATED
+                && response.getHeader("Location") != null) {
+            uri = java.net.URI.create(response.getHeader("Location")).getPath();
+        } else {
+            return;
+        }
         try {
             UploadInfo uploadInfo = tusFileUploadService.getUploadInfo(uri);
-            if (uploadInfo != null && !uploadInfo.isUploadInProgress()) {
+            if (uploadInfo != null && uploadInfo.getLength() != null && !uploadInfo.isUploadInProgress()) {
                 handleUploadComplete(uploadInfo, uri);
             }
         } catch (TusException ex) {
@@ -70,42 +84,48 @@ public class TusUploadController {
         }
     }
 
+    /**
+     * Moves the completed bytes into staging (a rename, never a copy) and hands
+     * the file to ingestion. The tus upload record itself is kept until it
+     * expires, so that a client asking HEAD after completion still gets
+     * {@code Upload-Offset == Upload-Length} as the protocol requires.
+     */
     private void handleUploadComplete(UploadInfo uploadInfo, String uploadUri) throws IOException {
         String uploadIdStr = uploadInfo.getId().toString();
         UUID fileId;
         try {
             fileId = UUID.fromString(uploadIdStr);
         } catch (IllegalArgumentException e) {
-            fileId = UUID.randomUUID();
+            fileId = UUID.nameUUIDFromBytes(uploadIdStr.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
 
-        log.info("Tus upload completed: id={}, fileId={}, length={}",
-                uploadIdStr, fileId, uploadInfo.getLength());
-
+        if (files.existsById(fileId)) {
+            log.debug("Tus upload {} was already handed to ingestion", uploadIdStr);
+            return;
+        }
         Path stagingDir = stagingProperties.resolvedDirectory();
         Path targetStagingFile = stagingDir.resolve(fileId.toString());
 
-        // Locate source chunk file on disk (in tus staging subfolder)
-        Path tusDir = stagingProperties.tusDirectory();
-        Path p1 = tusDir.resolve(uploadIdStr);
-        Path p2 = tusDir.resolve(uploadIdStr + ".dat");
-        Path sourceChunk = Files.isRegularFile(p1) ? p1 : (Files.isRegularFile(p2) ? p2 : null);
-
-        if (sourceChunk != null) {
+        // tus DiskStorageService layout: <storagePath>/uploads/<id>/data
+        Path sourceChunk = stagingProperties.tusDirectory().resolve("uploads").resolve(uploadIdStr).resolve("data");
+        if (!Files.isRegularFile(sourceChunk)) {
+            if (Files.exists(targetStagingFile)) {
+                log.debug("Tus upload {} was already handed to ingestion", uploadIdStr);
+                return;
+            }
+            if (uploadInfo.getLength() != 0L) {
+                log.warn("Completed tus upload {} has no data file at {}", uploadIdStr, sourceChunk);
+                return;
+            }
+            Files.createFile(targetStagingFile);
+        } else {
             try {
                 Files.move(sourceChunk, targetStagingFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 Files.move(sourceChunk, targetStagingFile, StandardCopyOption.REPLACE_EXISTING);
             }
-        } else {
-            try (InputStream is = tusFileUploadService.getUploadedBytes(uploadUri)) {
-                if (is != null) {
-                    Files.copy(is, targetStagingFile, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (TusException e) {
-                throw new IOException("Failed to read completed bytes from Tus service", e);
-            }
         }
+        log.info("Tus upload completed: id={}, fileId={}, length={}", uploadIdStr, fileId, uploadInfo.getLength());
 
         long size = Files.exists(targetStagingFile) ? Files.size(targetStagingFile)
                 : (uploadInfo.getLength() != null ? uploadInfo.getLength() : 0L);
@@ -132,11 +152,5 @@ public class TusUploadController {
         );
         eventPublisher.publishEvent(event);
 
-        // Clean up temporary tus metadata and lock files
-        try {
-            tusFileUploadService.deleteUpload(uploadUri);
-        } catch (Exception e) {
-            log.debug("Tus metadata cleanup for {} logged: {}", uploadUri, e.getMessage());
-        }
     }
 }

@@ -10,7 +10,7 @@ import ro.filegrid.file.FileCategory;
 /**
  * The worker role. Validates {@code WORKER_CATEGORIES} at startup (a worker
  * without categories, or with an unknown one, refuses to start). The queue
- * consumers for these categories are added in Stage 4.
+ * consumers are created by {@link WorkerListenerConfiguration}.
  */
 @Component
 @Profile("worker")

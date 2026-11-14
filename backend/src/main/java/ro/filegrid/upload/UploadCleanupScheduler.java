@@ -21,7 +21,8 @@ import ro.filegrid.file.FileStatus;
 
 /**
  * Scheduled cleaner that purges expired partial tus uploads and abandoned staging files
- * older than 24 hours, while explicitly preserving files with status {@code PENDING} per Requirement R3.
+ * older than 24 hours. The staged copy of a file that is not yet STORED_VERIFIED is never deleted
+ * (ARCHITECTURE.md §A.3.7: a received file is never lost).
  */
 @Component
 @Profile("api")
@@ -118,14 +119,10 @@ public class UploadCleanupScheduler {
                             if (record.getStatus() == FileStatus.STORED_VERIFIED) {
                                 log.info("Purging lingering staging file for verified file {}: {}", fileId, filename);
                                 safelyDelete(entry);
-                            } else if (record.getStatus() == FileStatus.PENDING) {
-                                // Explicitly retain PENDING files per Requirement R3
-                                log.debug("Retaining staging file {} in PENDING state", fileId);
-                            } else if (record.getStatus() == FileStatus.RECEIVED || record.getStatus() == FileStatus.ANALYZING) {
-                                log.warn("Purging stalled ingest file {} (status={}) older than cutoff", fileId, record.getStatus());
-                                safelyDelete(entry);
-                                record.setStatus(FileStatus.TRANSFER_FAILED);
-                                fileRecordRepository.save(record);
+                            } else {
+                                // Not verified yet (PENDING, in transfer, interrupted ingestion): the staged
+                                // copy is the only copy and is never deleted. The recovery job resumes it.
+                                log.debug("Retaining staging file {} in state {}", fileId, record.getStatus());
                             }
                         }
                     } catch (IllegalArgumentException notAUuid) {

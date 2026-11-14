@@ -26,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -64,6 +65,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * - F18: Storage Fallback Trigger (primary exhausted -> FALLBACK event)
  * - F19: Storage Failure PENDING State (all fail -> PENDING, staging preserved)
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles({"api", "worker"})
 @Testcontainers
@@ -110,6 +112,7 @@ class WorkerTransferIT {
         registry.add("filegrid.storage.ftp.port", () -> 1);
         registry.add("filegrid.storage.ftp.connect-timeout", () -> "2s");
         registry.add("filegrid.storage.health-interval", () -> "1h");
+        registry.add("filegrid.policy.file", () -> "src/test/resources/policy/fast-retry-policies.yaml");
         registry.add("filegrid.worker.categories", () -> "DRONE_VIDEO,FAULT_RECORD");
         registry.add("filegrid.worker.concurrency", () -> "2");
     }
@@ -188,11 +191,6 @@ class WorkerTransferIT {
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
         admin.declareExchange(new FanoutExchange("filegrid.events", true, false));
-        Queue jobQueue = new Queue("filegrid.jobs.video", true);
-        admin.declareQueue(jobQueue);
-        admin.declareBinding(BindingBuilder.bind(jobQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.video"));
         Queue eventCollectorQueue = new AnonymousQueue();
         admin.declareQueue(eventCollectorQueue);
         admin.declareBinding(BindingBuilder.bind(eventCollectorQueue)
@@ -266,11 +264,6 @@ class WorkerTransferIT {
 
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
-        Queue jobQueue = new Queue("filegrid.jobs.video", true);
-        admin.declareQueue(jobQueue);
-        admin.declareBinding(BindingBuilder.bind(jobQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.video"));
 
         String jobPayload = String.format("""
                 {
@@ -330,11 +323,6 @@ class WorkerTransferIT {
 
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
-        Queue faultQueue = new Queue("filegrid.jobs.fault", true);
-        admin.declareQueue(faultQueue);
-        admin.declareBinding(BindingBuilder.bind(faultQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.fault"));
 
         // Job targets FTP primary storage (which is configured to fail)
         String jobPayload = String.format("""
@@ -396,11 +384,6 @@ class WorkerTransferIT {
 
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
-        Queue jobQueue = new Queue("filegrid.jobs.video", true);
-        admin.declareQueue(jobQueue);
-        admin.declareBinding(BindingBuilder.bind(jobQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.video"));
 
         // Target storage key pointing to non-existent / unreachable storage to force total failure
         String jobPayload = String.format("""

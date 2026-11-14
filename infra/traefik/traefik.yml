@@ -11,6 +11,14 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+    # Traefik v3 cuts any request body still being read after 60 s by default:
+    # a large video sent in one tus PATCH over a slow link takes much longer.
+    # writeTimeout stays 0 (no limit) for the SSE stream.
+    transport:
+      respondingTimeouts:
+        readTimeout: 1h
+        writeTimeout: 0s
+        idleTimeout: 180s
     http:
       tls: {}
       middlewares:

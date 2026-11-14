@@ -31,6 +31,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    # A job counts as queued only once the broker confirms it (JobPublisher waits for the
+    # confirm); an unroutable message is returned instead of being silently dropped.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
   lifecycle:
     timeout-per-shutdown-phase: 30s
@@ -116,6 +122,13 @@ filegrid:
     categories: ${WORKER_CATEGORIES:}
     # Transfers handled at the same time by one worker instance (per category queue).
     concurrency: ${WORKER_CONCURRENCY:4}
+    # Unacknowledged jobs per consumer (1: a long video never holds other jobs back).
+    prefetch: ${WORKER_PREFETCH:1}
+
+  ingestion:
+    # How often PENDING files (storage back UP) and interrupted ingestions are resumed.
+    recovery-interval: ${FILEGRID_INGESTION_RECOVERY_INTERVAL:30s}
+    stale-after: 2m
 
   staging:
     directory: ${FILEGRID_STAGING_DIR:/data/staging}
@@ -124,4 +137,4 @@ filegrid:
     cleanup-interval: 1h
 
   upload:
-    max-size-bytes: 5368709120
+    max-size-bytes: ${FILEGRID_UPLOAD_MAX_BYTES:5368709120}   # 5 GB

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
@@ -24,6 +25,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -55,6 +57,7 @@ import ro.filegrid.testsupport.TestImages;
  * - F11: RabbitMQ Category Queues & DLQ with publisher confirms
  * - F12: Event Fanout Exchange (filegrid.events)
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("api")
 @Testcontainers
@@ -289,7 +292,7 @@ class IngestionAndQueuingIT {
         }
 
         // Declare DLX and DLQs
-        FanoutExchange dlx = new FanoutExchange("filegrid.dlx", true, false);
+        DirectExchange dlx = new DirectExchange("filegrid.dlx", true, false);
         admin.declareExchange(dlx);
 
         for (String qName : queues) {

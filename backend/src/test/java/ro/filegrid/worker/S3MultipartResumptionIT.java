@@ -26,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -60,6 +61,7 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
  * - Interrupted transfer resumption starting from last confirmed part without re-uploading confirmed parts
  * - Assembly completion and read-back hash verification to STORED_VERIFIED
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles({"api", "worker"})
 @Testcontainers
@@ -106,6 +108,7 @@ class S3MultipartResumptionIT {
         registry.add("filegrid.storage.ftp.host", () -> "127.0.0.1");
         registry.add("filegrid.storage.ftp.port", () -> 1);
         registry.add("filegrid.storage.health-interval", () -> "1h");
+        registry.add("filegrid.policy.file", () -> "src/test/resources/policy/fast-retry-policies.yaml");
         registry.add("filegrid.worker.categories", () -> "DRONE_VIDEO");
         registry.add("filegrid.worker.concurrency", () -> "2");
     }
@@ -117,6 +120,8 @@ class S3MultipartResumptionIT {
                 "filegrid-", "filegrid-benchmark", S3_MIN_PART_SIZE);
         s3Client = S3ClientConfig.create(s3Props);
         s3Client.createBucket(b -> b.bucket(BUCKET));
+        // The health probe of the S3 storage checks this bucket.
+        s3Client.createBucket(b -> b.bucket("filegrid-benchmark"));
         s3Adapter = new S3StorageAdapter(s3Client, new StorageProperties(null, s3Props, null, null));
     }
 
@@ -194,11 +199,6 @@ class S3MultipartResumptionIT {
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
         admin.declareExchange(new FanoutExchange("filegrid.events", true, false));
-        Queue jobQueue = new Queue("filegrid.jobs.video", true);
-        admin.declareQueue(jobQueue);
-        admin.declareBinding(BindingBuilder.bind(jobQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.video"));
         Queue eventCollectorQueue = new AnonymousQueue();
         admin.declareQueue(eventCollectorQueue);
         admin.declareBinding(BindingBuilder.bind(eventCollectorQueue)

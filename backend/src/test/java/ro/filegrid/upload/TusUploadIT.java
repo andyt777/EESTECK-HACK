@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -40,6 +41,7 @@ import ro.filegrid.testsupport.TusTestClient;
  * - F4: Max Upload Size Enforcement (413 Payload Too Large on exceeding limit)
  * - F5: Abandoned Upload Cleanup (purging idle uploads > 24h)
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("api")
 @Testcontainers
@@ -125,7 +127,7 @@ class TusUploadIT {
         URI uploadUri = tusClient.createUpload(size, Map.of("filename", "test.dat"));
 
         HttpResponse<Void> head = tusClient.sendHead(uploadUri, Collections.emptyMap());
-        assertThat(head.statusCode()).isEqualTo(200);
+        assertThat(head.statusCode()).isIn(200, 204);
         assertThat(head.headers().firstValue("Tus-Resumable")).hasValue("1.0.0");
         assertThat(head.headers().firstValue("Upload-Offset")).hasValue("0");
         assertThat(head.headers().firstValue("Upload-Length")).hasValue(String.valueOf(size));

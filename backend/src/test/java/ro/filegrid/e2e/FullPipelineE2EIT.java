@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -50,6 +51,7 @@ import software.amazon.awssdk.services.s3.S3Client;
  * Worker Transfer & Progress -> Read-back Hash Verification ->
  * Staging Cleanup -> Real-time Live SSE Event Sequence.
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"api", "worker"})
 @Testcontainers
@@ -96,6 +98,7 @@ class FullPipelineE2EIT {
         registry.add("filegrid.storage.ftp.host", () -> "127.0.0.1");
         registry.add("filegrid.storage.ftp.port", () -> 1);
         registry.add("filegrid.storage.health-interval", () -> "1h");
+        registry.add("filegrid.policy.file", () -> "src/test/resources/policy/fast-retry-policies.yaml");
         registry.add("filegrid.worker.categories", () -> "DRONE_VIDEO");
         registry.add("filegrid.worker.concurrency", () -> "2");
     }
@@ -107,6 +110,8 @@ class FullPipelineE2EIT {
                 "filegrid-", "filegrid-benchmark", PART_SIZE);
         s3Client = S3ClientConfig.create(s3Props);
         s3Client.createBucket(b -> b.bucket(BUCKET));
+        // The health probe of the S3 storage checks this bucket.
+        s3Client.createBucket(b -> b.bucket("filegrid-benchmark"));
         s3Adapter = new S3StorageAdapter(s3Client, new StorageProperties(null, s3Props, null, null));
     }
 
@@ -126,26 +131,24 @@ class FullPipelineE2EIT {
     @DisplayName("T3-INT-20: Full pipeline cross-feature integration: upload -> staging -> sha256 -> transfer -> read-back -> SSE")
     void fullPipelineEndToEndFlow() throws Exception {
         String baseUrl = "http://localhost:" + port + "/api";
-        UUID fileId = UUID.randomUUID();
         long totalBytes = 256 * 1024; // 256KB test payload
         DeterministicContent content = new DeterministicContent(4242, totalBytes);
         String expectedHash = content.sha256();
 
-        // 1. Connect SSE Receiver BEFORE initiating upload to capture all real-time events
+        // 1. Create the upload; the server assigns the file id (the last segment of Location).
+        TusTestClient tusClient = new TusTestClient(baseUrl);
+        Map<String, String> metadata = Map.of(
+                "filename", "full-pipeline-test.mp4",
+                "category", "DRONE_VIDEO",
+                "zone", "Banat",
+                "station", "Statia_Timisoara1"
+        );
+        URI uploadUri = tusClient.createUpload(totalBytes, metadata);
+        assertThat(uploadUri).isNotNull();
+        UUID fileId = UUID.fromString(uploadUri.getPath().substring(uploadUri.getPath().lastIndexOf('/') + 1));
+
+        // 2. Connect the SSE receiver BEFORE the last bytes are sent, to capture every event
         try (SseTestReceiver sseReceiver = SseTestReceiver.connect(baseUrl, fileId, null)) {
-
-            // 2. Client initiates upload via genuine TusTestClient
-            TusTestClient tusClient = new TusTestClient(baseUrl);
-            Map<String, String> metadata = Map.of(
-                    "fileId", fileId.toString(),
-                    "filename", "full-pipeline-test.mp4",
-                    "category", "DRONE_VIDEO",
-                    "zone", "Banat",
-                    "station", "Statia_Timisoara1"
-            );
-
-            URI uploadUri = tusClient.createUpload(totalBytes, metadata);
-            assertThat(uploadUri).isNotNull();
 
             // 3. Stream chunk to /api/uploads via Tus PATCH
             try (InputStream in = content.open()) {

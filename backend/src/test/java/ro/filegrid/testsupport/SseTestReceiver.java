@@ -30,6 +30,7 @@ import org.awaitility.Awaitility;
  */
 public class SseTestReceiver implements AutoCloseable {
 
+    /** Every message Agent 01 can show (i18n/texts_ro.properties, keys agent.*), with any arguments. */
     public static final String ROMANIAN_AGENT01_PATTERN =
             "^Am primit un fișier nou\\.$|"
             + "^Analizez conținutul…$|"
@@ -38,10 +39,11 @@ public class SseTestReceiver implements AutoCloseable {
             + "^Transfer în desfășurare…$|"
             + "^Transferul a fost întrerupt\\. Îl voi relua\\.$|"
             + "^Fișier stocat și verificat\\.$|"
-            + "^Neconcordanță de integritate la verificare.*$|"
-            + "^Storage-ul principal nu a putut fi folosit.*$|"
+            + "^Verificarea după scriere a găsit o neconcordanță\\.( Reiau transferul\\.)?$|"
+            + "^(S3|FTP|Database) nu răspunde\\. Trimit fișierul către (S3|FTP|Database)\\.$|"
+            + "^(S3|FTP|Database) nu a răspuns \\(încercarea \\d+ din \\d+\\)\\. Reîncerc în [\\d.]+ s\\.$|"
             + "^Nu există momentan o destinație disponibilă\\. Fișierul a rămas în așteptare\\.$|"
-            + "^Transferul a eșuat.*$";
+            + "^Transferul a întâmpinat o problemă: .+$";
 
     private static final Set<String> VALID_CATEGORIES = Set.of(
             "METER_READING", "FAULT_RECORD", "CONNECTION_DOCUMENT", "DRONE_VIDEO"

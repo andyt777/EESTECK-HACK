@@ -21,6 +21,7 @@ import ro.filegrid.file.FileStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -110,7 +111,7 @@ class UploadCleanupSchedulerTest {
     }
 
     @Test
-    void purgesStalledReceivedUploadsAndMarksFailed() throws IOException {
+    void keepsStagedCopyOfFilesNotYetVerified() throws IOException {
         Path stagingDir = stagingProperties.resolvedDirectory();
 
         UUID stalledId = UUID.randomUUID();
@@ -126,8 +127,9 @@ class UploadCleanupSchedulerTest {
 
         scheduler.purgeOrphanedStagingFiles();
 
-        assertThat(Files.exists(stalledFile)).isFalse();
-        assertThat(stalledRecord.getStatus()).isEqualTo(FileStatus.TRANSFER_FAILED);
-        verify(fileRecordRepository).save(stalledRecord);
+        // A received file is never lost: the recovery job resumes it instead.
+        assertThat(Files.exists(stalledFile)).isTrue();
+        assertThat(stalledRecord.getStatus()).isEqualTo(FileStatus.RECEIVED);
+        verify(fileRecordRepository, never()).save(stalledRecord);
     }
 }

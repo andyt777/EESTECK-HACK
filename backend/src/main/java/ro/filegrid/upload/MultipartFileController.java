@@ -125,8 +125,9 @@ public class MultipartFileController {
         }
 
         // 2. Validate non-empty file
-        if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is missing or empty");
+        // An empty file is a valid file (tus accepts it too); only a missing part is an error.
+        if (file == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is missing");
         }
 
         // 3. Idempotency check

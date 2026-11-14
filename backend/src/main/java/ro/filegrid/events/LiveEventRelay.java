@@ -1,21 +1,16 @@
 package ro.filegrid.events;
 
-import org.springframework.amqp.core.AnonymousQueue;
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.FanoutExchange;
-import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 /**
- * Each api instance listens on its own exclusive, auto-deleted queue bound to
- * the fanout exchange, so every instance sees every event and nothing piles up
- * when an instance stops.
+ * Relays every live event received from the fanout exchange to the SSE
+ * connections of this api instance. The queue it listens on is declared in
+ * {@link LiveEventTopology} (kept apart: a listener cannot reference a bean of
+ * its own configuration class without a circular reference).
  */
-@Configuration
+@Component
 @Profile("api")
 public class LiveEventRelay {
 
@@ -23,16 +18,6 @@ public class LiveEventRelay {
 
     public LiveEventRelay(SseHub hub) {
         this.hub = hub;
-    }
-
-    @Bean
-    public Queue liveEventsQueue() {
-        return new AnonymousQueue();
-    }
-
-    @Bean
-    public Binding liveEventsBinding(Queue liveEventsQueue, FanoutExchange eventsExchange) {
-        return BindingBuilder.bind(liveEventsQueue).to(eventsExchange);
     }
 
     @RabbitListener(queues = "#{liveEventsQueue.name}")

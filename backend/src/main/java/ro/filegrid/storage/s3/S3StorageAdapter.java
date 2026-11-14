@@ -20,11 +20,13 @@ import ro.filegrid.storage.StorageObjectNotFoundException;
 import ro.filegrid.storage.StorageProperties;
 import ro.filegrid.storage.StorageType;
 import ro.filegrid.storage.StoredObject;
+import ro.filegrid.storage.StreamSource;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.NoSuchUploadException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
@@ -85,6 +87,126 @@ public class S3StorageAdapter implements StorageAdapter {
         } catch (SdkException e) {
             throw new StorageException("S3 write failed for " + key + ": " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Writes an object with a multipart upload that survives a crash: the
+     * upload id and every confirmed part are saved through {@code checkpoint},
+     * and a later call with the same checkpoint continues after the last part
+     * S3 still holds. The skipped bytes are read again (not sent) so that the
+     * returned SHA-256 always covers the whole content.
+     *
+     * <p>On failure the upload is kept (not aborted), precisely so it can be
+     * resumed; {@link #discardResumable} abandons it.
+     */
+    public StoredObject putResumable(String key, StreamSource source, long size, Map<String, String> metadata,
+                                     MultipartCheckpoint checkpoint) {
+        if (size < 0 || size <= partSize) {
+            checkpoint.clear();
+            return put(key, source, size, metadata);
+        }
+        String bucket = bucketOf(key);
+        String objectKey = StorageKeys.pathWithinSegment(key);
+        Map<String, String> userMetadata = metadata == null ? Map.of() : metadata;
+        try {
+            Resume resume = resumeOrStart(key, bucket, objectKey, size, userMetadata, checkpoint);
+            byte[] buffer = new byte[(int) resume.partSize()];
+            MessageDigest digest = Sha256.newDigest();
+            List<CompletedPart> parts = new ArrayList<>(resume.parts());
+            long written = 0;
+            try (InputStream raw = source.open(); DigestInputStream in = new DigestInputStream(raw, digest)) {
+                // Parts already in S3: read through the digest, do not send.
+                for (CompletedPart ignored : resume.parts()) {
+                    int read = readFully(in, buffer);
+                    if (read != buffer.length) {
+                        throw new StorageException("The source of " + key + " is shorter than the parts already stored");
+                    }
+                    written += read;
+                }
+                int partNumber = resume.parts().size() + 1;
+                int length = readFully(in, buffer);
+                while (length > 0) {
+                    int currentPart = partNumber;
+                    int currentLength = length;
+                    String eTag = s3.uploadPart(
+                            b -> b.bucket(bucket).key(objectKey).uploadId(resume.uploadId()).partNumber(currentPart),
+                            body(buffer, currentLength)).eTag();
+                    parts.add(CompletedPart.builder().partNumber(currentPart).eTag(eTag).build());
+                    checkpoint.partConfirmed(new MultipartCheckpoint.ConfirmedPart(currentPart, eTag, currentLength));
+                    written += currentLength;
+                    partNumber++;
+                    length = currentLength < buffer.length ? 0 : readFully(in, buffer);
+                }
+            }
+            if (written != size) {
+                discardResumable(key, checkpoint);
+                throw new StorageException(
+                        "S3 received " + written + " bytes for " + key + " but " + size + " were expected");
+            }
+            s3.completeMultipartUpload(b -> b.bucket(bucket).key(objectKey).uploadId(resume.uploadId())
+                    .multipartUpload(m -> m.parts(parts)));
+            checkpoint.clear();
+            return new StoredObject(key, written, Sha256.hex(digest));
+        } catch (IOException e) {
+            throw new StorageException("Cannot read the content for " + key, e);
+        } catch (SdkException e) {
+            throw new StorageException("S3 write failed for " + key + ": " + e.getMessage(), e);
+        }
+    }
+
+    /** Abandons a resumable upload (used when the transfer moves to another storage). */
+    public void discardResumable(String key, MultipartCheckpoint checkpoint) {
+        checkpoint.load().ifPresent(state ->
+                abortQuietly(state.bucket(), StorageKeys.pathWithinSegment(state.storageKey()), state.uploadId()));
+        checkpoint.clear();
+    }
+
+    private record Resume(String uploadId, long partSize, List<CompletedPart> parts) {
+    }
+
+    /**
+     * Continues the saved upload when S3 still knows it, keeping only the
+     * leading run of parts that both the checkpoint and S3 agree on; otherwise
+     * starts a new upload.
+     */
+    private Resume resumeOrStart(String key, String bucket, String objectKey, long size,
+                                 Map<String, String> metadata, MultipartCheckpoint checkpoint) {
+        var saved = checkpoint.load();
+        if (saved.isPresent() && saved.get().storageKey().equals(key) && saved.get().bucket().equals(bucket)) {
+            MultipartCheckpoint.State state = saved.get();
+            try {
+                Map<Integer, String> inS3 = new java.util.HashMap<>();
+                s3.listPartsPaginator(b -> b.bucket(bucket).key(objectKey).uploadId(state.uploadId()))
+                        .parts().forEach(p -> inS3.put(p.partNumber(), p.eTag()));
+                List<CompletedPart> parts = new ArrayList<>();
+                for (MultipartCheckpoint.ConfirmedPart part : state.parts().stream()
+                        .sorted(java.util.Comparator.comparingInt(MultipartCheckpoint.ConfirmedPart::partNumber))
+                        .toList()) {
+                    boolean expectedNumber = part.partNumber() == parts.size() + 1;
+                    boolean fullPart = part.size() == state.partSize();
+                    if (!expectedNumber || !fullPart || !part.etag().equals(inS3.get(part.partNumber()))) {
+                        break;
+                    }
+                    parts.add(CompletedPart.builder().partNumber(part.partNumber()).eTag(part.etag()).build());
+                }
+                log.info("Resuming multipart upload of {} after {} confirmed part(s)", key, parts.size());
+                checkpoint.resumed(parts.size() * state.partSize());
+                return new Resume(state.uploadId(), state.partSize(), parts);
+            } catch (S3Exception e) {
+                if (!(e instanceof NoSuchUploadException) && e.statusCode() != 404) {
+                    throw e;
+                }
+                log.info("Saved multipart upload of {} no longer exists in S3; starting again", key);
+                checkpoint.clear();
+            }
+        } else if (saved.isPresent()) {
+            discardResumable(key, checkpoint);
+        }
+        String uploadId = s3.createMultipartUpload(b -> b.bucket(bucket).key(objectKey).metadata(metadata))
+                .uploadId();
+        int totalParts = (int) ((size + partSize - 1) / partSize);
+        checkpoint.begin(bucket, key, uploadId, partSize, totalParts);
+        return new Resume(uploadId, partSize, List.of());
     }
 
     private long multipartUpload(String bucket, String objectKey, Map<String, String> metadata,

@@ -54,4 +54,7 @@ scrape_configs:
     relabel_configs:
       - source_labels: [__meta_dns_name]
         target_label: service
-  # Simulator and intelligence targets are added in Stages 5 and 15.
+  - job_name: simulator
+    static_configs:
+      - targets: ["simulator:9105"]
+  # The intelligence target is added in Stage 15.

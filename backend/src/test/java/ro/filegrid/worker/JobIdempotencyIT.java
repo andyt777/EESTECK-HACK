@@ -26,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -61,6 +62,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
  * - Zero duplicate event emissions
  * - Store-DB ON CONFLICT DO NOTHING handling
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles({"api", "worker"})
 @Testcontainers
@@ -106,6 +108,7 @@ class JobIdempotencyIT {
         registry.add("filegrid.storage.ftp.host", () -> "127.0.0.1");
         registry.add("filegrid.storage.ftp.port", () -> 1);
         registry.add("filegrid.storage.health-interval", () -> "1h");
+        registry.add("filegrid.policy.file", () -> "src/test/resources/policy/fast-retry-policies.yaml");
         registry.add("filegrid.worker.categories", () -> "DRONE_VIDEO,METER_READING");
         registry.add("filegrid.worker.concurrency", () -> "2");
     }
@@ -117,6 +120,8 @@ class JobIdempotencyIT {
                 "filegrid-", "filegrid-benchmark", 16 * 1024 * 1024);
         s3Client = S3ClientConfig.create(s3Props);
         s3Client.createBucket(b -> b.bucket(BUCKET));
+        // The health probe of the S3 storage checks this bucket.
+        s3Client.createBucket(b -> b.bucket("filegrid-benchmark"));
         s3Adapter = new S3StorageAdapter(s3Client, new StorageProperties(null, s3Props, null, null));
     }
 
@@ -159,7 +164,7 @@ class JobIdempotencyIT {
         assertThat(Files.exists(stagingFile)).isFalse();
 
         // Capture S3 object last modified time and eTag before duplicate delivery
-        HeadObjectResponse headBefore = s3Client.headObject(b -> b.bucket(BUCKET).key(storageKey));
+        HeadObjectResponse headBefore = s3Client.headObject(b -> b.bucket(BUCKET).key(StorageKeys.pathWithinSegment(storageKey)));
         Instant lastModifiedBefore = headBefore.lastModified();
         String eTagBefore = headBefore.eTag();
 
@@ -167,11 +172,6 @@ class JobIdempotencyIT {
         RabbitAdmin admin = new RabbitAdmin(rabbitTemplate.getConnectionFactory());
         admin.declareExchange(new DirectExchange("filegrid.jobs", true, false));
         admin.declareExchange(new FanoutExchange("filegrid.events", true, false));
-        Queue jobQueue = new Queue("filegrid.jobs.video", true);
-        admin.declareQueue(jobQueue);
-        admin.declareBinding(BindingBuilder.bind(jobQueue)
-                .to(new DirectExchange("filegrid.jobs", true, false))
-                .with("filegrid.jobs.video"));
         Queue eventCollectorQueue = new AnonymousQueue();
         admin.declareQueue(eventCollectorQueue);
         admin.declareBinding(BindingBuilder.bind(eventCollectorQueue)
@@ -209,7 +209,7 @@ class JobIdempotencyIT {
                 });
 
         // 5. Verify zero storage rewrites occurred (metadata untouched)
-        HeadObjectResponse headAfter = s3Client.headObject(b -> b.bucket(BUCKET).key(storageKey));
+        HeadObjectResponse headAfter = s3Client.headObject(b -> b.bucket(BUCKET).key(StorageKeys.pathWithinSegment(storageKey)));
         assertThat(headAfter.lastModified()).isEqualTo(lastModifiedBefore);
         assertThat(headAfter.eTag()).isEqualTo(eTagBefore);
 
@@ -230,27 +230,27 @@ class JobIdempotencyIT {
                 new org.springframework.jdbc.datasource.SingleConnectionDataSource(
                         STORE_DB.getJdbcUrl(), STORE_DB.getUsername(), STORE_DB.getPassword(), true));
 
-        String key = "meter/2026/11/14/meter-reading-idempotent.json";
+        String key = "meters/2026/11/14/meter-reading-idempotent.json";
         byte[] payload = "{\"kw\": 12.3}".getBytes();
 
         // First insert
         storeDb.update("""
-                INSERT INTO stored_blob (storage_key, content, size_bytes, sha256_hex, created_at)
+                INSERT INTO stored_blob (key, content, size, sha256, created_at)
                 VALUES (?, ?, ?, ?, now())
-                ON CONFLICT (storage_key) DO NOTHING
+                ON CONFLICT (key) DO NOTHING
                 """, key, payload, payload.length, "dummy-hash");
 
         // Duplicate insert with same key
         int rowsAffected = storeDb.update("""
-                INSERT INTO stored_blob (storage_key, content, size_bytes, sha256_hex, created_at)
+                INSERT INTO stored_blob (key, content, size, sha256, created_at)
                 VALUES (?, ?, ?, ?, now())
-                ON CONFLICT (storage_key) DO NOTHING
+                ON CONFLICT (key) DO NOTHING
                 """, key, payload, payload.length, "dummy-hash");
 
         assertThat(rowsAffected).isEqualTo(0);
 
         Integer count = storeDb.queryForObject(
-                "SELECT count(*) FROM stored_blob WHERE storage_key = ?", Integer.class, key);
+                "SELECT count(*) FROM stored_blob WHERE key = ?", Integer.class, key);
         assertThat(count).isEqualTo(1);
     }
 }

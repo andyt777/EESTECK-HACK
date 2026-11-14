@@ -1,0 +1,150 @@
+# Test copy of config/policies.yaml with fast retries (integration tests only).
+# FileGrid PPC — routing policy of Agent 01 (docs/ARCHITECTURE.md §A.4).
+#
+# This file is mounted into the api container (it is NOT part of the image).
+# Edit it and save: the api picks the change up within ~10 seconds, validates
+# it and, if it is valid, stores it as a new policy version. An invalid file is
+# rejected and the previous version stays active (see the api log and
+# GET /api/policies -> file.lastError).
+#
+# The same policy can be changed from the admin API (PUT /api/admin/policies).
+# The most recent valid version wins, wherever it came from.
+schemaVersion: 1
+
+# What each storage can do. `maxSizeBytes: null` means "no limit".
+storages:
+  DATABASE:
+    maxSizeBytes: 67108864        # 64 MB (bytea, one row per object)
+    resumable: false
+    immediateRead: true
+    idempotentWrites: true        # primary key: writing the same key twice stores it once
+  S3:
+    maxSizeBytes: null
+    resumable: true               # multipart upload, 16 MB parts
+    immediateRead: true
+    idempotentWrites: true        # same key -> same object
+  FTP:
+    maxSizeBytes: null
+    resumable: true               # REST offset
+    immediateRead: true
+    idempotentWrites: false       # no transactions: a retried write is not atomic
+
+# Per category:
+#   detection   - how a file is recognised (extensions without dot, MIME types with optional "/*",
+#                 context fields that must be filled in)
+#   primary     - storage used when it is eligible and available
+#   fallbacks   - tried in order of score when the primary cannot be used
+#   constraints - what the category needs from a storage (hard requirements) and
+#                 optional per-storage size limits that are stricter than the storage's own
+#   weights     - how much each criterion counts in the score (0 = ignored)
+#   retry       - transfer retries on the same storage before moving to a fallback (Stage 4)
+#   sla         - thresholds used by business alerts (Stage 8)
+categories:
+  METER_READING:
+    detection:
+      extensions: [json]
+      mimeTypes: [application/json]
+      requiredFields: [meterId]
+    primary: DATABASE
+    fallbacks: [S3]
+    constraints:
+      needsResumable: false
+      needsEncryption: false
+      needsImmediateRead: false
+      idempotent: true
+      maxSizeBytes:
+        DATABASE: 1048576         # 1 MB: a reading is a small JSON file
+    weights:
+      sizeFit: 1
+      resumable: 0
+      availability: 3
+      measuredLatencyP95: 2
+      policyPreference: 4
+    retry:
+      maxAttempts: 2
+      initialBackoff: 100ms
+      maxBackoff: 300ms
+    sla:
+      maxPendingSeconds: 300
+      maxStoreP95Seconds: 2
+
+  FAULT_RECORD:
+    detection:
+      extensions: [pdf, cfg, dat, csv, zip, comtrade]
+      mimeTypes: [application/pdf, text/csv, application/zip, text/plain]
+      requiredFields: [station]
+    primary: FTP
+    fallbacks: [S3]
+    constraints:
+      needsResumable: false
+      needsEncryption: false
+      needsImmediateRead: true
+      idempotent: false
+      maxSizeBytes: {}
+    weights:
+      sizeFit: 1
+      resumable: 1
+      availability: 3
+      measuredLatencyP95: 3
+      policyPreference: 4
+    retry:
+      maxAttempts: 2
+      initialBackoff: 100ms
+      maxBackoff: 300ms
+    sla:
+      maxPendingSeconds: 120
+      maxStoreP95Seconds: 5
+
+  CONNECTION_DOCUMENT:
+    detection:
+      extensions: [pdf, docx, jpg, jpeg, png]
+      mimeTypes: [application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/jpeg, image/png]
+      requiredFields: []
+    primary: S3
+    fallbacks: [DATABASE]
+    constraints:
+      needsResumable: false
+      needsEncryption: true       # personal data: encrypted by the application before storage (Stage 7)
+      needsImmediateRead: false
+      idempotent: false
+      maxSizeBytes: {}
+    weights:
+      sizeFit: 2
+      resumable: 1
+      availability: 3
+      measuredLatencyP95: 1
+      policyPreference: 4
+    retry:
+      maxAttempts: 2
+      initialBackoff: 100ms
+      maxBackoff: 300ms
+    sla:
+      maxPendingSeconds: 600
+      maxStoreP95Seconds: 10
+
+  DRONE_VIDEO:
+    detection:
+      extensions: [mp4, mov, mkv, avi]
+      mimeTypes: [video/*]
+      requiredFields: []
+    primary: S3
+    fallbacks: [FTP]
+    constraints:
+      needsResumable: true        # 100 MB - 1 GB+: the transfer must be resumable
+      needsEncryption: false
+      needsImmediateRead: false
+      idempotent: false
+      maxSizeBytes: {}
+    weights:
+      sizeFit: 2
+      resumable: 4
+      availability: 3
+      measuredLatencyP95: 1
+      policyPreference: 4
+    retry:
+      maxAttempts: 2
+      initialBackoff: 100ms
+      maxBackoff: 300ms
+    sla:
+      maxPendingSeconds: 1800
+      maxStoreP95Seconds: 600

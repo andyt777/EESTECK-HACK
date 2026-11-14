@@ -4,7 +4,7 @@ Punctul unic de intrare pentru fișierele operaționale ale unui operator de dis
 
 Arhitectura este descrisă în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), iar progresul pe etape în [docs/CHANGELOG-ETAPE.md](docs/CHANGELOG-ETAPE.md).
 
-> **Stadiu:** Etapa 3 — Agent 01: motorul determinist de politici și rutare explicabilă (`config/policies.yaml`, clasificare Tika, scorare, versionare în DB, reîncărcare la cald). Pipeline-ul de upload, frontend-ul și simulatorul vin în etapele următoare.
+> **Stadiu:** Etapa 5 — upload reluabil (tus) cu cozi per categorie, transfer verificat prin read-back SHA-256, fallback și reluare automată (Etapa 4), plus simulatorul de contoare cu ingestie fără pierderi și fără dubluri (Etapa 5). Frontend-ul vine din Etapa 10.
 
 ## Cerințe preliminare
 
@@ -89,10 +89,63 @@ apoi rulează `wsl --shutdown` într-un terminal și repornește Docker Desktop.
 | Starea API-ului | https://localhost/api/actuator/health | — (răspunde `{"status":"UP"}`) |
 | Politica activă (Agent 01) | https://localhost/api/policies | — (versiunea activă, YAML-ul și starea fișierului `policies.yaml`) |
 | Istoricul politicilor | https://localhost/api/policies/history | — (versiuni și diff-uri structurale) |
+| Upload reluabil (tus 1.0) | https://localhost/api/uploads | — (orice client tus; vezi mai jos) |
+| Upload simplu (multipart) | `POST` https://localhost/api/files | — (fișiere mici, câmpul `file`) |
+| Stări live (SSE) | https://localhost/api/events/stream | — (filtre opționale `?fileId=` și `?category=`) |
+| Decizia Agentului 01 | https://localhost/api/files/{id}/decision | — |
+| Citiri contoare | `POST` https://localhost/api/meters/readings | — (lot de cel mult 500, antet `Idempotency-Key`) |
+| Statistici contoare | https://localhost/api/meters/stats | — (citiri/min, gap-uri, duplicate respinse / scrise) |
 
 Gateway-ul (Traefik) este singurul serviciu care publică porturi. HTTP este redirecționat către HTTPS, iar TLS minim este 1.2. Din actuator este expusă în exterior doar starea; metricile (`/actuator/prometheus`) rulează pe un port separat, accesibil numai din rețeaua internă.
 
 După o modificare în `infra/traefik/` sau `infra/prometheus/` cu sistemul pornit, rulează `bash scripts/reload-config.sh` (sau `make reload-config`): Prometheus își reîncarcă pe loc configurația și regulile, iar gateway-ul este repornit. Comanda nu depinde de notificările sistemului de fișiere, deci merge la fel pe orice platformă.
+
+## Încărcarea unui fișier și urmărirea stărilor
+
+Într-un terminal, stările live (fiecare eveniment este JSON: `fileId`, `category`, `status`, `storage`, `message` — textul Agentului 01 —, `bytesTransferred`, `totalBytes`, `timestamp`, `traceId`):
+
+```bash
+curl -N -k https://localhost/api/events/stream
+```
+
+În altul, un upload tus cu `curl` (metadatele sunt `cheie valoare-base64`, separate prin virgulă):
+
+```bash
+b64() { printf '%s' "$1" | base64 -w0; }
+LOC=$(curl -sk -i -X POST https://localhost/api/uploads -H "Tus-Resumable: 1.0.0" \
+  -H "Upload-Length: $(stat -c %s avarie.dat)" \
+  -H "Upload-Metadata: filename $(b64 avarie.dat),category $(b64 FAULT_RECORD),station $(b64 'Timișoara Nord')" \
+  | grep -i '^location' | tr -d '\r' | cut -d' ' -f2)
+curl -sk -X PATCH "https://localhost$LOC" -H "Tus-Resumable: 1.0.0" -H "Upload-Offset: 0" \
+  -H "Content-Type: application/offset+octet-stream" --data-binary @avarie.dat
+```
+
+Secvența afișată: `RECEIVED → ANALYZING → CATEGORIZED → DESTINATION_SELECTED → TRANSFERRING (progres la ~5% sau 16 MB) → STORED_VERIFIED`. Un upload întrerupt se reia: `curl -I` pe aceeași adresă dă `Upload-Offset`, iar următorul `PATCH` trimite restul de la acel offset. Metadate acceptate: `category` (opțional), `zone`, `station`, `equipment`, `eventType`, `eventTime`, `description`, `dataOrigin`; dimensiune maximă `FILEGRID_UPLOAD_MAX_BYTES` (implicit 5 GB); upload-urile abandonate de peste 24 h se curăță.
+
+„Stocat și verificat” apare doar după ce workerul a citit înapoi fișierul din storage și SHA-256 coincide cu cel calculat la primire. Dacă storage-ul ales nu răspunde: reîncercări cu backoff exponențial și jitter (secțiunea `retry` din politică), apoi fallback (eveniment `FALLBACK`), iar dacă toate cad, fișierul trece în `PENDING` și rămâne în zona de primire. Când `storage_health` raportează din nou un storage `UP`, fișierul este reluat automat (`FILEGRID_INGESTION_RECOVERY_INTERVAL`, implicit 30 s); un upload multipart S3 continuă de la ultima parte confirmată (`TRANSFER_RESUMED`).
+
+Workerii se scalează fără modificări de cod: `docker compose up -d --scale worker-video=3`.
+
+## Simulatorul de contoare
+
+Serviciul `simulator` pornește odată cu restul (mod `normal`): 2000 de contoare (`SIM_METERS`) din topologia [simulator/topology.yaml](simulator/topology.yaml) — 3 regiuni, 12 stații, 60 de posturi de transformare, ~10% prosumatori — trimit câte o citire pe minut (`SIM_INTERVAL_SECONDS`), adică ~2000 de citiri/min. Toate au `dataOrigin=SIMULATED`.
+
+| Comandă | Ce face |
+| --- | --- |
+| `make sim-normal` | mod normal |
+| `make sim-peak` | vârf: de 10 ori mai multe citiri pe minut |
+| `make sim-storm` | normal + rafale x10 (30 s la fiecare 2 min) |
+| `make sim-stats` | `GET /api/meters/stats` |
+
+Fără `make` (PowerShell): `$env:SIM_MODE='peak'; docker compose up -d --no-deps --force-recreate simulator`.
+
+Fiecare lot are un `Idempotency-Key` și este retrimis cu aceeași cheie până la confirmare; ~1% din citiri sunt retrimise intenționat ca să se vadă deduplicarea. `readingId = SHA-256(meterId|periodStart)`; în store-db cheia primară și `ON CONFLICT DO NOTHING` fac imposibilă o citire scrisă de două ori, iar `filegrid_meter_duplicates_written_total` trebuie să rămână 0. Anomaliile injectate se configurează în [simulator/anomalies.yaml](simulator/anomalies.yaml); lista exactă (ground truth pentru Agent 02) se scrie în `output/injected_anomalies.json` din volumul `simulator-output`:
+
+```bash
+docker compose cp simulator:/app/output/injected_anomalies.json .
+```
+
+Testele simulatorului (ruff + pytest) rulează în Docker, fără Python local: `docker build --target test simulator`.
 
 ## Teste
 
@@ -101,7 +154,9 @@ cd backend
 ./mvnw verify
 ```
 
-Rulează testele unitare și testele de integrare (Testcontainers: PostgreSQL, S3, FTP reale, pornite automat în Docker). Testele rulează cu heap de 256 MB, iar adaptoarele S3 și FTP fac round-trip cu un fișier de 300 MB: așa se demonstrează că fișierele sunt procesate în flux, nu încărcate în memorie.
+Rulează testele unitare și testele de integrare (Testcontainers: PostgreSQL, RabbitMQ, S3, FTP reale, pornite automat în Docker). Testele rulează cu heap de 256 MB: adaptoarele S3 și FTP fac round-trip cu un fișier de 300 MB, iar `LargeResumableUploadIT` trece un video de 1,5 GB prin tus (întrerupt la 40% și reluat), S3 multipart și read-back. Așa se demonstrează că fișierele sunt procesate în flux, nu încărcate în memorie. Durează câteva minute și are nevoie de ~4 GB liberi pe disc.
+
+> Dacă VS Code (extensia Java) e deschis pe proiect, poate recompila în `backend/target` în timp ce rulează Maven; o eroare de tipul „missing table” sau „0 migrations” în teste vine de acolo — rulează din nou.
 
 ## Comenzi utile
 
@@ -115,6 +170,8 @@ Toate se rulează din rădăcina repository-ului.
 | `bash scripts/mem-report.sh` | `make mem` | memorie folosită per serviciu față de limită |
 | `bash scripts/reload-config.sh` | `make reload-config` | aplică modificările din `infra/` (Prometheus, gateway) |
 | `docker compose down -v` | `make reset` | oprește și **șterge toate datele** (`make reset` cere confirmare) |
+| `docker compose up -d --scale worker-video=3` | — | mai mulți workeri pentru o categorie |
+| `SIM_MODE=peak docker compose up -d --no-deps --force-recreate simulator` | `make sim-peak` | simulatorul în alt mod (`normal`, `peak`, `storm`) |
 
 ## Servicii
 
@@ -129,6 +186,7 @@ Toate se rulează din rădăcina repository-ului.
 | `ftp` | pure-ftpd — storage-ul „FTP”, mod pasiv | `internal` |
 | `rabbitmq` | cozi de mesaje | `internal` |
 | `prometheus`, `alertmanager`, `grafana`, `loki`, `tempo`, `alloy` | metrici, alerte, dashboard-uri, loguri, trace-uri | `internal` |
+| `simulator` | contoare inteligente simulate (Python, httpx), metrici pe portul 9105 | `internal` |
 | `toxiproxy` | simularea unei rețele degradate (configurat în Etapa 18) | `internal` |
 
 Rețeaua `internal` este izolată (`internal: true`): storage-urile nu publică niciun port și nu pot fi accesate din afara Docker. Singura cale de acces la ele este FileGrid.

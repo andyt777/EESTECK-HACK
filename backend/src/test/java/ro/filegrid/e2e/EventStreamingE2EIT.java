@@ -22,6 +22,7 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -41,23 +42,14 @@ import ro.filegrid.text.Texts;
  * - Strict schema validation on emitted JSON payloads
  * - Verbatim Romanian text assertions matching §8.1 and texts_ro.properties
  */
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("api")
 @Testcontainers
 class EventStreamingE2EIT {
 
-    private static final Pattern ROMANIAN_AGENT01_PATTERN = Pattern.compile(
-            "^Am primit un fișier nou\\.$|"
-                    + "^Analizez conținutul…$|"
-                    + "^Am identificat categoria: .+\\.$|"
-                    + "^Am selectat (S3|FTP|Database) pentru acest fișier\\.$|"
-                    + "^Transfer în desfășurare…$|"
-                    + "^Transferul a fost întrerupt\\. Îl voi relua\\.$|"
-                    + "^Fișier stocat și verificat\\.$|"
-                    + "^Neconcordanță de integritate la verificare.*$|"
-                    + "^Storage-ul principal nu a putut fi folosit.*$|"
-                    + "^Nu există momentan o destinație disponibilă\\. Fișierul a rămas în așteptare\\.$|"
-                    + "^Transferul a eșuat.*$");
+    private static final Pattern ROMANIAN_AGENT01_PATTERN =
+            Pattern.compile(SseTestReceiver.ROMANIAN_AGENT01_PATTERN);
 
     private static final Pattern UUID_V4_PATTERN = Pattern.compile(
             "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
@@ -107,23 +99,28 @@ class EventStreamingE2EIT {
     @Test
     @DisplayName("T1-F23: Validates all Agent 01 Romanian message templates against canonical regex and texts_ro.properties")
     void romanianAgent01MessagesContract() {
+        // Rendered from the real bundle, so the contract follows the texts the UI shows.
+        Texts texts = new Texts();
         String[] samples = {
-                "Am primit un fișier nou.",
-                "Analizez conținutul…",
-                "Am identificat categoria: Înregistrare de avarie.",
-                "Am identificat categoria: Video de dronă.",
-                "Am identificat categoria: Citire de contor.",
-                "Am identificat categoria: Document de racordare.",
-                "Am selectat S3 pentru acest fișier.",
-                "Am selectat FTP pentru acest fișier.",
-                "Am selectat Database pentru acest fișier.",
-                "Transfer în desfășurare…",
-                "Transferul a fost întrerupt. Îl voi relua.",
-                "Fișier stocat și verificat.",
-                "Neconcordanță de integritate la verificare. Reîncerc transferul…",
-                "Storage-ul principal nu a putut fi folosit. Direcționez către S3.",
-                "Nu există momentan o destinație disponibilă. Fișierul a rămas în așteptare.",
-                "Transferul a eșuat. Toate încercările au fost epuizate."
+                texts.get("agent.RECEIVED"),
+                texts.get("agent.ANALYZING"),
+                texts.get("agent.CATEGORIZED", texts.get("category.FAULT_RECORD")),
+                texts.get("agent.CATEGORIZED", texts.get("category.DRONE_VIDEO")),
+                texts.get("agent.CATEGORIZED", texts.get("category.METER_READING")),
+                texts.get("agent.CATEGORIZED", texts.get("category.CONNECTION_DOCUMENT")),
+                texts.get("agent.DESTINATION_SELECTED", texts.get("storage.S3")),
+                texts.get("agent.DESTINATION_SELECTED", texts.get("storage.FTP")),
+                texts.get("agent.DESTINATION_SELECTED", texts.get("storage.DATABASE")),
+                texts.get("agent.TRANSFERRING"),
+                texts.get("agent.TRANSFER_RESUMED"),
+                texts.get("agent.STORED_VERIFIED"),
+                texts.get("agent.MISMATCH"),
+                texts.get("agent.MISMATCH_FINAL"),
+                texts.get("agent.FALLBACK", texts.get("storage.FTP"), texts.get("storage.S3")),
+                texts.get("agent.RETRY", texts.get("storage.FTP"), 1, 3, "1.5"),
+                texts.get("agent.PENDING"),
+                texts.get("agent.TRANSFER_FAILED", texts.get("agent.STAGING_MISSING")),
+                texts.get("agent.TRANSFER_FAILED", texts.get("agent.INTEGRITY_FAILED"))
         };
 
         for (String msg : samples) {

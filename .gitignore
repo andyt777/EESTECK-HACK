@@ -48,3 +48,6 @@ Thumbs.db
 
 # Playwright MCP scratch (screenshots, traces)
 .playwright-mcp/
+
+# Claude Code local state (agent worktrees, settings)
+.claude/

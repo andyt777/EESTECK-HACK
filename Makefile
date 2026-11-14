@@ -1,5 +1,5 @@
 # FileGrid PPC — convenience targets (wrappers around docker compose).
-.PHONY: up up-lite down logs ps mem reset
+.PHONY: up up-lite down logs ps mem reload-config reset
 
 up: ## full mode: init-env, gen-certs, build, start, wait until healthy
 	./start.sh
@@ -18,6 +18,9 @@ ps: ## container status and health
 
 mem: ## memory usage per service against its limit
 	bash scripts/mem-report.sh
+
+reload-config: ## apply changes under infra/ (Prometheus reload, gateway restart)
+	bash scripts/reload-config.sh
 
 reset: ## stop and DELETE all data volumes (asks for confirmation)
 	@printf 'This deletes ALL FileGrid data volumes (files, databases, metrics). Type "yes" to continue: '; \

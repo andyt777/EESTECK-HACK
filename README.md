@@ -4,16 +4,29 @@ Punctul unic de intrare pentru fișierele operaționale ale unui operator de dis
 
 Arhitectura este descrisă în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), iar progresul pe etape în [docs/CHANGELOG-ETAPE.md](docs/CHANGELOG-ETAPE.md).
 
-> **Stadiu:** Etapa 1 — infrastructura Docker. Serviciile aplicative (API, workeri, frontend, simulator) vin în etapele următoare.
+> **Stadiu:** Etapa 2 — infrastructura Docker plus backend-ul (API și workeri) cu modelul de date și cele trei adaptoare de storage. Upload-ul, rutarea, frontend-ul și simulatorul vin în etapele următoare.
 
 ## Cerințe preliminare
 
 | Unealtă | Obligatoriu | Note |
 | --- | --- | --- |
-| Docker Desktop (sau Docker Engine + Compose v2) | da | minimum 6 GB RAM alocați (mod lite), 8 GB recomandat (mod full); vezi „Resurse” |
+| Docker Desktop (sau Docker Engine + Compose v2) | da | **Docker Engine 29 sau mai nou**; minimum 6 GB RAM alocați (mod lite), 8 GB recomandat (mod full); vezi „Resurse” |
 | Git | da | pe Windows include și Git Bash |
 | mkcert | nu | dacă există, certificatul local e de încredere în browser (`mkcert -install` o singură dată); altfel se generează unul self-signed |
 | make | nu | doar pentru scurtăturile din `Makefile` |
+| JDK 21 | doar pentru teste | necesar pentru `./mvnw verify`; pornirea sistemului nu are nevoie de el (backend-ul se compilează în Docker) |
+
+Testele de integrare folosesc Testcontainers, fixat la versiunea 1.21.4 — prima care poate vorbi cu Docker Engine 29 (care acceptă doar API 1.44+). De aici cerința de versiune pentru Docker.
+
+### Windows: unde ții proiectul
+
+Recomandat: clonează repository-ul în sistemul de fișiere WSL (de exemplu `~/filegrid`, dintr-un terminal Ubuntu) și deschide-l cu VS Code prin extensia **Remote - WSL**. Docker Desktop rulează containerele în WSL, iar un proiect ținut pe un disc Windows (`C:\`, `D:\`) ajunge în containere printr-un strat de traducere între cele două sisteme de fișiere. Consecințe pe discul Windows:
+
+- notificările de modificare a fișierelor nu ajung în containere, deci serviciile nu observă singure o configurație schimbată (de aceea există `scripts/reload-config.sh`);
+- accesul la fișiere este mult mai lent (build-uri, `node_modules`);
+- terminațiile de linie și drepturile de execuție ale scripturilor se pot strica.
+
+Proiectul funcționează și de pe un disc Windows; în acest caz, evită folderele sincronizate (OneDrive).
 
 ## Pornire cu o singură comandă
 
@@ -41,7 +54,7 @@ Gateway-ul publică HTTPS pe 443 și HTTP pe 8080 (HTTP doar redirecționează c
 | full (implicit) | `./start.sh`, `.\start.ps1`, `make up` | câte un worker per categorie (necesar pentru demo-ul de bulkhead) |
 | lite | `./start.sh --lite`, `.\start.ps1 --lite`, `make up-lite` | un singur `worker-all`, pentru toate categoriile |
 
-Modul implicit este dat de `COMPOSE_PROFILES` din `.env`. Workerii apar din Etapa 2; până atunci cele două moduri pornesc aceleași servicii.
+Scriptul de pornire oprește workerii celuilalt mod, deci poți trece oricând dintr-unul în altul rulându-l din nou. Comenzile `docker compose` date de mână folosesc modul din `COMPOSE_PROFILES` (fișierul de mediu), implicit `full`.
 
 ## Resurse
 
@@ -50,7 +63,7 @@ Modul implicit este dat de `COMPOSE_PROFILES` din `.env`. Workerii apar din Etap
 | lite | minimum 6 GB |
 | full + demo | 8 GB recomandat |
 
-Fiecare serviciu are o limită de memorie în `infra/docker-compose.yml` (`deploy.resources.limits.memory`). Consumul real față de limită, plus verificarea că niciun container nu a fost oprit din lipsă de memorie (OOMKilled):
+Fiecare serviciu are o limită de memorie în `infra/docker-compose.yml` (`deploy.resources.limits.memory`). Pentru backend, limita și dimensiunile JVM sunt explicite și se schimbă din fișierul de mediu: `API_MEMORY_LIMIT` / `API_JAVA_OPTS`, `WORKER_MEMORY_LIMIT` / `WORKER_JAVA_OPTS`, `WORKER_VIDEO_MEMORY_LIMIT` / `WORKER_VIDEO_JAVA_OPTS`. Numărul de transferuri simultane per worker se schimbă cu `WORKER_CONCURRENCY` și `WORKER_VIDEO_CONCURRENCY` (implicit 2 pentru video). Consumul real față de limită, plus verificarea că niciun container nu a fost oprit din lipsă de memorie (OOMKilled):
 
 ```bash
 bash scripts/mem-report.sh      # sau: make mem
@@ -73,8 +86,20 @@ apoi rulează `wsl --shutdown` într-un terminal și repornește Docker Desktop.
 | Ce | Adresă | Autentificare |
 | --- | --- | --- |
 | Grafana | https://localhost/grafana | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` din `.env` |
+| Starea API-ului | https://localhost/api/actuator/health | — (răspunde `{"status":"UP"}`) |
 
-Gateway-ul (Traefik) este singurul serviciu care publică porturi. HTTP este redirecționat către HTTPS, iar TLS minim este 1.2.
+Gateway-ul (Traefik) este singurul serviciu care publică porturi. HTTP este redirecționat către HTTPS, iar TLS minim este 1.2. Din actuator este expusă în exterior doar starea; metricile (`/actuator/prometheus`) rulează pe un port separat, accesibil numai din rețeaua internă.
+
+După o modificare în `infra/traefik/` sau `infra/prometheus/` cu sistemul pornit, rulează `bash scripts/reload-config.sh` (sau `make reload-config`): Prometheus își reîncarcă pe loc configurația și regulile, iar gateway-ul este repornit. Comanda nu depinde de notificările sistemului de fișiere, deci merge la fel pe orice platformă.
+
+## Teste
+
+```bash
+cd backend
+./mvnw verify
+```
+
+Rulează testele unitare și testele de integrare (Testcontainers: PostgreSQL, S3, FTP reale, pornite automat în Docker). Testele rulează cu heap de 256 MB, iar adaptoarele S3 și FTP fac round-trip cu un fișier de 300 MB: așa se demonstrează că fișierele sunt procesate în flux, nu încărcate în memorie.
 
 ## Comenzi utile
 
@@ -86,13 +111,16 @@ Toate se rulează din rădăcina repository-ului.
 | `docker compose logs -f gateway` | `make logs s=gateway` | loguri |
 | `docker compose down` | `make down` | oprește serviciile, păstrează datele |
 | `bash scripts/mem-report.sh` | `make mem` | memorie folosită per serviciu față de limită |
+| `bash scripts/reload-config.sh` | `make reload-config` | aplică modificările din `infra/` (Prometheus, gateway) |
 | `docker compose down -v` | `make reset` | oprește și **șterge toate datele** (`make reset` cere confirmare) |
 
-## Servicii (Etapa 1)
+## Servicii
 
 | Serviciu | Rol | Rețea |
 | --- | --- | --- |
 | `gateway` | Traefik v3 — TLS, rutare, headere de securitate | `edge` + `internal`, porturi publicate |
+| `api` | Spring Boot (profil `api`) — API-ul FileGrid, verificarea periodică a storage-urilor | `edge` + `internal` |
+| `worker-meter`, `worker-fault`, `worker-document`, `worker-video` | aceeași imagine, profil `worker`, câte unul per categorie (mod full); `worker-all` în mod lite | `internal` |
 | `meta-db` | PostgreSQL 16 + pgvector — metadate | `internal` |
 | `store-db` | PostgreSQL 16 separat — storage-ul „Database” | `internal` |
 | `s3` (+ `minio-init`) | Silo (fork comunitar MinIO, vezi [ADR-0001](docs/ADR/0001-s3-storage-silo-fork.md)) — storage-ul „S3”; bucket-uri versionate și user de serviciu dedicat | `internal` |

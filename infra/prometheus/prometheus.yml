@@ -40,4 +40,18 @@ scrape_configs:
   - job_name: alloy
     static_configs:
       - targets: ["alloy:12345"]
-  # Application targets (api, workers, simulator, intelligence) are added from Stage 2.
+
+  # Backend (api + workers). Docker DNS returns one address per replica, so
+  # scaled workers are discovered without editing this file; services that are
+  # not running (other compose profile) simply resolve to nothing.
+  - job_name: backend
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: [api, worker-meter, worker-fault, worker-document, worker-video, worker-all]
+        type: A
+        port: 8081
+        refresh_interval: 15s
+    relabel_configs:
+      - source_labels: [__meta_dns_name]
+        target_label: service
+  # Simulator and intelligence targets are added in Stages 5 and 15.

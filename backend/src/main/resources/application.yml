@@ -1,0 +1,102 @@
+# FileGrid backend. One application, two roles selected by profile:
+#   api    - HTTP API (default)
+#   worker - consumes the queues of the categories listed in WORKER_CATEGORIES
+# Every credential comes from the environment; nothing secret lives in this file.
+spring:
+  application:
+    name: filegrid
+  profiles:
+    default: api
+
+  # meta-db: metadata, routing decisions, audit
+  datasource:
+    url: ${META_DB_URL:jdbc:postgresql://localhost:5432/filegrid_meta}
+    username: ${META_DB_USER:filegrid_meta}
+    password: ${META_DB_PASSWORD:}
+    hikari:
+      pool-name: meta-db
+      maximum-pool-size: ${META_DB_POOL_SIZE:10}
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    locations: classpath:db/migration/meta
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: 8080
+  shutdown: graceful
+  servlet:
+    context-path: /api
+
+# Actuator lives on its own port, which the gateway never routes to (except
+# the single health path). Metrics are therefore reachable only from inside
+# the internal network (Prometheus).
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: filegrid
+
+# OpenAPI / Swagger UI are enabled only by the `dev` profile.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+filegrid:
+  # store-db: the "Database" storage, a separate PostgreSQL instance
+  store-db:
+    url: ${STORE_DB_URL:jdbc:postgresql://localhost:5433/filegrid_store}
+    username: ${STORE_DB_USER:filegrid_store}
+    password: ${STORE_DB_PASSWORD:}
+    pool-size: ${STORE_DB_POOL_SIZE:5}
+
+  storage:
+    health-interval: 10s
+    s3:
+      endpoint: ${S3_ENDPOINT:http://localhost:9000}
+      region: ${S3_REGION:us-east-1}
+      access-key: ${S3_ACCESS_KEY:}
+      secret-key: ${S3_SECRET_KEY:}
+      bucket-prefix: ${S3_BUCKET_PREFIX:filegrid-}
+      health-bucket: ${S3_HEALTH_BUCKET:filegrid-benchmark}
+      part-size-bytes: 16777216        # 16 MB: multipart part size and the largest buffer
+    ftp:
+      host: ${FTP_HOST:localhost}
+      port: ${FTP_PORT:21}
+      username: ${FTP_USER:filegrid}
+      password: ${FTP_PASSWORD:}
+      pool-size: ${FTP_POOL_SIZE:8}
+      connect-timeout: 10s
+      data-timeout: 60s
+      max-resume-attempts: 3
+    database:
+      max-object-bytes: ${DATABASE_STORAGE_MAX_BYTES:67108864}   # 64 MB
+      read-chunk-bytes: 4194304                                  # 4 MB
+
+  worker:
+    categories: ${WORKER_CATEGORIES:}
+    # Transfers handled at the same time by one worker instance (per category queue).
+    concurrency: ${WORKER_CONCURRENCY:4}

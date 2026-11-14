@@ -1,12 +1,42 @@
-# Routes. `/api` and `/` (frontend) are added in Stages 2 and 10.
+# Routes. `/` (frontend) is added in Stage 10.
 http:
   routers:
     grafana:
       rule: "PathPrefix(`/grafana`)"
       entryPoints: [websecure]
       service: grafana
+
+    # The application API (the backend serves everything under /api).
+    api:
+      rule: "PathPrefix(`/api`)"
+      entryPoints: [websecure]
+      service: api
+
+    # The ONLY actuator path reachable from outside. Actuator runs on a
+    # separate management port (8081) that no other route points to, so
+    # /actuator/prometheus and the rest stay internal.
+    api-health:
+      rule: "Path(`/api/actuator/health`)"
+      entryPoints: [websecure]
+      service: api-management
+      middlewares: [api-health-path]
+      priority: 1000
+
+  middlewares:
+    api-health-path:
+      replacePath:
+        path: /actuator/health
+
   services:
     grafana:
       loadBalancer:
         servers:
           - url: "http://grafana:3000"
+    api:
+      loadBalancer:
+        servers:
+          - url: "http://api:8080"
+    api-management:
+      loadBalancer:
+        servers:
+          - url: "http://api:8081"

@@ -221,6 +221,8 @@ Etapa 3 — Agent 01: politici configurabile, clasificare, rutare explicabilă (
 7. Teste unit: fiecare categorie, storage căzut → fallback, fișier prea mare → exclus, politică invalidă → refuzată și versiunea veche rămâne activă, reload fără restart.
 ```
 
+**Decizie de arhitect (după Etapa 2):** `PolicyService` detectează modificarea fișierului prin `WatchService` **și** printr-o verificare periodică (checksum SHA-256 al `policies.yaml` la 10s, interval configurabil), ca reîncărcarea să funcționeze și pe bind mount-uri Windows, unde notificările de fișier nu ajung în container.
+
 **Criterii de acceptare** (verifică-le tu, apoi raportează rezultatul): modifici `maxSizeBytes` în YAML cu aplicația pornită → `GET /api/policies` reflectă schimbarea fără restart. Testele trec.
 
 ## Etapa 4 — Pipeline-ul de încărcare (reluabil, cozi, stări live)
@@ -240,7 +242,7 @@ Etapa 4 — pipeline de upload reluabil, cozi per categorie, stări live. Prezin
 6. Teste de integrare: upload 1.5GB prin tus întrerupt la 40% și reluat; heap-ul api/worker sub 512MB; S3 oprit în timpul transferului → fallback sau PENDING → S3 repornit → finalizare automată; mesaj duplicat → fără dublură.
 ```
 
-**Criterii de acceptare** (verifică-le tu, apoi raportează rezultatul): încarci un fișier cu un client tus sau cu `curl`. În `curl -N -k https://localhost/api/events/stream` vezi secvența de stări. `docker compose stop s3` în timpul unui upload video → fișierul trece în fallback sau PENDING → `docker compose start s3` → ajunge la STORED\_VERIFIED.
+**Criterii de acceptare** (verifică-le tu, apoi raportează rezultatul): încarci un fișier cu un client tus sau cu `curl`. În `curl -N -k https://localhost/api/events/stream` vezi secvența de stări. `docker compose stop s3` în timpul unui upload video → fișierul trece în fallback sau PENDING → `docker compose start s3` → ajunge la STORED\_VERIFIED. În timpul upload-ului de 1.5GB, worker-video rămâne sub 85% din limită (`scripts/mem-report.sh` rulat în timpul transferului) și niciun container nu e OOMKilled.
 
 ## Etapa 5 — Simulatorul de contoare + ingestie idempotentă
 

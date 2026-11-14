@@ -155,6 +155,15 @@ Write-Host '==> 2/4 TLS certificate'
 New-Certificate
 
 Write-Host "==> 3/4 Starting services ($mode mode)"
+# Switching mode: remove the workers of the other mode, otherwise both sets run.
+if ($mode -eq 'lite') {
+    $otherWorkers = @('worker-meter', 'worker-fault', 'worker-document', 'worker-video')
+} else {
+    $otherWorkers = @('worker-all')
+}
+$env:COMPOSE_PROFILES = 'full,lite'
+& docker compose rm --stop --force @otherWorkers *> $null
+$env:COMPOSE_PROFILES = $mode
 & docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { Fail 'docker compose up failed.' }
 

@@ -27,6 +27,15 @@ echo "==> 2/4 TLS certificate"
 bash scripts/gen-certs.sh
 
 echo "==> 3/4 Starting services ($mode mode)"
+# Switching mode: remove the workers of the other mode, otherwise both sets run.
+if [ "$mode" = "lite" ]; then
+  other_workers="worker-meter worker-fault worker-document worker-video"
+else
+  other_workers="worker-all"
+fi
+COMPOSE_PROFILES=full,lite docker compose rm --stop --force $other_workers >/dev/null 2>&1 || true
+# Exported so that every later compose call (wait, port lookup) sees the same services.
+export COMPOSE_PROFILES="$mode"
 docker compose up -d --build
 
 echo "==> 4/4 Waiting for services to become healthy"

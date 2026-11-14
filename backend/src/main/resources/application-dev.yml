@@ -1,0 +1,6 @@
+# Development profile: OpenAPI document and Swagger UI.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

@@ -113,6 +113,10 @@ x-worker: &worker
 x-worker-env: &worker-env
   <<: *backend-env
   SPRING_PROFILES_ACTIVE: worker
+  # Stage 18 (opt-in): route worker -> storage traffic through toxiproxy
+  # (infra/toxiproxy/README.md). Defaults are the direct addresses above.
+  S3_ENDPOINT: ${WORKER_S3_ENDPOINT:-http://s3:9000}
+  STORE_DB_URL: ${WORKER_STORE_DB_URL:-jdbc:postgresql://store-db:5432/filegrid_store}
   META_DB_POOL_SIZE: "5"
   STORE_DB_POOL_SIZE: "5"
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
@@ -700,7 +704,8 @@ services:
         condition: service_healthy
 
   # ------------------------------------------------------------ toxiproxy
-  # Only started here; proxies are defined in Stage 18.
+  # Degraded network (Stage 18): proxies from infra/toxiproxy/toxiproxy.json,
+  # toxics added by scripts/chaos/*.sh through the API on toxiproxy:8474.
   toxiproxy:
     <<: *defaults
     image: ghcr.io/shopify/toxiproxy:2.12.0
@@ -708,7 +713,9 @@ services:
       resources:
         limits:
           memory: 48M
-    command: ["-host=0.0.0.0"]
+    command: ["-host=0.0.0.0", "-config=/etc/toxiproxy/toxiproxy.json"]
+    volumes:
+      - ./toxiproxy:/etc/toxiproxy:ro
     networks: [internal]
     healthcheck:
       test: ["CMD", "/toxiproxy-cli", "list"]

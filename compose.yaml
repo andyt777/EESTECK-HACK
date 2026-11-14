@@ -1,0 +1,8 @@
+# Root entry point so that plain `docker compose <command>` works from the
+# repository root and picks up the root .env automatically.
+# The actual stack is defined in infra/docker-compose.yml.
+name: filegrid
+
+include:
+  - path: infra/docker-compose.yml
+    env_file: .env

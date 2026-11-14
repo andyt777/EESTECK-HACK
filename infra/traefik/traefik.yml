@@ -1,0 +1,43 @@
+# Traefik static configuration.
+# File provider only: no Docker socket is mounted into the public-facing gateway.
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    http:
+      tls: {}
+      middlewares:
+        - security-headers@file
+  # Internal only (not published): health and metrics.
+  ping:
+    address: ":8082"
+  metrics:
+    address: ":8083"
+
+ping:
+  entryPoint: ping
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addRoutersLabels: true
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+log:
+  level: INFO
+accessLog: {}
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false

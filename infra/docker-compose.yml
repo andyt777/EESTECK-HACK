@@ -1,0 +1,448 @@
+# FileGrid PPC — infrastructure (Stage 1).
+# Included by the root compose.yaml, so run `docker compose <command>` from the
+# repository root (the root .env is picked up automatically).
+#
+# Rules (docs/ARCHITECTURE.md §A.3):
+#   - gateway is the ONLY service that publishes ports;
+#   - storages (store-db, s3, ftp) live only on the `internal` network;
+#   - every secret comes from .env (generated locally by scripts/init-env.sh).
+#
+# Memory: every service has deploy.resources.limits.memory (architect budget
+# for a machine with ~6 GB given to Docker). Check with scripts/mem-report.sh.
+#
+# Profiles (COMPOSE_PROFILES in .env, default `full`):
+#   full - worker-meter, worker-fault, worker-document, worker-video (bulkhead demo)
+#   lite - one worker-all consuming every category (low-memory machines)
+# Worker services arrive in Stage 2; infrastructure has no profile and always starts.
+name: filegrid
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# S3 storage: Silo, the Pigsty community fork of MinIO (see docs/ADR/0001).
+# Pinned by release tag AND digest; the same image also ships the `mc` client.
+x-silo-image: &silo-image pgsty/silo:RELEASE.2026-11-12T00-00-00Z@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329
+
+# Postgres tuning for a small development machine (overridable from the env file).
+x-postgres-command: &postgres-command
+  - postgres
+  - -c
+  - shared_buffers=${PG_SHARED_BUFFERS:-64MB}
+  - -c
+  - max_connections=${PG_MAX_CONNECTIONS:-50}
+  - -c
+  - work_mem=${PG_WORK_MEM:-4MB}
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging: *default-logging
+
+networks:
+  edge:
+    name: filegrid_edge
+  internal:
+    name: filegrid_internal
+    internal: true
+
+volumes:
+  meta-db-data:
+  store-db-data:
+  s3-data:
+  ftp-data:
+  ftp-passwd:
+  rabbitmq-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
+  alloy-data:
+  health-bin:
+
+services:
+  # ---------------------------------------------------------------- gateway
+  gateway:
+    <<: *defaults
+    image: traefik:v3.6
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    ports:
+      - "${GATEWAY_HTTP_PORT:-8080}:80"
+      - "${GATEWAY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./certs:/certs:ro
+    networks: [edge, internal]
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      grafana:
+        condition: service_healthy
+
+  # ------------------------------------------------------------ metadata DB
+  meta-db:
+    <<: *defaults
+    image: pgvector/pgvector:pg16
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M
+    command: *postgres-command
+    environment:
+      POSTGRES_DB: filegrid_meta
+      POSTGRES_USER: ${META_DB_USER:?run scripts/init-env.sh first}
+      POSTGRES_PASSWORD: ${META_DB_PASSWORD:?run scripts/init-env.sh first}
+    volumes:
+      - meta-db-data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ------------------------------------------- storage "Database" (separate)
+  store-db:
+    <<: *defaults
+    image: postgres:16-alpine
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 96M
+    command: *postgres-command
+    environment:
+      POSTGRES_DB: filegrid_store
+      POSTGRES_USER: ${STORE_DB_USER:?run scripts/init-env.sh first}
+      POSTGRES_PASSWORD: ${STORE_DB_PASSWORD:?run scripts/init-env.sh first}
+    volumes:
+      - store-db-data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ------------------------- storage "S3" (MinIO-compatible: Silo, ADR-0001)
+  s3:
+    <<: *defaults
+    image: *silo-image
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?run scripts/init-env.sh first}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?run scripts/init-env.sh first}
+      # Metrics are reachable only on the internal network.
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    volumes:
+      - s3-data:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot: buckets (versioned) + dedicated FileGrid service user (not root).
+  minio-init:
+    image: *silo-image
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    restart: "no"
+    logging: *default-logging
+    entrypoint: ["/bin/sh", "/init/init.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?run scripts/init-env.sh first}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?run scripts/init-env.sh first}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?run scripts/init-env.sh first}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?run scripts/init-env.sh first}
+    volumes:
+      - ./minio:/init:ro
+    networks: [internal]
+    depends_on:
+      s3:
+        condition: service_healthy
+
+  # ------------------------------------------------------- storage "FTP"
+  ftp:
+    <<: *defaults
+    image: stilliard/pure-ftpd:latest
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    environment:
+      # Passive mode: the server advertises its docker-network hostname, so
+      # clients inside `internal` connect back to ftp:30000-30099.
+      PUBLICHOST: ftp
+      FTP_PASSIVE_PORTS: "30000:30099"
+      FTP_MAX_CLIENTS: "50"
+      FTP_MAX_CONNECTIONS: "50"
+      FTP_USER_NAME: ${FTP_USER:?run scripts/init-env.sh first}
+      FTP_USER_PASS: ${FTP_PASSWORD:?run scripts/init-env.sh first}
+      FTP_USER_HOME: /home/ftpusers/filegrid
+    volumes:
+      - ftp-data:/home/ftpusers
+      - ftp-passwd:/etc/pure-ftpd/passwd
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/21 && head -c 3 <&3 | grep -q 220'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ------------------------------------------------------------- RabbitMQ
+  rabbitmq:
+    <<: *defaults
+    image: rabbitmq:4.1-management-alpine
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?run scripts/init-env.sh first}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run scripts/init-env.sh first}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./rabbitmq/20-filegrid.conf:/etc/rabbitmq/conf.d/20-filegrid.conf:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  # -------------------------------------------------------- observability
+  # Loki and Tempo ship minimal images without a shell or HTTP client, so a
+  # healthcheck cannot run inside them. This one-shot copies a static busybox
+  # binary into a volume that they mount read-only (used only as `busybox wget`).
+  health-tools:
+    image: busybox:1.37-musl
+    deploy:
+      resources:
+        limits:
+          memory: 16M
+    restart: "no"
+    logging: *default-logging
+    network_mode: none
+    command: ["cp", "/bin/busybox", "/health/busybox"]
+    volumes:
+      - health-bin:/health
+
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v3.5.0
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+        reservations:
+          memory: 128M
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+
+  alertmanager:
+    <<: *defaults
+    image: prom/alertmanager:v0.28.1
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  loki:
+    <<: *defaults
+    image: grafana/loki:3.5.5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 96M
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+      - health-bin:/health:ro
+    networks: [internal]
+    depends_on:
+      health-tools:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/health/busybox", "wget", "-q", "--spider", "http://127.0.0.1:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  tempo:
+    <<: *defaults
+    image: grafana/tempo:2.8.2
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 96M
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/var/tempo
+      - health-bin:/health:ro
+    networks: [internal]
+    depends_on:
+      health-tools:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/health/busybox", "wget", "-q", "--spider", "http://127.0.0.1:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  alloy:
+    <<: *defaults
+    image: grafana/alloy:v1.11.0
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # Read-only access to discover containers and tail their logs.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/12345 && printf \"GET /-/ready HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q \"200 OK\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  grafana:
+    <<: *defaults
+    image: grafana/grafana:12.2.0
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 96M
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?run scripts/init-env.sh first}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run scripts/init-env.sh first}
+      GF_SERVER_ROOT_URL: https://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+
+  # ------------------------------------------------------------ toxiproxy
+  # Only started here; proxies are defined in Stage 18.
+  toxiproxy:
+    <<: *defaults
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+    command: ["-host=0.0.0.0"]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "/toxiproxy-cli", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s

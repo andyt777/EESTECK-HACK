@@ -1,0 +1,11 @@
+# Stage 1: alerts are only collected and visible in the Alertmanager UI/API.
+# Stage 8 adds the internal webhook (POST /api/internal/alerts) as receiver.
+route:
+  receiver: default
+  group_by: [alertname, category]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: default

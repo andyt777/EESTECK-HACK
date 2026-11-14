@@ -1,0 +1,47 @@
+# --- Secrets / environment ---
+.env
+.env.*
+!.env.example
+
+# --- Local data & certificates ---
+infra/certs/
+data/
+
+# --- Java / Maven ---
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.log
+hs_err_pid*
+.mvn/timing.properties
+
+# --- Node / Angular ---
+node_modules/
+dist/
+.angular/
+coverage/
+npm-debug.log*
+yarn-error.log*
+playwright-report/
+test-results/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+simulator/output/
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

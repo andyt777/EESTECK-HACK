@@ -1,0 +1,12 @@
+# Routes. `/api` and `/` (frontend) are added in Stages 2 and 10.
+http:
+  routers:
+    grafana:
+      rule: "PathPrefix(`/grafana`)"
+      entryPoints: [websecure]
+      service: grafana
+  services:
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"

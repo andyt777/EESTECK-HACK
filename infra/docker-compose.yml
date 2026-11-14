@@ -97,6 +97,8 @@ x-worker: &worker
     resources:
       limits:
         memory: ${WORKER_MEMORY_LIMIT:-448M}
+  volumes:
+    - staging-data:/data/staging
   depends_on:
     <<: *backend-depends-on
     api:
@@ -144,6 +146,7 @@ volumes:
   tempo-data:
   alloy-data:
   health-bin:
+  staging-data:
 
 services:
   # ---------------------------------------------------------------- gateway
@@ -186,6 +189,7 @@ services:
     # on save, and a single-file bind mount would keep pointing at the old one.
     volumes:
       - ../config:/config:ro
+      - staging-data:/data/staging
     environment:
       <<: *backend-env
       SPRING_PROFILES_ACTIVE: api
@@ -199,6 +203,8 @@ services:
   worker-meter:
     <<: *worker
     profiles: [full]
+    volumes:
+      - staging-data:/data/staging
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: METER_READING
@@ -206,6 +212,8 @@ services:
   worker-fault:
     <<: *worker
     profiles: [full]
+    volumes:
+      - staging-data:/data/staging
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: FAULT_RECORD
@@ -213,6 +221,8 @@ services:
   worker-document:
     <<: *worker
     profiles: [full]
+    volumes:
+      - staging-data:/data/staging
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: CONNECTION_DOCUMENT
@@ -220,6 +230,8 @@ services:
   worker-video:
     <<: *worker-large
     profiles: [full]
+    volumes:
+      - staging-data:/data/staging
     environment:
       <<: *worker-large-env
       WORKER_CATEGORIES: DRONE_VIDEO
@@ -229,6 +241,8 @@ services:
   worker-all:
     <<: *worker-large
     profiles: [lite]
+    volumes:
+      - staging-data:/data/staging
     environment:
       <<: *worker-large-env
       WORKER_CATEGORIES: METER_READING,FAULT_RECORD,CONNECTION_DOCUMENT,DRONE_VIDEO

@@ -35,6 +35,13 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5GB
+      max-request-size: 5GB
+      file-size-threshold: 2MB
+
 server:
   port: 8080
   shutdown: graceful
@@ -109,3 +116,12 @@ filegrid:
     categories: ${WORKER_CATEGORIES:}
     # Transfers handled at the same time by one worker instance (per category queue).
     concurrency: ${WORKER_CONCURRENCY:4}
+
+  staging:
+    directory: ${FILEGRID_STAGING_DIR:/data/staging}
+    max-size-bytes: 5368709120
+    cleanup-older-than: 24h
+    cleanup-interval: 1h
+
+  upload:
+    max-size-bytes: 5368709120

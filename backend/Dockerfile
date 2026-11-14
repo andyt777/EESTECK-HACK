@@ -15,7 +15,10 @@ RUN --mount=type=cache,target=/root/.m2 sh ./mvnw -B -q -DskipTests package
 # ---- runtime ----
 FROM eclipse-temurin:21-jre
 RUN groupadd --system --gid 10001 filegrid \
- && useradd --system --uid 10001 --gid filegrid --home-dir /app --shell /usr/sbin/nologin filegrid
+ && useradd --system --uid 10001 --gid filegrid --home-dir /app --shell /usr/sbin/nologin filegrid \
+ && mkdir -p /data/staging \
+ && chown -R 10001:10001 /data/staging \
+ && chmod 770 /data/staging
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /workspace/target/filegrid-backend.jar /app/filegrid-backend.jar
 

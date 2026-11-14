@@ -18,6 +18,8 @@ public final class TestImages {
 
     public static final DockerImageName FTP = DockerImageName.parse("stilliard/pure-ftpd:latest");
 
+    public static final DockerImageName RABBITMQ = DockerImageName.parse("rabbitmq:4.1-management-alpine");
+
     private TestImages() {
     }
 }

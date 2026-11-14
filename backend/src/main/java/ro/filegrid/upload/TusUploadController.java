@@ -60,6 +60,13 @@ public class TusUploadController {
             }
     )
     public void processTus(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // tus 1.0.0: a PATCH without Content-Type application/offset+octet-stream SHOULD get 415
+        // (tus-java-server answers 406 Not Acceptable, which is meant for the Accept header).
+        if ("PATCH".equalsIgnoreCase(request.getMethod()) && !isTusPatchContentType(request.getContentType())) {
+            response.setHeader("Tus-Resumable", TUS_VERSION);
+            response.setStatus(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
+            return;
+        }
         tusFileUploadService.process(request, response);
 
         // Only the request that wrote the last bytes completes an upload: a PATCH, or a
@@ -82,6 +89,18 @@ public class TusUploadController {
         } catch (TusException ex) {
             log.debug("No upload info available at uri '{}': {}", uri, ex.getMessage());
         }
+    }
+
+    private static final String TUS_VERSION = "1.0.0";
+    private static final String TUS_PATCH_CONTENT_TYPE = "application/offset+octet-stream";
+
+    static boolean isTusPatchContentType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        int semicolon = contentType.indexOf(';');
+        String mediaType = (semicolon < 0 ? contentType : contentType.substring(0, semicolon)).trim();
+        return TUS_PATCH_CONTENT_TYPE.equalsIgnoreCase(mediaType);
     }
 
     /**

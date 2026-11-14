@@ -14,7 +14,7 @@ Contractul: `docs/AUTH-DESIGN.md` (§3 matricea endpoint → permisiune, §4 „
 - Variabile noi în `.env.example`: `KC_TOKEN_URL`, `KC_SIMULATOR_CLIENT_ID`, `KC_SIMULATOR_SECRET`, `KC_INTELLIGENCE_CLIENT_ID`, `KC_INTELLIGENCE_SECRET`.
 
 ### Cum se verifică
-- `cd intelligence && uv run pytest -q && uv run ruff check src tests` (59 de teste, dintre care 21 noi în `tests/test_auth.py`: allow/deny, cache, expirare, 503, 401, toate rutele protejate, tokenul transmis instrumentelor și absent din răspuns/loguri, refresh token de serviciu, retry pe 401).
+- `cd intelligence && uv run pytest -q && uv run ruff check src tests` (67 de teste, dintre care 21 noi în `tests/test_auth.py`: allow/deny, cache, expirare, 503, 401, toate rutele protejate, tokenul transmis instrumentelor și absent din răspuns/loguri, refresh token de serviciu, retry pe 401).
 - `cd simulator && uv run pytest -q && uv run ruff check src tests` (23 de teste, 7 noi în `tests/test_auth.py`).
 
 ### Limitări cunoscute

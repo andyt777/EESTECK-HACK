@@ -289,3 +289,21 @@ Consum măsurat în repaus (niciun container OOMKilled):
 - Fără teste unitare/Playwright automate pentru frontend încă (verificat manual cu Playwright MCP).
 - `npm ci` în Docker refuză lock-file-ul generat pe Windows (dependențe wasm opționale) → Dockerfile folosește `npm install`.
 - Fonturile/iconițele vin de la Google Fonts (fără internet, iconițele apar ca text).
+
+## Fix — Agent 02 rezistent la citiri corupte (2026-11-14)
+
+### Ce s-a făcut
+- `intelligence/agent02.py`: o singură citire de contor cu conținut invalid (de exemplu după
+  `scripts/corrupt-file.sh`, care inversează primul octet: `{` → `0x84`) bloca toată analiza
+  (`invalid byte sequence for encoding "UTF8"`), deci `/grid` rămânea gol. Acum, la o eroare de date, rândul
+  corupt este găsit prin bisecție pe pagină, exclus, logat (`reading … skipped`) și pagina se reîncarcă.
+  `last_run.readingsSkippedCorrupt` arată câte citiri au fost excluse. Limită de siguranță: maxim 50 excluderi
+  per pagină, altfel eroarea se propagă (o eroare sistemică nu trebuie să golească fereastra).
+- Teste: `intelligence/tests/test_agent02_loading.py` (8 teste, store-db simulat).
+
+### Cum se verifică
+- `cd intelligence && uv run pytest -q` → 46 teste trec; `uv run ruff check src tests` curat.
+- Pe date reale (fereastră 48 h care conține citirea coruptă): 299.951 citiri încărcate, 1 exclusă și logată.
+
+### Limitări cunoscute
+- Citirea exclusă nu apare ca constatare în `/grid`; integritatea ei e semnalată separat (incident INTEGRITY_MISMATCH).

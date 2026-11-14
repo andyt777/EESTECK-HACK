@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import psycopg
 from psycopg.types.json import Jsonb
 
 from . import texts
@@ -43,10 +44,23 @@ CROSS JOIN LATERAL (
 ) a
 WHERE (r.created_at, r.reading_id) > (%(after_ts)s, %(after_id)s)
   AND r.period_start >= %(min_period)s
+  AND NOT (r.reading_id = ANY(%(excluded)s::varchar[]))
 ORDER BY r.created_at, r.reading_id
 LIMIT %(limit)s
 """
+# Same ordering and filters as FEATURES_SQL, without decoding the content: locates a corrupt row cheaply.
+READING_ID_AT_SQL = """
+SELECT r.reading_id
+FROM meter_reading_blob r
+WHERE (r.created_at, r.reading_id) > (%(after_ts)s, %(after_id)s)
+  AND r.period_start >= %(min_period)s
+  AND NOT (r.reading_id = ANY(%(excluded)s::varchar[]))
+ORDER BY r.created_at, r.reading_id
+OFFSET %(offset)s
+LIMIT 1
+"""
 PAGE = 20000
+MAX_SKIPPED_PER_PAGE = 50
 CATEGORICAL = ("meter_id", "region", "zone", "station", "transformer")
 FINDING_COLUMNS = (
     "id, fingerprint, type, title, meter_id, post, station, zone, region, window_start, window_end, first_seq, "
@@ -154,8 +168,45 @@ class GridIntelligence:
         self.detections: list[Detection] = []
         self.last_run: dict | None = None
         self.lock = threading.Lock()
+        # Readings whose stored bytes are not valid UTF-8 JSON (e.g. altered directly in storage): skipped.
+        self.excluded: set[str] = set()
 
     # ------------------------------------------------------------------ loading
+    def _features(self, params: dict, limit: int) -> list[dict]:
+        with self.db.store.connection(timeout=10) as conn:
+            return conn.execute(FEATURES_SQL, {**params, "excluded": sorted(self.excluded),
+                                               "limit": limit}).fetchall()
+
+    def _fetch_page(self, params: dict) -> list[dict]:
+        """One page of features. A single undecodable reading makes the whole query fail, so on a data
+        error the first corrupt row is located by bisection, excluded, and the page is fetched again."""
+        skipped = 0
+        while True:
+            try:
+                return self._features(params, PAGE)
+            except psycopg.errors.DataError as exc:
+                # Guard: an error that is not caused by individual rows must not exclude the whole window.
+                bad_id = self._find_corrupt(params) if skipped < MAX_SKIPPED_PER_PAGE else None
+                if bad_id is None:
+                    raise
+                skipped += 1
+                self.excluded.add(bad_id)
+                log.warning("reading %s skipped: stored content is not valid UTF-8 JSON (%s)", bad_id, exc)
+
+    def _find_corrupt(self, params: dict) -> str | None:
+        lo, hi = 1, PAGE  # invariant: the first `hi` rows fail; find the smallest failing prefix
+        while lo < hi:
+            mid = (lo + hi) // 2
+            try:
+                self._features(params, mid)
+                lo = mid + 1
+            except psycopg.errors.DataError:
+                hi = mid
+        with self.db.store.connection(timeout=10) as conn:
+            row = conn.execute(READING_ID_AT_SQL, {**params, "excluded": sorted(self.excluded),
+                                                   "offset": lo - 1}).fetchone()
+        return row["reading_id"] if row else None
+
     def _load_new(self) -> int:
         min_period = datetime(1970, 1, 1, tzinfo=UTC)
         if not self.df.empty:
@@ -168,9 +219,8 @@ class GridIntelligence:
             min_period = newest - timedelta(hours=self.settings.window_hours)
         frames, loaded = [], 0
         while True:
-            with self.db.store.connection(timeout=10) as conn:
-                rows = conn.execute(FEATURES_SQL, {"after_ts": self.cursor[0], "after_id": self.cursor[1],
-                                                   "min_period": min_period, "limit": PAGE}).fetchall()
+            rows = self._fetch_page({"after_ts": self.cursor[0], "after_id": self.cursor[1],
+                                     "min_period": min_period})
             if not rows:
                 break
             self.cursor = (rows[-1]["created_at"], rows[-1]["reading_id"])
@@ -219,6 +269,7 @@ class GridIntelligence:
                 "durationMs": int((time.monotonic() - started) * 1000),
                 "readingsLoaded": loaded,
                 "readingsAnalysed": len(df),
+                "readingsSkippedCorrupt": len(self.excluded),
                 "metersAnalysed": int(df["meter_id"].nunique()) if not df.empty else 0,
                 "window": {"from": _iso(df["period_start"].min().to_pydatetime()) if not df.empty else None,
                            "to": _iso(df["period_end"].max().to_pydatetime()) if not df.empty else None,

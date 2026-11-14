@@ -2,7 +2,67 @@
 
 Punctul unic de intrare pentru fișierele operaționale ale unui operator de distribuție a energiei electrice: citiri de contoare, înregistrări de avarie, documente de racordare și video-uri de inspecție cu drona. FileGrid decide, pe baza unei politici per categorie, în ce storage (FTP, S3 sau Database) ajunge fiecare fișier, îi verifică integritatea și măsoară tot ce se întâmplă.
 
-Arhitectura este descrisă în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), iar progresul pe etape în [docs/CHANGELOG-ETAPE.md](docs/CHANGELOG-ETAPE.md).
+Arhitectura este descrisă în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), deciziile importante în [docs/ADR/](docs/ADR/), maparea cerințelor pe implementare în [docs/COMPLIANCE.md](docs/COMPLIANCE.md), iar progresul pe etape în [docs/CHANGELOG-ETAPE.md](docs/CHANGELOG-ETAPE.md).
+
+## Arhitectura pe scurt
+
+```mermaid
+flowchart LR
+    user["Browser<br/>(teren, dispecerat, racordări)"]
+
+    subgraph edge["rețeaua edge"]
+        gw["gateway<br/>Traefik v3, TLS ≥ 1.2"]
+    end
+
+    subgraph internal["rețeaua internal (fără porturi publicate)"]
+        sim["simulator<br/>contoare inteligente"]
+        fe["frontend<br/>Angular + nginx"]
+        api["api<br/>Spring Boot: tus, Agent 01, Passport, incidente, SSE"]
+        mq[("RabbitMQ<br/>filegrid.jobs.* + DLQ")]
+        subgraph workers["workeri per categorie (bulkhead)"]
+            wm["worker-meter"]
+            wf["worker-fault"]
+            wd["worker-document"]
+            wv["worker-video"]
+        end
+        meta[("meta-db<br/>PostgreSQL + pgvector")]
+        staging[/"volum /data/staging"/]
+        subgraph storages["storage-uri"]
+            sdb[("store-db<br/>Database")]
+            s3[("s3<br/>Silo / MinIO")]
+            ftp[("ftp<br/>pure-ftpd")]
+        end
+        intel["intelligence<br/>Agent 02 + AI Assistant"]
+        obs["Prometheus, Alertmanager,<br/>Grafana, Loki, Tempo, Alloy"]
+        kc["keycloak<br/>OIDC (Etapa 11, în lucru)"]
+    end
+
+    llm["LLM API<br/>(opțional, rețeaua egress)"]
+
+    user -- HTTPS --> gw
+    sim -- "POST /api/meters/readings" --> api
+    gw -- "/" --> fe
+    gw -- "/api" --> api
+    gw -- "/api/intelligence" --> intel
+    gw -- "/grafana" --> obs
+    gw -. "/auth" .-> kc
+    api -- "chunk-uri tus, SHA-256 în flux" --> staging
+    api -- "decizie Agent 01" --> meta
+    api -- "job (publisher confirms)" --> mq
+    mq --> wm & wf & wd & wv
+    staging --> wf & wd & wv
+    wm --> sdb
+    wf -- "primar FTP, fallback S3" --> ftp
+    wd -- "criptat, primar S3" --> s3
+    wv -- "S3 multipart" --> s3
+    workers -- "read-back + SHA-256" --> meta
+    intel --> sdb
+    intel --> api
+    intel -.-> llm
+    obs -- "alerte de business → incidente" --> api
+```
+
+Liniile punctate sunt opționale sau în lucru. Fluxul detaliat al unui fișier este în [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §A.2.
 
 > **Stadiu:** Etapa 5 — upload reluabil (tus) cu cozi per categorie, transfer verificat prin read-back SHA-256, fallback și reluare automată (Etapa 4), plus simulatorul de contoare cu ingestie fără pierderi și fără dubluri (Etapa 5). Frontend-ul vine din Etapa 10.
 
@@ -171,7 +231,32 @@ curl -sk -H 'Content-Type: application/json' -d '{"message":"Câte contoare sunt
 
 Testele (ruff + pytest): `docker build --target test intelligence`.
 
-## Teste
+## Teste și CI
+
+| Componentă | Comandă locală | Ce rulează |
+| --- | --- | --- |
+| backend | `cd backend && ./mvnw verify` | teste unitare + integrare cu Testcontainers (detalii mai jos) |
+| frontend | `cd frontend && npm install && npm run build` | build Angular de producție (încă fără teste automate) |
+| intelligence | `docker build --target test intelligence` (sau `uv sync --frozen && uv run ruff check src tests && uv run pytest -q`) | ruff + pytest |
+| simulator | `docker build --target test simulator` (sau aceleași comenzi `uv` în `simulator/`) | ruff + pytest |
+| secrete | `docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact` | gitleaks pe tot istoricul, cu `.gitleaks.toml` |
+
+**Pre-commit:** `pip install pre-commit` (sau `uv tool install pre-commit`), apoi `pre-commit install` o singură dată per clonă. Hook-ul gitleaks (`.pre-commit-config.yaml`) blochează un commit care conține un secret. Fără Go pe mașină, schimbă id-ul hook-ului în `gitleaks-docker`.
+
+**GitHub Actions** ([.github/workflows/ci.yml](.github/workflows/ci.yml)), la fiecare push pe `main` și la fiecare pull request:
+
+| Job | Ce face |
+| --- | --- |
+| `backend` | Java 21 (Temurin), `./mvnw -B verify` cu Testcontainers pe runner-ul Ubuntu; rapoartele de test se încarcă la eșec |
+| `frontend` | Node 24, `npm install` (lock-file-ul generat pe Windows nu trece de `npm ci`), `ng build --configuration production` |
+| `python` | `intelligence` și `simulator`: uv 0.7.3 + Python 3.12, `ruff check`, `pytest` |
+| `gitleaks` | scanare de secrete pe tot istoricul, cu imaginea oficială gitleaks v8.30.1 |
+| `images` | build pentru imaginile `backend`, `frontend`, `intelligence`, `simulator` + scanare Trivy (HIGH/CRITICAL) |
+| `dependencies` | Trivy pe sistemul de fișiere (dependențe + configurații) |
+
+Scanările Trivy sunt **doar raport**: rezultatul apare în log și ca artefact `trivy-*`, dar nu pică build-ul. Toate action-urile sunt fixate pe SHA-ul commit-ului unei versiuni exacte.
+
+### Backend
 
 ```bash
 cd backend

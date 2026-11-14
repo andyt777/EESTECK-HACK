@@ -1,0 +1,25 @@
+# FileGrid PPC - gitleaks configuration (used by pre-commit, CI and manual scans).
+# Extends the default ruleset shipped with gitleaks; only narrow, documented false positives are allowlisted.
+title = "FileGrid PPC gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Internal service addresses (host:port/path) in docs are not secrets, e.g. `curl api:8081/actuator/prometheus`"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = [
+  '''\b(api|worker-[a-z]+|intelligence|frontend|gateway|prometheus|alertmanager|grafana|rabbitmq|meta-db|store-db|s3|ftp):\d{2,5}/''',
+]
+
+[[allowlists]]
+description = "Environment template: only __GENERATE_*__ / CHANGE_ME style placeholders, never real values"
+paths = [
+  '''(^|/)\.env\.example$''',
+]
+regexTarget = "line"
+regexes = [
+  '''__GENERATE_[A-Z0-9_]*__''',
+]
+condition = "AND"

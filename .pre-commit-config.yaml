@@ -1,0 +1,11 @@
+# FileGrid PPC - pre-commit hooks.
+#   pip install pre-commit   (or: uv tool install pre-commit)
+#   pre-commit install       # once per clone
+#   pre-commit run --all-files
+# gitleaks reads .gitleaks.toml from the repository root automatically.
+# Without Go on the machine, swap the hook id for `gitleaks-docker` (runs the official image).
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

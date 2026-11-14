@@ -262,7 +262,8 @@ class TusUploadIT {
         assertThat(uploadUri).isNotNull();
 
         HttpResponse<Void> head = tusClient.sendHead(uploadUri, Collections.emptyMap());
-        assertThat(head.statusCode()).isEqualTo(200);
+        // tus 1.0.0: a HEAD answer is "200 OK or 204 No Content"; tus-java-server uses 204.
+        assertThat(head.statusCode()).isIn(200, 204);
         assertThat(head.headers().firstValue("Upload-Metadata")).isPresent();
     }
 

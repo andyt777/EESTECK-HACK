@@ -143,9 +143,13 @@ class MeterIngestionIT {
                 assertThat(queueDepth()).isZero());
         assertExactlyOncePerReading(meter, 60);
 
-        MeterReconciliation.Snapshot snapshot = reconciliation.reconcileOnce();
-        assertThat(snapshot.duplicatesWritten()).isZero();
-        assertThat(snapshot.duplicatesRejected()).isGreaterThanOrEqualTo(120);
+        // getMessageCount() excludes unacknowledged messages: the worker may still be finishing the last
+        // batch (and adding its rejected duplicates) after the queue looks empty, so wait for the counter.
+        Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
+            MeterReconciliation.Snapshot snapshot = reconciliation.reconcileOnce();
+            assertThat(snapshot.duplicatesWritten()).isZero();
+            assertThat(snapshot.duplicatesRejected()).isGreaterThanOrEqualTo(120);
+        });
     }
 
     @Test

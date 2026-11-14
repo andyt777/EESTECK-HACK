@@ -327,7 +327,8 @@ class IngestionAndQueuingIT {
         // Receive message back from queue
         Message received = rabbitTemplate.receive("filegrid.jobs.video", 5000);
         assertThat(received).isNotNull();
-        assertThat(received.getMessageProperties().getDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
+        // On an inbound message Spring AMQP exposes the broker's delivery mode as receivedDeliveryMode.
+        assertThat(received.getMessageProperties().getReceivedDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
 
         JsonNode jsonNode = objectMapper.readTree(received.getBody());
         assertThat(jsonNode.get("fileId").asText()).isEqualTo(fileId.toString());

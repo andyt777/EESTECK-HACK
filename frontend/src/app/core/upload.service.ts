@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import * as tus from 'tus-js-client';
 import { Api } from './api.service';
+import { AccessTokens } from './auth/access-token.service';
 import { EventStream } from './events.service';
 import { Category, LiveEvent, StorageType, TERMINAL } from './models';
 
@@ -30,10 +31,44 @@ export interface UploadItem {
 
 const CHUNK = 8 * 1024 * 1024; // ≤ 16 MB (CLAUDE.md)
 
+type TusOptions = ConstructorParameters<typeof tus.Upload>[1];
+
+/** Status of the HTTP response behind a tus error (0 when there was none, e.g. network error). */
+export function tusStatus(err: unknown): number {
+  const res = (err as { originalResponse?: { getStatus(): number } | null } | null)?.originalResponse;
+  return res ? res.getStatus() : 0;
+}
+
+/**
+ * tus auth hooks: every request (create, HEAD, PATCH, resume) carries a fresh bearer token
+ * (tus-js-client 4.x awaits the Promise returned by onBeforeRequest). A 401 forces a token refresh
+ * and is retried; other 4xx keep the library's default (no retry, except 409/423).
+ */
+export function tusAuthOptions(token: (forceRefresh: boolean) => Promise<string | null>): Pick<TusOptions, 'onBeforeRequest' | 'onShouldRetry'> {
+  let forceRefresh = false;
+  return {
+    onBeforeRequest: async (req) => {
+      const t = await token(forceRefresh);
+      forceRefresh = false;
+      if (t) req.setHeader('Authorization', `Bearer ${t}`);
+    },
+    onShouldRetry: (err, retryAttempt) => {
+      const status = tusStatus(err);
+      if (status === 401) {
+        forceRefresh = true;
+        return retryAttempt < 2;
+      }
+      const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+      return ((status < 400 || status >= 500) || status === 409 || status === 423) && online;
+    },
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class UploadService {
   private readonly events = inject(EventStream);
   private readonly api = inject(Api);
+  private readonly tokens = inject(AccessTokens);
   private readonly uploads = new Map<string, tus.Upload>();
 
   readonly items = signal<UploadItem[]>([]);
@@ -79,6 +114,7 @@ export class UploadService {
       retryDelays: [0, 1000, 3000, 5000, 10000, 20000],
       metadata,
       removeFingerprintOnSuccess: true,
+      ...tusAuthOptions((force) => this.tokens.get(force)),
       onProgress: (sent) => {
         this.patch(key, { uploadedBytes: sent, fileId: this.idOf(upload) ?? this.get(key)?.fileId ?? null });
         this.catchUp(key);

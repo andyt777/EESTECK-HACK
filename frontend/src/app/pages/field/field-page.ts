@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { Router } from '@angular/router';
 import { Api, asList, errorText, isUnavailable } from '../../core/api.service';
 import { IncidentSummary } from '../../core/models';
@@ -9,7 +10,7 @@ import { SHARED } from '../../shared/ui';
 
 @Component({
   selector: 'fg-field',
-  imports: [FieldCall, ...SHARED],
+  imports: [FieldCall, CanDirective, ...SHARED],
   template: `
   <div class="page">
     <div class="page-head"><div><div class="kicker">Voce · teren</div><h1>{{ t.field.title }}</h1><div class="lead">{{ t.field.lead }}</div></div>
@@ -41,7 +42,7 @@ import { SHARED } from '../../shared/ui';
             @if (p.warnings?.length) { <div class="small mt" style="color: var(--amber)">{{ p.warnings.join(' · ') }}</div> }
             <div class="row mt">
               @if (created()) { <button class="btn ok" (click)="openCreated()"><span class="ms">open_in_new</span>{{ t.app.open }} incident</button> }
-              @else { <button class="btn danger" (click)="create()" [disabled]="busy()"><span class="ms">campaign</span>{{ t.field.create }}</button> }
+              @else { <button *fgCan="'incident:create'" class="btn danger" (click)="create()" [disabled]="busy()"><span class="ms">campaign</span>{{ t.field.create }}</button> }
             </div>
           </div>
         }

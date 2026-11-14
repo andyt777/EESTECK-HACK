@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Api, Loader, asList } from '../../core/api.service';
@@ -25,7 +26,7 @@ function pick(o: any, keys: string[]): number | null {
 
 @Component({
   selector: 'fg-control-center',
-  imports: [RouterLink, MatDialogModule, Village, DecisionPanel, GridMap, UploadTracker, ...SHARED],
+  imports: [RouterLink, MatDialogModule, Village, DecisionPanel, GridMap, UploadTracker, CanDirective, ...SHARED],
   templateUrl: './control-center.html',
   styleUrl: './control-center.scss',
 })

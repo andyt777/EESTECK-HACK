@@ -1,53 +1,13 @@
-import { Injectable, NgZone, inject, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Subject } from 'rxjs';
+import { AccessTokens } from './auth/access-token.service';
 import { IncidentEvent, LiveEvent } from './models';
-
-/** One EventSource with reconnection and exponential backoff. */
-class Stream {
-  private es?: EventSource;
-  private backoff = 1000;
-  private timer?: ReturnType<typeof setTimeout>;
-  readonly connected = signal(false);
-
-  constructor(private url: string, private eventName: string, private onData: (data: any) => void, private zone: NgZone) {}
-
-  start(): void {
-    if (this.es) return;
-    this.open();
-  }
-
-  private open(): void {
-    try {
-      this.es = new EventSource(this.url);
-    } catch {
-      this.retry();
-      return;
-    }
-    this.es.onopen = () => this.zone.run(() => { this.connected.set(true); this.backoff = 1000; });
-    this.es.addEventListener(this.eventName, (m: MessageEvent) => {
-      try {
-        const data = JSON.parse(m.data);
-        this.zone.run(() => this.onData(data));
-      } catch { /* ignore malformed */ }
-    });
-    this.es.onerror = () => {
-      this.zone.run(() => this.connected.set(false));
-      this.es?.close();
-      this.es = undefined;
-      this.retry();
-    };
-  }
-
-  private retry(): void {
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.open(), this.backoff);
-    this.backoff = Math.min(this.backoff * 2, 30000);
-  }
-}
+import { SseConnection } from './sse';
 
 @Injectable({ providedIn: 'root' })
 export class EventStream {
-  private readonly zone = inject(NgZone);
+  private readonly tokens = inject(AccessTokens);
+  private readonly token = (force: boolean) => this.tokens.get(force);
 
   readonly fileEvents$ = new Subject<LiveEvent>();
   readonly incidentEvents$ = new Subject<IncidentEvent>();
@@ -58,8 +18,14 @@ export class EventStream {
   /** Meter-reading events seen since load (aggregated flow). */
   readonly meterEvents = signal(0);
 
-  private readonly files = new Stream('/api/events/stream', 'file-event', (d) => this.onFile(d), this.zone);
-  private readonly incidents = new Stream('/api/incidents/stream', 'incident-event', (d) => this.incidentEvents$.next(d), this.zone);
+  /** Bearer-authenticated SSE (fetch-based); the server closes it at token expiry and we reconnect. */
+  private readonly files = new SseConnection({
+    url: '/api/events/stream', eventName: 'file-event', token: this.token, onData: (d) => this.onFile(d as LiveEvent),
+  });
+  private readonly incidents = new SseConnection({
+    url: '/api/incidents/stream', eventName: 'incident-event', token: this.token,
+    onData: (d) => this.incidentEvents$.next(d as IncidentEvent),
+  });
 
   readonly connected = this.files.connected;
   readonly incidentsConnected = this.incidents.connected;
@@ -67,6 +33,11 @@ export class EventStream {
   start(): void {
     this.files.start();
     this.incidents.start();
+  }
+
+  stop(): void {
+    this.files.stop();
+    this.incidents.stop();
   }
 
   /** Per-file history of non-meter events (bounded), so late subscribers can catch up. */

@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NgxEchartsDirective } from 'ngx-echarts';
@@ -15,7 +16,7 @@ type A2 = 'idle' | 'analyzing' | 'found' | 'none' | 'insufficient';
 
 @Component({
   selector: 'fg-grid',
-  imports: [RouterLink, MatDialogModule, NgxEchartsDirective, GridMap, ...SHARED],
+  imports: [RouterLink, MatDialogModule, NgxEchartsDirective, GridMap, CanDirective, ...SHARED],
   templateUrl: './grid-page.html',
   styleUrl: './grid-page.scss',
 })

@@ -1,4 +1,5 @@
 import { Component, DestroyRef, inject, output, signal } from '@angular/core';
+import { CanDirective } from '../core/auth/can.directive';
 import { RouterLink } from '@angular/router';
 import { Api, asList, errorText, isUnavailable } from '../core/api.service';
 import { EventStream } from '../core/events.service';
@@ -9,7 +10,7 @@ import { TimePipe, WaText } from '../shared/ui';
 /** Simulated phone: shows WhatsApp messages sent in SIMULATED mode, each with an "OK" confirmation. */
 @Component({
   selector: 'fg-sim-phone',
-  imports: [RouterLink, TimePipe, WaText],
+  imports: [RouterLink, TimePipe, WaText, CanDirective],
   template: `
   <div class="phone">
     <div class="notch"></div>
@@ -32,7 +33,7 @@ import { TimePipe, WaText } from '../shared/ui';
             @if (n.confirmedAt) {
               <span class="ok tiny"><span class="ms">done_all</span> {{ t.incidents.confirmedBy }} {{ n.confirmedBy }}</span>
             } @else if (n.kind !== 'UPDATE') {
-              <button class="okbtn" (click)="confirm(n)" [disabled]="busy() === n.id">{{ t.incidents.confirmOk }}</button>
+              <button *fgCan="'incident:confirm'" class="okbtn" (click)="confirm(n)" [disabled]="busy() === n.id">{{ t.incidents.confirmOk }}</button>
             }
           </div>
         </div>

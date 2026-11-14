@@ -8,7 +8,7 @@
       </svg>
       <div><b>{{ t.app.name }}</b><span>{{ t.app.subtitle }}</span></div>
     </a>
-    @for (s of sections; track s.title) {
+    @for (s of visibleSections(); track s.title) {
       <div class="nav-sec">{{ s.title }}</div>
       @for (i of s.items; track i.path) {
         <a class="nav-item" [routerLink]="i.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: !!i.exact }">
@@ -36,8 +36,17 @@
       <button class="btn ghost sm" (click)="ui.toggleAnimations()" [attr.aria-pressed]="!ui.animations()">
         <span class="ms">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}
       </button>
-      <button class="btn ghost sm icon" (click)="ui.phoneOpen.set(!ui.phoneOpen())" [title]="t.incidents.phone"><span class="ms">smartphone</span></button>
-      <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
+      <button *fgCan="'incident:read'" class="btn ghost sm icon" (click)="ui.phoneOpen.set(!ui.phoneOpen())" [title]="t.incidents.phone" [attr.aria-label]="t.incidents.phone"><span class="ms">smartphone</span></button>
+      <button *fgCan="'assistant:use'" class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
+      @if (authenticated()) {
+        <div class="user" data-testid="user-chip">
+          <span class="ms" aria-hidden="true">account_circle</span>
+          <span class="user-name" [title]="t.auth.user">{{ authz.actor() ?? t.auth.loadingProfile }}</span>
+          @for (r of authz.roleLabels(); track r) { <span class="chip role" data-testid="role-chip" [title]="t.auth.roleLabel">{{ r }}</span> }
+          @if (authz.loaded() && !authz.roleLabels().length) { <span class="chip role">{{ t.auth.noRole }}</span> }
+        </div>
+        <button class="btn ghost sm" (click)="logout()" data-testid="logout"><span class="ms">logout</span>{{ t.auth.logout }}</button>
+      }
     </header>
     <main class="content"><router-outlet /></main>
   </div>

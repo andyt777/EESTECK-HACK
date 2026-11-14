@@ -14,7 +14,7 @@
     <div class="row">
       @if (hasSim()) { <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span> }
       @if (fixedCat() && fixedCat() !== 'METER_READING') {
-        <button class="btn" (click)="upload()"><span class="ms">cloud_upload</span>{{ t.files.uploadHere }}</button>
+        <button *fgCan="'file:write'" class="btn" (click)="upload()"><span class="ms">cloud_upload</span>{{ t.files.uploadHere }}</button>
       }
     </div>
   </div>

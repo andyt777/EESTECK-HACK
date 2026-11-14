@@ -1,8 +1,12 @@
 import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { OidcSecurityService } from 'angular-auth-oidc-client';
 import { Subject, debounceTime, filter, switchMap, of, catchError } from 'rxjs';
+import { NAV_PERMISSIONS } from './app.routes';
 import { Api } from './core/api.service';
+import { AuthzService } from './core/auth/authz.service';
+import { CanDirective } from './core/auth/can.directive';
 import { EventStream } from './core/events.service';
 import { FileSummary } from './core/models';
 import { T } from './core/texts';
@@ -15,7 +19,7 @@ interface NavItem { path: string; label: string; icon: string; exact?: boolean; 
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatSnackBarModule, AssistantChat, SimPhone, ...SHARED],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatSnackBarModule, AssistantChat, SimPhone, CanDirective, ...SHARED],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -26,6 +30,9 @@ export class App {
   private readonly api = inject(Api);
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
+  private readonly oidc = inject(OidcSecurityService);
+  readonly authz = inject(AuthzService);
+  readonly authenticated = computed(() => this.oidc.authenticated().isAuthenticated);
 
   readonly sections: { title: string; items: NavItem[] }[] = [
     { title: T.nav.sectionOps, items: [
@@ -46,6 +53,14 @@ export class App {
     ] },
   ];
 
+  /** Menu sections filtered by the user's permissions (the server still checks every call). */
+  readonly visibleSections = computed(() => {
+    this.authz.permissions();
+    return this.sections
+      .map((s) => ({ ...s, items: s.items.filter((i) => this.authz.can(NAV_PERMISSIONS[i.path] ?? 'file:read')) }))
+      .filter((s) => s.items.length > 0);
+  });
+
   readonly url = signal('/');
   readonly onVillage = computed(() => this.url() === '/' || this.url().startsWith('/?'));
   readonly searchOpen = signal(false);
@@ -55,7 +70,15 @@ export class App {
   private readonly search$ = new Subject<string>();
 
   constructor() {
-    this.events.start();
+    // Live streams and the profile need a token: start them once the OIDC session exists.
+    effect(() => {
+      if (this.authenticated()) {
+        this.authz.load().subscribe();
+        this.events.start();
+      } else {
+        this.events.stop();
+      }
+    });
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe((e) => {
       this.url.set((e as NavigationEnd).urlAfterRedirects);
       this.ui.simulatedOnPage.set(false);
@@ -83,6 +106,12 @@ export class App {
     } else if (e.key === 'Escape' && this.searchOpen()) {
       this.searchOpen.set(false);
     }
+  }
+
+  logout(): void {
+    this.events.stop();
+    this.authz.clear();
+    this.oidc.logoff().subscribe({ error: () => this.oidc.logoffLocal() });
   }
 
   openSearch(): void {

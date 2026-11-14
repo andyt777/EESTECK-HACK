@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { KeyValuePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -15,7 +16,7 @@ const KEYS = ['q', 'category', 'from', 'to', 'sizeMin', 'sizeMax', 'zone', 'stat
 
 @Component({
   selector: 'fg-file-explorer',
-  imports: [RouterLink, MatDialogModule, KeyValuePipe, ...SHARED],
+  imports: [RouterLink, MatDialogModule, KeyValuePipe, CanDirective, ...SHARED],
   templateUrl: './file-explorer.html',
 })
 export class FileExplorer {

@@ -23,21 +23,27 @@
       </div>
       <div class="row wrap">
         @if (can('BACK_TO_CATEGORY')) { <a class="btn ghost" [routerLink]="['/categories', d.identity.category]"><span class="ms">arrow_back</span>{{ t.passport.backToCategory }}</a> }
-        @if (can('PREVIEW')) { <button class="btn ghost" (click)="preview()"><span class="ms">visibility</span>{{ t.passport.preview }}</button> }
-        @if (can('DOWNLOAD')) { <button class="btn ghost" (click)="download()"><span class="ms">download</span>{{ t.passport.download }}</button> }
-        @if (can('DOWNLOAD_SUSPECT')) { <button class="btn danger" (click)="download(true)"><span class="ms">download</span>{{ t.passport.downloadSuspect }}</button> }
+        @if (can('PREVIEW')) { <button class="btn ghost" (click)="preview()" [disabled]="linkBusy()"><span class="ms">visibility</span>{{ t.passport.preview }}</button> }
+        @if (can('DOWNLOAD')) { <button class="btn ghost" (click)="download()" [disabled]="linkBusy()"><span class="ms">download</span>{{ t.passport.download }}</button> }
+        @if (can('DOWNLOAD_SUSPECT')) { <button class="btn danger" (click)="download(true)" [disabled]="linkBusy()"><span class="ms">download</span>{{ t.passport.downloadSuspect }}</button> }
         @if (can('VERIFY')) { <button class="btn" (click)="verify()" [disabled]="verifying()"><span class="ms">verified_user</span>{{ verifying() ? t.passport.verifying : t.passport.verify }}</button> }
         <button class="btn ghost" (click)="askAssistant()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
       </div>
     </div>
 
+    @if (linkError()) {
+      <div class="banner bad" role="alert"><span class="ms">error</span><div class="small">{{ linkError() }}</div></div>
+    }
     @if (showPreview()) {
       <div class="card mb">
+        @if (!inlineUrl()) { <div class="state"><div class="spinner"></div><span>{{ t.app.loading }}</span></div> }
+        @else {
         @switch (kind()) {
           @case ('image') { <img class="preview" [src]="inlineUrl()" [alt]="d.identity.name" style="object-fit: contain" /> }
           @case ('video') { <video class="preview" [src]="inlineUrl()" controls preload="metadata"></video> }
-          @case ('pdf') { <iframe class="preview" [src]="safeInline()"></iframe> }
+          @case ('pdf') { <iframe class="preview" [src]="safeInline()" [title]="d.identity.name"></iframe> }
           @case ('text') { <pre class="code">{{ jsonPreview() ?? t.app.loading }}</pre> }
+        }
         }
       </div>
     }

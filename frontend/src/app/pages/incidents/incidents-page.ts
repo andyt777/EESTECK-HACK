@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { Router, RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Api, Loader } from '../../core/api.service';
@@ -10,7 +11,7 @@ import { SHARED } from '../../shared/ui';
 
 @Component({
   selector: 'fg-incidents',
-  imports: [RouterLink, MatDialogModule, ...SHARED],
+  imports: [RouterLink, MatDialogModule, CanDirective, ...SHARED],
   template: `
   <div class="page">
     <div class="page-head">
@@ -18,7 +19,7 @@ import { SHARED } from '../../shared/ui';
       <div class="row">
         <span class="row small muted"><span class="dot" [class.ok]="events.incidentsConnected()" [class.bad]="!events.incidentsConnected()"></span>{{ events.incidentsConnected() ? t.app.live : t.app.offline }}</span>
         <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms">smartphone</span>{{ t.incidents.phone }}</button>
-        <button class="btn danger" (click)="report()"><span class="ms">campaign</span>{{ t.incidents.report }}</button>
+        <button *fgCan="'incident:create'" class="btn danger" (click)="report()"><span class="ms">campaign</span>{{ t.incidents.report }}</button>
       </div>
     </div>
     <div class="card mb"><div class="filters">

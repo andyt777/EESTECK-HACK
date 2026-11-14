@@ -3,7 +3,7 @@
     <div><div class="kicker">Agent 02</div><h1>{{ t.grid.title }}</h1><div class="lead">{{ t.grid.lead }}</div></div>
     <div class="row">
       <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
-      <button class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms">radar</span>{{ t.grid.analyze }}</button>
+      <button *fgCan="'intelligence:write'" class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms">radar</span>{{ t.grid.analyze }}</button>
     </div>
   </div>
 
@@ -105,10 +105,10 @@
           @if (fileIds(f).length) { <div class="row wrap mt"><span class="tiny muted">Fișiere sursă:</span>@for (id of fileIds(f); track id) { <a class="chip" [routerLink]="['/files', id]"><span class="ms">badge</span>{{ id.slice(0, 8) }}</a> }</div> }
           <label class="field mt"><span>{{ t.grid.note }}</span><input class="input" [value]="note()" (input)="note.set($any($event.target).value)" /></label>
           <div class="row wrap mt">
-            <button class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms">check</span>{{ t.grid.confirm }}</button>
-            <button class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms">block</span>{{ t.grid.dismiss }}</button>
-            <button class="btn danger sm" (click)="promote()"><span class="ms">campaign</span>{{ t.grid.promote }}</button>
-            <button class="btn ghost sm" (click)="ask()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
+            <button *fgCan="'intelligence:write'" class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms">check</span>{{ t.grid.confirm }}</button>
+            <button *fgCan="'intelligence:write'" class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms">block</span>{{ t.grid.dismiss }}</button>
+            <button *fgCan="'incident:create'" class="btn danger sm" (click)="promote()"><span class="ms">campaign</span>{{ t.grid.promote }}</button>
+            <button *fgCan="'assistant:use'" class="btn ghost sm" (click)="ask()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
           </div>
         </div>
       } @else {

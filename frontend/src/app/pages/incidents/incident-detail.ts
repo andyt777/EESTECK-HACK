@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { CanDirective } from '../../core/auth/can.directive';
 import { RouterLink } from '@angular/router';
 import { Api, Loader, errorText } from '../../core/api.service';
 import { EventStream } from '../../core/events.service';
@@ -10,7 +11,7 @@ import { SHARED } from '../../shared/ui';
 
 @Component({
   selector: 'fg-incident-detail',
-  imports: [RouterLink, FieldCall, ...SHARED],
+  imports: [RouterLink, FieldCall, CanDirective, ...SHARED],
   template: `
   <div class="page">
     @if (d.data(); as x) {
@@ -70,7 +71,7 @@ import { SHARED } from '../../shared/ui';
                     @else if (n.kind === 'ALERT' && n.escalationDueAt && n.status !== 'ESCALATED' && n.status !== 'CLOSED') {
                       <span class="countdown" [class.urgent]="left(n) < 30">{{ t.incidents.escalatesIn }} {{ fmtLeft(n) }}</span>
                     }
-                    @if (!n.confirmedAt && n.kind === 'ALERT' && n.status !== 'CLOSED') { <button class="btn ok sm" (click)="confirm(n)">{{ t.incidents.confirmOk }}</button> }
+                    @if (!n.confirmedAt && n.kind === 'ALERT' && n.status !== 'CLOSED') { <button *fgCan="'incident:confirm'" class="btn ok sm" (click)="confirm(n)">{{ t.incidents.confirmOk }}</button> }
                   </div>
                 </div>
               } @empty { <fg-state [empty]="true" /> }
@@ -79,7 +80,7 @@ import { SHARED } from '../../shared/ui';
 
           <div class="card">
             <div class="card-head"><h3>{{ t.field.call }}</h3><span class="badge sim">{{ t.app.simulated }}</span></div>
-            <fg-field-call [incidentId]="i.id" />
+            <fg-field-call *fgCan="'voice:use'" [incidentId]="i.id" />
           </div>
         </div>
 
@@ -89,14 +90,14 @@ import { SHARED } from '../../shared/ui';
             <div class="col">
               <label class="field"><span>{{ t.incidents.note }}</span><textarea class="input" rows="3" [value]="note()" (input)="note.set($any($event.target).value)"></textarea></label>
               <div class="row wrap">
-                @if (i.status === 'NEW' || i.status === 'NOTIFIED') { <button class="btn ok sm" (click)="ack()"><span class="ms">task_alt</span>{{ t.incidents.acknowledge }}</button> }
+                @if (i.status === 'NEW' || i.status === 'NOTIFIED') { <button *fgCan="'incident:write'" class="btn ok sm" (click)="ack()"><span class="ms">task_alt</span>{{ t.incidents.acknowledge }}</button> }
                 @for (s of x.allowedTransitions; track s) {
-                  <button class="btn sm" [class.ghost]="s !== 'RESOLVED'" [class.ok]="s === 'RESOLVED'" (click)="status(s)" [disabled]="s === 'RESOLVED' && !note().trim()">{{ t.incidents.statuses[s] || s }}</button>
+                  <button *fgCan="'incident:write'" class="btn sm" [class.ghost]="s !== 'RESOLVED'" [class.ok]="s === 'RESOLVED'" (click)="status(s)" [disabled]="s === 'RESOLVED' && !note().trim()">{{ t.incidents.statuses[s] || s }}</button>
                 }
               </div>
               @if (x.allowedTransitions.includes('RESOLVED')) { <div class="tiny muted">{{ t.incidents.resolutionRequired }}</div> }
               <div class="row"><input class="input" [placeholder]="t.incidents.owner" [value]="owner()" (input)="owner.set($any($event.target).value)" />
-                <button class="btn ghost sm" (click)="assign()" [disabled]="!owner().trim()">{{ t.incidents.assign }}</button></div>
+                <button *fgCan="'incident:write'" class="btn ghost sm" (click)="assign()" [disabled]="!owner().trim()">{{ t.incidents.assign }}</button></div>
               @if (actionError()) { <div class="small" style="color: var(--red)">{{ actionError() }}</div> }
             </div>
           </div>

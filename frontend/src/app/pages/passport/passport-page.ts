@@ -2,7 +2,7 @@ import { Component, DestroyRef, computed, effect, inject, input, signal, untrack
 import { RouterLink } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Api, Loader, errorText } from '../../core/api.service';
+import { Api, ContentDisposition, Loader, errorText, sameOriginUrl } from '../../core/api.service';
 import { EventStream } from '../../core/events.service';
 import { DecisionView, VerifyResult } from '../../core/models';
 import { T } from '../../core/texts';
@@ -62,8 +62,14 @@ export class PassportPage {
     if (ct.includes('json') || ct.startsWith('text/')) return 'text';
     return 'none';
   });
-  readonly inlineUrl = computed(() => this.api.contentUrl(this.id(), true));
-  readonly safeInline = computed<SafeResourceUrl>(() => this.sanitizer.bypassSecurityTrustResourceUrl(this.inlineUrl()));
+  /** Signed inline link (img/video/iframe cannot send a bearer header); requested when the preview opens. */
+  readonly inlineUrl = signal<string | null>(null);
+  readonly safeInline = computed<SafeResourceUrl | null>(() => {
+    const u = this.inlineUrl();
+    return u ? this.sanitizer.bypassSecurityTrustResourceUrl(u) : null;
+  });
+  readonly linkError = signal<string | null>(null);
+  readonly linkBusy = signal(false);
   readonly auditTypes = computed(() => Array.from(new Set((this.p.data()?.audit.items ?? []).map((a) => a.type))));
 
   constructor() {
@@ -74,6 +80,9 @@ export class PassportPage {
         this.decision.set(null);
         this.verifyResult.set(null);
         this.showPreview.set(false);
+        this.inlineUrl.set(null);
+        this.jsonPreview.set(null);
+        this.linkError.set(null);
         this.api.decision(id).subscribe({ next: (d) => this.decision.set(d), error: () => this.decision.set(null) });
       });
     });
@@ -105,12 +114,42 @@ export class PassportPage {
     });
   }
 
-  download(suspect = false): void { window.location.href = this.api.contentUrl(this.id(), false, suspect); }
+  /** Asks the API for a short-lived signed link; null (with linkError set) when refused. */
+  private async link(disposition: ContentDisposition, suspect = false): Promise<string | null> {
+    this.linkError.set(null);
+    this.linkBusy.set(true);
+    try {
+      const r = await this.api.promise(this.api.contentLink(this.id(), disposition, suspect));
+      const url = sameOriginUrl(r?.url);
+      if (!url) this.linkError.set(T.auth.linkError);
+      return url;
+    } catch (e) {
+      this.linkError.set(errorText(e));
+      return null;
+    } finally {
+      this.linkBusy.set(false);
+    }
+  }
 
-  preview(): void {
+  async download(suspect = false): Promise<void> {
+    const url = await this.link('attachment', suspect);
+    if (url) this.navigate(url);
+  }
+
+  /** Full-page navigation to the signed attachment URL (the browser downloads it). */
+  protected navigate(url: string): void { window.location.assign(url); }
+
+  async preview(): Promise<void> {
     this.showPreview.set(!this.showPreview());
-    if (this.showPreview() && this.kind() === 'text') {
-      fetch(this.inlineUrl()).then((r) => r.text()).then((txt) => {
+    if (!this.showPreview()) return;
+    const id = this.id();
+    const url = await this.link('inline');
+    if (id !== this.id()) return; // navigated away meanwhile
+    this.inlineUrl.set(url);
+    if (!url) { this.showPreview.set(false); return; }
+    if (this.kind() === 'text') {
+      this.jsonPreview.set(null);
+      fetch(url).then((r) => r.text()).then((txt) => {
         let out = txt.slice(0, 200_000);
         try { out = JSON.stringify(JSON.parse(out), null, 2); } catch { /* not json */ }
         this.jsonPreview.set(out);

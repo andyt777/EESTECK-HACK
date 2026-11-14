@@ -6,6 +6,15 @@ import {
   IncidentConfig, IncidentDetail, IncidentNotification, IncidentSummary, MeterStats, Page, Passport,
   StorageHealth, VerifyResult,
 } from './models';
+import { T } from './texts';
+
+export type ContentDisposition = 'inline' | 'attachment';
+
+/** Short-lived signed URL returned by `POST /api/files/{id}/content-link` (docs/AUTH-DESIGN.md §4). */
+export interface ContentLink {
+  url: string;
+  expiresAt: string;
+}
 
 export type Params = Record<string, string | number | boolean | null | undefined>;
 
@@ -17,6 +26,17 @@ function params(p?: Params): HttpParams {
   return hp;
 }
 
+/** Accepts a content link only when it points at our own origin (never navigate to a URL from elsewhere). */
+export function sameOriginUrl(url: string | null | undefined, origin = window.location.origin): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url, origin);
+    return u.origin === origin ? u.pathname + u.search : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Human-readable error with the traceId when the backend sends one. */
 export function errorText(e: unknown): string {
   if (e instanceof HttpErrorResponse) {
@@ -24,6 +44,8 @@ export function errorText(e: unknown): string {
     const msg = body?.detail || body?.message || body?.title || (typeof body === 'string' && body.length < 200 ? body : '');
     const trace = body?.traceId || e.headers?.get('traceparent') || '';
     const status = e.status === 0 ? 'rețea' : e.status;
+    if (e.status === 403) return `${T.auth.forbidden} (403)${trace ? ' · traceId ' + trace : ''}`;
+    if (e.status === 401) return `${T.auth.sessionExpired} (401)${trace ? ' · traceId ' + trace : ''}`;
     return `${msg || e.statusText || 'Eroare'} (${status})${trace ? ' · traceId ' + trace : ''}`;
   }
   return String((e as any)?.message ?? e);
@@ -76,8 +98,14 @@ export class Api {
   passport(id: string, p?: Params) { return this.http.get<Passport>(`/api/files/${id}/passport`, { params: params(p) }); }
   decision(id: string) { return this.http.get<DecisionView>(`/api/files/${id}/decision`); }
   verify(id: string) { return this.http.post<VerifyResult>(`/api/files/${id}/verify`, {}); }
-  contentUrl(id: string, inline = false, suspect = false) {
-    return `/api/files/${id}/content?disposition=${inline ? 'inline' : 'attachment'}${suspect ? '&acknowledgeSuspect=true' : ''}`;
+  /**
+   * Signed, short-lived content URL for img/video/iframe/download/new tab (those cannot send a bearer header).
+   * `acknowledgeSuspect` is only sent for the explicit "download suspect file" action.
+   */
+  contentLink(id: string, disposition: ContentDisposition, acknowledgeSuspect = false) {
+    const body: { disposition: ContentDisposition; acknowledgeSuspect?: boolean } = { disposition };
+    if (acknowledgeSuspect) body.acknowledgeSuspect = true;
+    return this.http.post<ContentLink>(`/api/files/${encodeURIComponent(id)}/content-link`, body);
   }
   decisions(p: Params) { return this.http.get<Page<DecisionSummary>>('/api/decisions', { params: params(p) }); }
   policies() { return this.http.get<any>('/api/policies'); }

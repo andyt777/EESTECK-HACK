@@ -7,7 +7,7 @@
     </div>
     <div class="row">
       <a class="btn ghost" routerLink="/files"><span class="ms">folder_open</span>{{ t.nav.files }}</a>
-      <button class="btn" (click)="openUpload()"><span class="ms">cloud_upload</span>{{ t.control.uploadButton }}</button>
+      <button *fgCan="'file:write'" class="btn" (click)="openUpload()"><span class="ms">cloud_upload</span>{{ t.control.uploadButton }}</button>
     </div>
   </div>
 

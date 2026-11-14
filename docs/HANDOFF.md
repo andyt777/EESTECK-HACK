@@ -1,4 +1,47 @@
-# Predare sesiune — FileGrid PPC (2026-11-14, seara)
+# Predare — FileGrid PPC (actualizat 2026-11-14, noaptea)
+
+## 0. Prompt de lipit în Claude Code pe laptopul nou
+
+```
+Continuă proiectul FileGrid PPC (hackathon). Răspunde-mi DOAR în română; cod, identificatori și commit-uri în engleză.
+Citește întâi: CLAUDE.md, docs/HANDOFF.md (secțiunea 0 e starea curentă), docs/AUTH-DESIGN.md, docs/PLAN.md,
+docs/CHANGELOG-ETAPE.md, docs/COMPLIANCE.md.
+Decizii luate (nu le mai întreba): autentificare cu Keycloak OIDC (design în docs/AUTH-DESIGN.md), cele 6 roluri
+(field, dispatcher, connections, analyst, incident-manager, admin; doar connections + admin au pii:read),
+commit direct pe main la finalul fiecărei etape, push doar când îți cer. Ordinea rămasă e în secțiunea 0.2.
+Suntem la hackathon: lucrează rapid, în paralel cu subagenți pe fișiere separate, dar raportează doar ce ai testat efectiv.
+Pasul 1: git pull, bash scripts/init-env.sh (completez eu cheia Gemini în fișierul de mediu), .\start.ps1, apoi rulează
+`cd backend && ./mvnw -B clean verify` și `cd intelligence && uv run pytest -q` și spune-mi rezultatele.
+Pasul 2: continuă cu primul punct neterminat din secțiunea 0.2 a HANDOFF.md.
+```
+
+## 0.1 Ce e gata (commit-uit pe `main`)
+- Agent 02 nu mai cade la citiri corupte (`7ad2f26`); cele 4 teste backend care picau sunt reparate (`cc2199d`).
+- Designul autentificării: `docs/AUTH-DESIGN.md` (`6c19d69`).
+- Etapa 20 (parțial): CI GitHub Actions `.github/workflows/ci.yml`, gitleaks (`.gitleaks.toml`, `.pre-commit-config.yaml`;
+  scanarea istoricului: fără secrete), ADR-uri 0002–0007, `docs/COMPLIANCE.md`, diagramă Mermaid în README (`5ddbba6`).
+  Workflow-ul NU a rulat încă pe GitHub.
+
+## 0.2 Rămas de făcut (în ordine; actualizat la fiecare integrare)
+Dacă un punct e „în lucru” și sesiunea s-a oprit, munca neintegrată e pe branch-uri locale `worktree-agent-*`
+(doar pe laptopul vechi, NU pe GitHub dacă nu s-a făcut push).
+1. Etapa 11 — autentificare: backend + Keycloak; frontend Angular (+ primele teste frontend); intelligence + simulator — în lucru.
+2. Etapa 8 — observabilitate (loguri JSON, OpenTelemetry → Tempo, dashboard-uri Grafana, docs/OBSERVABILITY.md) — în lucru.
+3. Etapa 18 — Toxiproxy, drill-uri `scripts/drills/`, k6 `load-tests/`, `docs/DEMO.md` — în lucru.
+4. Etapa 19 — Kubernetes (`infra/k8s/`, KEDA, `make k8s-up|k8s-storm|k8s-down`) — în lucru.
+5. Etapa 17 — benchmark storage + pagina /performance cu date măsurate — neînceput (după Etapa 11).
+6. Integrare finală: suita completă backend, pytest, build frontend, `.\start.ps1`, login cap-coadă în browser cu fiecare rol,
+   actualizare COMPLIANCE.md și CHANGELOG.
+
+## 0.3 Capcane noi
+- Pe laptopul vechi portul 80 e ocupat de IIS: aplicația e doar pe **https://localhost** (scrie explicit `https://`).
+- După `git pull` cu rute Traefik noi: `bash scripts/reload-config.sh` (gateway-ul nu vede singur rutele noi).
+- Dacă Maven dă „cannot find symbol” pe clase care există: `./mvnw clean verify` (clase vechi în `target/`).
+- Worktree-urile agenților stau în `.claude/worktrees/` (ignorat de git).
+
+---
+
+# Istoric: predarea anterioară (2026-11-14, seara)
 
 Document de continuare pe alt laptop. Citește-l împreună cu `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/PLAN.md` și `docs/CHANGELOG-ETAPE.md`.
 

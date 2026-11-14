@@ -1,0 +1,15 @@
+*[FILEGRID — ALERTĂ OPERAȚIONALĂ]*
+
+Un serviciu de stocare nu este disponibil.
+
+*Incident:* {{incident_id}}
+*Serviciu:* {{storage_name}}
+*Ora detectării:* {{timestamp}}
+*Operații afectate:* {{affected_operations}}
+*Stare:* {{current_status}}
+
+FileGrid urmărește operațiile afectate și starea recuperării. Verificați centrul de incidente pentru detalii.
+
+Confirmați primirea alertei.
+
+*FileGrid — Security & Incident Center*

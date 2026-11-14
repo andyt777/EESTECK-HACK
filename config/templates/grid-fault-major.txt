@@ -1,0 +1,16 @@
+*[FILEGRID — ALERTĂ CRITICĂ]*
+
+{{headline}}
+
+*Incident:* {{incident_id}}
+*Zonă:* {{zone}}
+*Stație / echipament:* {{asset}}
+*Ora raportării:* {{timestamp}}
+*Descriere:* {{description}}
+*Fișiere asociate:* {{file_count}}
+
+Este necesară verificarea și preluarea incidentului de către echipa responsabilă.
+
+Confirmați primirea mesajului și preluarea situației.
+
+*FileGrid — Security & Incident Center*

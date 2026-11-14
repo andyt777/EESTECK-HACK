@@ -1,0 +1,15 @@
+*[FILEGRID — ALERTĂ DE INTEGRITATE]*
+
+Verificarea unui fișier a identificat o neconcordanță între conținutul primit și cel recuperat.
+
+*Incident:* {{incident_id}}
+*Fișier:* {{file_name}}
+*File ID:* {{file_id}}
+*Categorie:* {{category}}
+*Ora verificării:* {{timestamp}}
+
+Fișierul a fost marcat ca suspect și nu trebuie tratat ca o copie validă până la verificarea situației.
+
+Confirmați preluarea incidentului.
+
+*FileGrid — Security & Incident Center*

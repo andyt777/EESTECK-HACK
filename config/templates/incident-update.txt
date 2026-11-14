@@ -1,0 +1,12 @@
+*[FILEGRID — ACTUALIZARE INCIDENT]*
+
+Incidentul {{incident_id}} a fost actualizat.
+
+*Zonă / obiectiv:* {{location_or_asset}}
+*Stare:* {{status}}
+*Actualizare:* {{resolution_update}}
+*Ora:* {{timestamp}}
+
+{{next_action_or_closure}}
+
+*FileGrid — Security & Incident Center*

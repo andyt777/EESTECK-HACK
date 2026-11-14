@@ -41,6 +41,11 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
+  mvc:
+    async:
+      # Downloads are streamed (StreamingResponseBody): a large video may take long.
+      request-timeout: 1h
+
   servlet:
     multipart:
       enabled: true
@@ -135,6 +140,14 @@ filegrid:
     max-size-bytes: 5368709120
     cleanup-older-than: 24h
     cleanup-interval: 1h
+
+  retrieval:
+    # Up to this size a file is verified completely before the first byte is served.
+    verify-before-serve-max-bytes: ${FILEGRID_VERIFY_BEFORE_SERVE_MAX_BYTES:209715200}   # 200 MB
+  integrity:
+    scrub-interval: ${FILEGRID_SCRUB_INTERVAL:15m}
+    scrub-sample-size: ${FILEGRID_SCRUB_SAMPLE_SIZE:10}
+    scrub-max-age: ${FILEGRID_SCRUB_MAX_AGE:7d}
 
   upload:
     max-size-bytes: ${FILEGRID_UPLOAD_MAX_BYTES:5368709120}   # 5 GB

@@ -1,0 +1,15 @@
+*[FILEGRID — ALERTĂ DE SECURITATE]*
+
+A fost detectat un eveniment de securitate care necesită verificare.
+
+*Incident:* {{incident_id}}
+*Tip eveniment:* {{event_type}}
+*Resursă afectată:* {{resource}}
+*Ora:* {{timestamp}}
+*Detalii:* {{description}}
+
+Accesul sau operația asociată a fost semnalată pentru verificare.
+
+Vă rugăm să confirmați preluarea incidentului și să urmați procedura internă de răspuns.
+
+*FileGrid — Security & Incident Center*

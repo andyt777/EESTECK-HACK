@@ -1,0 +1,62 @@
+# Who is informed about an incident, and when the next level is informed.
+# Read by the api (mounted at /config); a change is picked up without restart.
+# Phone numbers are NEVER written here: they come from the environment
+# (NOTIFY_CONTACT_<ROLE>=+407...), see .env.example. Without a number the
+# message can only be simulated or prepared.
+
+# How long a notification may stay unconfirmed before the next level is informed.
+escalation:
+  CRITICAL: 10m
+  HIGH: 30m
+  MEDIUM: 2h
+  LOW: 8h
+
+roles:
+  DISPATCH: Dispecerat
+  TECH_MANAGER: Manager tehnic
+  INCIDENT_OWNER: Responsabil incident
+  FIELD_TEAM: Echipa de teren a zonei
+  IT_SECURITY: Responsabil IT / Security
+  PLATFORM_ADMIN: Administrator platformă
+  DATA_OWNER: Responsabil date
+
+# The first rule that matches the incident type applies. `levels` is the
+# escalation chain: level 1 is informed at once, level 2 if nobody confirms in time, ...
+# `minSeverity`: below it the incident is only recorded, nobody is notified.
+rules:
+  - types: [GRID_FAULT_MAJOR, FIELD_EMERGENCY]
+    template: grid-fault-major
+    minSeverity: MEDIUM
+    levels:
+      - [DISPATCH, TECH_MANAGER, FIELD_TEAM]
+      - [INCIDENT_OWNER]
+  - types: [FIRE_REPORTED]
+    template: fire-reported
+    minSeverity: LOW
+    levels:
+      - [DISPATCH, TECH_MANAGER, FIELD_TEAM]
+      - [INCIDENT_OWNER]
+  - types: [CYBER_SECURITY, UNAUTHORIZED_ACCESS, DIRECT_STORAGE_ACCESS_ATTEMPT]
+    template: cyber-security
+    minSeverity: LOW
+    levels:
+      - [IT_SECURITY, PLATFORM_ADMIN]
+      - [TECH_MANAGER]
+  - types: [INTEGRITY_MISMATCH]
+    template: integrity-mismatch
+    minSeverity: LOW
+    levels:
+      - [PLATFORM_ADMIN, DATA_OWNER]
+      - [IT_SECURITY]
+  - types: [STORAGE_UNAVAILABLE]
+    template: storage-unavailable
+    minSeverity: LOW
+    levels:
+      - [PLATFORM_ADMIN]
+      - [TECH_MANAGER]
+  - types: [TRANSFER_FAILED, BUSINESS_SLA_AT_RISK, GRID_ANOMALY]
+    template: operational-alert
+    minSeverity: MEDIUM
+    levels:
+      - [PLATFORM_ADMIN, DISPATCH]
+      - [TECH_MANAGER]

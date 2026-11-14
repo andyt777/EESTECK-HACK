@@ -1,0 +1,17 @@
+*[FILEGRID — ALERTĂ OPERAȚIONALĂ]*
+
+{{headline}}
+
+*Incident:* {{incident_id}}
+*Tip:* {{event_type}}
+*Zonă:* {{zone}}
+*Stație / echipament:* {{asset}}
+*Ora:* {{timestamp}}
+*Descriere:* {{description}}
+*Fișiere asociate:* {{file_count}}
+
+Verificați centrul de incidente pentru detalii.
+
+Confirmați primirea alertei.
+
+*FileGrid — Security & Incident Center*

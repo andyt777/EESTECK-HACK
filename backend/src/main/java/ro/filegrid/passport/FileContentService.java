@@ -28,6 +28,8 @@ import ro.filegrid.file.FileRecord;
 import ro.filegrid.file.FileRecordRepository;
 import ro.filegrid.file.FileStatus;
 import ro.filegrid.file.IntegrityStatus;
+import ro.filegrid.observability.FileGridMetrics;
+import ro.filegrid.observability.TimedInputStream;
 import ro.filegrid.storage.Sha256;
 import ro.filegrid.storage.StorageAdapter;
 import ro.filegrid.storage.StorageException;
@@ -54,13 +56,16 @@ public class FileContentService {
     private final Texts texts;
     private final Counter mismatches;
     private final ro.filegrid.crypto.EnvelopeEncryption encryption;
+    private final FileGridMetrics metrics;
     private final Map<StorageType, StorageAdapter> adapters = new EnumMap<>(StorageType.class);
 
     public FileContentService(FileRecordRepository files, FileLifecycle lifecycle,
                               @Qualifier(StoreDbConfig.QUALIFIER) JdbcTemplate storeDb,
                               List<StorageAdapter> adapters, ApplicationEventPublisher publisher, Texts texts,
-                              MeterRegistry registry, ro.filegrid.crypto.EnvelopeEncryption encryption) {
+                              MeterRegistry registry, ro.filegrid.crypto.EnvelopeEncryption encryption,
+                              FileGridMetrics metrics) {
         this.encryption = encryption;
+        this.metrics = metrics;
         this.files = files;
         this.lifecycle = lifecycle;
         this.storeDb = storeDb;
@@ -119,7 +124,16 @@ public class FileContentService {
      * The caller closes the stream.
      */
     public InputStream open(FileRecord file) {
-        InputStream raw = openStored(file);
+        long started = System.nanoTime();
+        InputStream raw;
+        try {
+            raw = new TimedInputStream(openStored(file), (outcome, nanos, bytes) ->
+                    metrics.recordRetrieve(file.getCategory(), file.getStorageType(), outcome, nanos, bytes));
+        } catch (RuntimeException e) {
+            metrics.recordRetrieve(file.getCategory(), file.getStorageType(), FileGridMetrics.ERROR,
+                    System.nanoTime() - started, 0);
+            throw e;
+        }
         if (!file.isEncrypted()) {
             return raw;
         }

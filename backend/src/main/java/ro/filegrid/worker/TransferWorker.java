@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,8 @@ import ro.filegrid.file.FileCategory;
 import ro.filegrid.file.Sensitivity;
 import ro.filegrid.file.RoutingDecisionRepository;
 import ro.filegrid.messaging.TransferJob;
+import ro.filegrid.observability.FileGridMetrics;
+import ro.filegrid.observability.Tracing;
 import ro.filegrid.policy.Policy;
 import ro.filegrid.policy.PolicyService;
 import ro.filegrid.storage.Sha256;
@@ -85,19 +88,23 @@ public class TransferWorker {
     private final io.micrometer.core.instrument.Counter unencryptedPii =
             io.micrometer.core.instrument.Metrics.counter("filegrid_pii_stored_unencrypted");
 
+    private final FileGridMetrics metrics;
+
     @Autowired
     public TransferWorker(FileRecordRepository files, RoutingDecisionRepository decisions, FileLifecycle lifecycle,
                           PolicyService policies, StagingProperties staging, TransferLock locks,
                           MultipartTransferStore multipart, List<StorageAdapter> adapters,
-                          EnvelopeEncryption encryption) {
-        this(files, decisions, lifecycle, policies, staging, locks, multipart, adapters, encryption, Thread::sleep);
+                          EnvelopeEncryption encryption, FileGridMetrics metrics) {
+        this(files, decisions, lifecycle, policies, staging, locks, multipart, adapters, encryption, metrics,
+                Thread::sleep);
     }
 
     TransferWorker(FileRecordRepository files, RoutingDecisionRepository decisions, FileLifecycle lifecycle,
                    PolicyService policies, StagingProperties staging, TransferLock locks,
                    MultipartTransferStore multipart, List<StorageAdapter> adapters, EnvelopeEncryption encryption,
-                   Sleeper sleeper) {
+                   FileGridMetrics metrics, Sleeper sleeper) {
         this.encryption = encryption;
+        this.metrics = metrics;
         this.files = files;
         this.decisions = decisions;
         this.lifecycle = lifecycle;
@@ -164,7 +171,8 @@ public class TransferWorker {
             return stagingMissing(transfer, chain);
         }
         if (needsEncryption(file)) {
-            try {
+            try (Tracing.SpanScope ignored = Tracing.start("encrypt",
+                    Map.of("filegrid.file_id", file.getId().toString()))) {
                 encrypt(transfer);
             } catch (IOException | java.security.GeneralSecurityException e) {
                 log.error("File {}: encryption before storage failed: {}", file.getId(), e.getMessage());
@@ -232,14 +240,24 @@ public class TransferWorker {
             }
             transfer.startAttempt(storage, attempt);
             boolean storageError = false;
+            long started = System.nanoTime();
+            FileCategory category = transfer.file.getCategory();
+            MDC.put("storage", storage.name());
+            Map<String, String> spanAttributes = Map.of("filegrid.file_id", transfer.file.getId().toString(),
+                    "filegrid.category", category.name(), "filegrid.storage", storage.name(),
+                    "filegrid.attempt", Integer.toString(attempt));
             try {
-                StoredObject stored = write(transfer, adapter);
+                StoredObject stored = Tracing.inSpan("storage.put", spanAttributes, () -> write(transfer, adapter));
                 String expected = transfer.expectedSha;
-                String readBack = readBackSha256(adapter, transfer.key);
+                String readBack = Tracing.inSpan("storage.verify", spanAttributes,
+                        () -> readBackSha256(adapter, transfer.key));
                 if (readBack.equals(expected)) {
+                    metrics.recordStore(category, storage, FileGridMetrics.VERIFIED, System.nanoTime() - started,
+                            stored.sizeWritten());
                     verified(transfer, storage, stored, readBack);
                     return Attempts.VERIFIED;
                 }
+                metrics.recordStore(category, storage, FileGridMetrics.MISMATCH, System.nanoTime() - started, 0);
                 // When the bytes read from staging already differ from the original, the staged
                 // copy is damaged, and no retry or other storage can fix that.
                 boolean stagingCorrupt = !stored.sha256().equals(expected);
@@ -249,6 +267,7 @@ public class TransferWorker {
                     return Attempts.STAGING_CORRUPT;
                 }
             } catch (StorageEligibilityException e) {
+                metrics.recordStore(category, storage, FileGridMetrics.INELIGIBLE, System.nanoTime() - started, 0);
                 transfer.lastError = e.getMessage();
                 transfer.storageErrors++;
                 log.info("File {} cannot be stored on {}: {}", transfer.file.getId(), storage, e.getMessage());
@@ -257,6 +276,7 @@ public class TransferWorker {
                 if (!Files.exists(transfer.stagingFile)) {
                     return Attempts.STAGING_LOST;
                 }
+                metrics.recordStore(category, storage, FileGridMetrics.ERROR, System.nanoTime() - started, 0);
                 transfer.lastError = e.getMessage();
                 transfer.storageErrors++;
                 storageError = true;
@@ -370,6 +390,7 @@ public class TransferWorker {
         lifecycle.broadcast(transfer.file, LiveEvent.FALLBACK, to,
                 lifecycle.message("FALLBACK", lifecycle.storageName(from), lifecycle.storageName(to)),
                 0L);
+        metrics.recordFallback(file.getCategory(), from, to);
         log.info("File {}: falling back from {} to {}", file.getId(), from, to);
     }
 

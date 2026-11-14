@@ -219,7 +219,7 @@ public class MultipartFileController {
         record.setContentType(file.getContentType());
         record.setSha256Plain(sha256Hex);
         record.setIdempotencyKey(idempotencyKey);
-        record.setTraceId(UUID.randomUUID().toString());
+        record.setTraceId(ro.filegrid.observability.Tracing.currentTraceIdOrRandom());
         fileRecordRepository.save(record);
 
         // 11. Persist FileContext

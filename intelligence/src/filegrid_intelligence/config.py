@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+DEFAULT_TOKEN_URL = "http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/token"
+
 
 def _env(name: str, default: str = "") -> str:
     value = os.environ.get(name)
@@ -34,6 +36,10 @@ class Settings:
     twilio_from_number: str = ""
     incident_min_confidence: float = 0.8
     port: int = 8000
+    # Service account (client_credentials) for background work: Agent 02 loop and its incidents.
+    kc_token_url: str = DEFAULT_TOKEN_URL
+    kc_client_id: str = "filegrid-intelligence"
+    kc_client_secret: str = field(default="", repr=False)
 
     @staticmethod
     def from_env() -> Settings:
@@ -63,4 +69,7 @@ class Settings:
             twilio_from_number=_env("TWILIO_FROM_NUMBER"),
             incident_min_confidence=float(_env("INTELLIGENCE_INCIDENT_MIN_CONFIDENCE", "0.8")),
             port=int(_env("PORT", "8000")),
+            kc_token_url=_env("KC_TOKEN_URL", DEFAULT_TOKEN_URL),
+            kc_client_id=_env("KC_INTELLIGENCE_CLIENT_ID", "filegrid-intelligence"),
+            kc_client_secret=_env("KC_INTELLIGENCE_SECRET"),
         )

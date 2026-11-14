@@ -1,4 +1,7 @@
-"""FastAPI app: /api/intelligence/** (Agent 02, assistant, voice). Exposed only through the gateway."""
+"""FastAPI app: /api/intelligence/** (Agent 02, assistant, voice). Exposed only through the gateway.
+
+Every route except the health checks requires a permission resolved through the api's ``GET /me``
+(docs/AUTH-DESIGN.md §3); assistant and voice act on the api with the asking user's own token."""
 
 from __future__ import annotations
 
@@ -6,15 +9,18 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
 import uvicorn
-from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from prometheus_client import Counter, Gauge, make_asgi_app
 from pydantic import BaseModel, Field
 
+from . import auth
 from .agent02 import GridIntelligence
 from .api_client import FileGridApi
 from .assistant import Assistant, Toolbox
+from .auth import Authenticator, ClientCredentialsToken, Principal, require
 from .config import Settings
 from .db import Database
 from .docs_index import DocsIndex
@@ -35,6 +41,7 @@ class State:
     agent02: GridIntelligence
     assistant: Assistant
     voice: VoiceService
+    api: FileGridApi
     topology = None
     stop = threading.Event()
 
@@ -61,7 +68,11 @@ async def lifespan(_app: FastAPI):
     state.topology = load_topology(settings.topology_path)
     state.db = Database(settings.meta_db_dsn, settings.store_db_dsn)
     state.db.open()
-    api = FileGridApi(settings.api_url)
+    auth.configure(Authenticator(settings.api_url))
+    service_token = ClientCredentialsToken(settings.kc_token_url, settings.kc_client_id, settings.kc_client_secret)
+    # Service identity: Agent 02 loop and its incidents. User-facing routes use api.with_token(...).
+    api = FileGridApi(settings.api_url, token_source=service_token)
+    state.api = api
     state.agent02 = GridIntelligence(settings, state.db, state.topology, api)
     roots = {Path(p): Path(p).name for p in settings.docs_dirs}
     docs = DocsIndex.build(settings.docs_dirs, roots)
@@ -82,6 +93,10 @@ app = FastAPI(title="FileGrid intelligence", lifespan=lifespan, docs_url="/api/i
               openapi_url="/api/intelligence/openapi.json")
 app.mount("/metrics", make_asgi_app())
 router = APIRouter(prefix="/api/intelligence")
+READ = [Depends(require("intelligence:read"))]
+WRITE = [Depends(require("intelligence:write"))]
+AssistantUser = Annotated[Principal, Depends(require("assistant:use"))]
+VoiceUser = Annotated[Principal, Depends(require("voice:use"))]
 
 
 def _db_or_503():
@@ -100,7 +115,7 @@ def api_health():
 
 
 # ------------------------------------------------------------------ Agent 02
-@router.get("/findings")
+@router.get("/findings", dependencies=READ)
 def findings(type: str | None = None, status: str | None = None, region: str | None = None,  # noqa: A002
              station: str | None = None, post: str | None = None, meterId: str | None = None,  # noqa: N803
              limit: int = Query(50, ge=1, le=500)):
@@ -109,7 +124,7 @@ def findings(type: str | None = None, status: str | None = None, region: str | N
     return {"items": items, "count": len(items), "dataOrigin": "SIMULATED"}
 
 
-@router.get("/findings/{finding_id}")
+@router.get("/findings/{finding_id}", dependencies=READ)
 def finding(finding_id: str):
     _db_or_503()
     item = state.agent02.get_finding(finding_id)
@@ -123,7 +138,7 @@ class StatusBody(BaseModel):
     note: str | None = None
 
 
-@router.post("/findings/{finding_id}/status")
+@router.post("/findings/{finding_id}/status", dependencies=WRITE)
 def finding_status(finding_id: str, body: StatusBody):
     status = body.status.upper()
     if status not in ("NEW", "CONFIRMED", "DISMISSED"):
@@ -135,19 +150,19 @@ def finding_status(finding_id: str, body: StatusBody):
     return item
 
 
-@router.get("/summary")
+@router.get("/summary", dependencies=READ)
 def summary():
     _db_or_503()
     return state.agent02.summary()
 
 
-@router.get("/grid")
+@router.get("/grid", dependencies=READ)
 def grid():
     _db_or_503()
     return state.agent02.grid()
 
 
-@router.post("/analyze")
+@router.post("/analyze", dependencies=WRITE)
 def analyze():
     try:
         result = state.agent02.run("on-demand")
@@ -159,7 +174,7 @@ def analyze():
     return result
 
 
-@router.get("/evaluation")
+@router.get("/evaluation", dependencies=READ)
 def evaluation():
     return state.agent02.evaluation()
 
@@ -178,9 +193,11 @@ class ChatBody(BaseModel):
 
 
 @router.post("/assistant/chat")
-def chat(body: ChatBody):
+def chat(body: ChatBody, principal: AssistantUser):
     context = body.context.model_dump(exclude_none=True) if body.context else None
-    result = state.assistant.chat(body.message, body.history, context)
+    # Tools act as the asking user: the api enforces exactly what this user may see.
+    toolbox = state.assistant.toolbox.scoped(state.api.with_token(principal.token), principal.permissions)
+    result = state.assistant.chat(body.message, body.history, context, toolbox=toolbox)
     CHATS.labels(result["provider"]).inc()
     return result
 
@@ -193,12 +210,12 @@ class VoiceCallBody(BaseModel):
 
 
 @router.post("/voice/call")
-def voice_call(body: VoiceCallBody):
+def voice_call(body: VoiceCallBody, principal: VoiceUser):
     _db_or_503()
-    return state.voice.call(body.incidentId, body.role, body.message)
+    return state.voice.call(body.incidentId, body.role, body.message, api=state.api.with_token(principal.token))
 
 
-@router.get("/voice/calls")
+@router.get("/voice/calls", dependencies=READ)
 def voice_calls(incidentId: str | None = None):  # noqa: N803
     _db_or_503()
     items = state.voice.list(incidentId)
@@ -214,12 +231,15 @@ class FieldReportBody(BaseModel):
 
 
 @router.post("/voice/field-report")
-def field_report(body: FieldReportBody):
+def field_report(body: FieldReportBody, principal: VoiceUser):
+    if body.create and not principal.can("incident:create"):
+        raise HTTPException(403, "Nu aveți permisiunea necesară (incident:create).")
     proposal = parse_field_report(body.transcript, body.zone, body.station, state.topology)
     proposal["dataOrigin"] = "REAL" if body.dataOrigin.upper() == "REAL" else "SIMULATED"
     out = {"proposal": proposal, "created": False}
     if body.create:
-        api = state.agent02.api
+        # The incident is created as the asking user (audit shows who reported it), not as the service.
+        api = state.api.with_token(principal.token)
         payload = {k: v for k, v in proposal.items() if k != "parser"}
         result = api.post("/incidents", payload)
         if isinstance(result, dict) and result.get("error"):

@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 MODES = ("normal", "peak", "storm")
+DEFAULT_TOKEN_URL = "http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/token"
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,10 @@ class Settings:
     output_dir: Path = Path("output")
     request_timeout_seconds: float = 30.0
     max_retry_backoff_seconds: float = 30.0
+    # Keycloak client_credentials (Stage 11). Empty secret = no Authorization header (local runs).
+    token_url: str = DEFAULT_TOKEN_URL
+    client_id: str = "filegrid-simulator"
+    client_secret: str = field(default="", repr=False)
 
     @property
     def tick_seconds(self) -> float:
@@ -139,6 +144,10 @@ def _load(argv: list[str] | None) -> Settings:
         topology_path=Path(args.topology),
         anomalies_path=Path(args.anomalies),
         output_dir=Path(args.output_dir),
+        # Secrets only from the environment, never from the command line (visible in `ps`).
+        token_url=_env("KC_TOKEN_URL", DEFAULT_TOKEN_URL),
+        client_id=_env("KC_SIMULATOR_CLIENT_ID", "filegrid-simulator"),
+        client_secret=_env("KC_SIMULATOR_SECRET", ""),
     )
     validate(settings)
     return settings

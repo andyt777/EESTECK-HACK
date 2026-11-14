@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import httpx
 
 from . import metrics
+from .auth import ClientCredentialsToken, TokenUnavailable
 
 log = logging.getLogger(__name__)
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
@@ -33,17 +34,24 @@ class BatchResult:
 
 class FileGridClient:
     def __init__(
-        self, http: httpx.AsyncClient, api_url: str, max_backoff_seconds: float = 30.0, sleep=asyncio.sleep
+        self,
+        http: httpx.AsyncClient,
+        api_url: str,
+        max_backoff_seconds: float = 30.0,
+        sleep=asyncio.sleep,
+        tokens: ClientCredentialsToken | None = None,
     ):
         self.http = http
         self.url = api_url.rstrip("/") + "/meters/readings"
         self.max_backoff = max_backoff_seconds
         self.sleep = sleep
+        self.tokens = tokens  # None = no Authorization header (local runs without Keycloak)
 
     async def send(self, readings: list[dict], stop: asyncio.Event | None = None) -> BatchResult:
         key = f"sim-{uuid.uuid4()}"
         body = {"readings": readings}
         attempt = 0
+        auth_retried = False
         started = time.monotonic()
         while True:
             attempt += 1
@@ -51,10 +59,19 @@ class FileGridClient:
             if attempt > 1:
                 metrics.RETRIED.inc()
             try:
-                response = await self.http.post(self.url, json=body, headers={"Idempotency-Key": key})
-            except httpx.HTTPError as error:
+                headers = {"Idempotency-Key": key}
+                if self.tokens is not None:
+                    headers["Authorization"] = f"Bearer {await self.tokens.get()}"
+                response = await self.http.post(self.url, json=body, headers=headers)
+            except (httpx.HTTPError, TokenUnavailable) as error:
                 log.warning("Batch %s attempt %d failed: %s", key, attempt, error)
             else:
+                if response.status_code == 401 and self.tokens is not None and not auth_retried:
+                    # Token expired or revoked early: get a fresh one and retry once, without backoff.
+                    auth_retried = True
+                    self.tokens.invalidate()
+                    log.warning("Batch %s attempt %d answered 401; retrying with a new token", key, attempt)
+                    continue
                 if response.status_code == 202:
                     payload = response.json()
                     accepted, duplicate = len(payload.get("accepted", [])), len(payload.get("duplicate", []))

@@ -27,6 +27,7 @@ from prometheus_client import start_http_server
 
 from . import metrics
 from .anomalies import AnomalyPlan, iso, load_specs
+from .auth import ClientCredentialsToken
 from .client import FileGridClient
 from .config import Settings, load
 from .generator import ReadingGenerator
@@ -125,7 +126,14 @@ async def run_async(
     tick = state.next_tick
     ticks_done = 0
     async with httpx.AsyncClient(timeout=timeout, limits=limits, transport=transport) as http:
-        client = FileGridClient(http, settings.api_url, settings.max_retry_backoff_seconds)
+        tokens = None
+        if settings.client_secret:
+            tokens = ClientCredentialsToken(
+                http, settings.token_url, settings.client_id, settings.client_secret
+            )
+        else:
+            log.warning("KC_SIMULATOR_SECRET is not set: readings are sent without a token")
+        client = FileGridClient(http, settings.api_url, settings.max_retry_backoff_seconds, tokens=tokens)
         semaphore = asyncio.Semaphore(settings.concurrency)
         next_at = time.monotonic()
         while not stop.is_set():

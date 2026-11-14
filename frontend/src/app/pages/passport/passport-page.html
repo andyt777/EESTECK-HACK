@@ -1,0 +1,125 @@
+<div class="page">
+  @if (p.data(); as d) {
+    @if (suspect()) {
+      <div class="banner bad"><span class="ms">gpp_bad</span><div><b>{{ t.passport.suspect }}</b><div class="small">{{ t.passport.suspectHint }}</div></div></div>
+    }
+    <div class="page-head">
+      <div class="ident">
+        <div class="ico"><span class="ms">{{ d.identity.category === 'DRONE_VIDEO' ? 'videocam' : d.identity.category === 'METER_READING' ? 'electric_meter' : d.identity.category === 'FAULT_RECORD' ? 'bolt' : 'folder_shared' }}</span></div>
+        <div>
+          <div class="kicker">{{ t.passport.title }}</div>
+          <h1>{{ d.identity.name }}</h1>
+          <div class="row wrap mt small">
+            <span class="mono muted">{{ d.identity.id }}</span>
+            <button class="btn ghost sm" (click)="copy(d.identity.id)"><span class="ms">content_copy</span>{{ t.passport.copyId }}</button>
+            <fg-status [status]="d.status" />
+            <fg-integrity [status]="d.integrity.status" />
+            <fg-storage [storage]="d.storage?.type" />
+            <fg-origin [origin]="d.identity.dataOrigin" [showReal]="true" />
+            @if (d.identity.encrypted) { <span class="badge tone-active"><span class="ms">lock</span>{{ t.passport.encrypted }}</span> }
+            @if (d.identity.sensitivity === 'PERSONAL_DATA') { <span class="badge tone-warn"><span class="ms">badge</span>{{ t.passport.personal }}</span> }
+          </div>
+        </div>
+      </div>
+      <div class="row wrap">
+        @if (can('BACK_TO_CATEGORY')) { <a class="btn ghost" [routerLink]="['/categories', d.identity.category]"><span class="ms">arrow_back</span>{{ t.passport.backToCategory }}</a> }
+        @if (can('PREVIEW')) { <button class="btn ghost" (click)="preview()"><span class="ms">visibility</span>{{ t.passport.preview }}</button> }
+        @if (can('DOWNLOAD')) { <button class="btn ghost" (click)="download()"><span class="ms">download</span>{{ t.passport.download }}</button> }
+        @if (can('DOWNLOAD_SUSPECT')) { <button class="btn danger" (click)="download(true)"><span class="ms">download</span>{{ t.passport.downloadSuspect }}</button> }
+        @if (can('VERIFY')) { <button class="btn" (click)="verify()" [disabled]="verifying()"><span class="ms">verified_user</span>{{ verifying() ? t.passport.verifying : t.passport.verify }}</button> }
+        <button class="btn ghost" (click)="askAssistant()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
+      </div>
+    </div>
+
+    @if (showPreview()) {
+      <div class="card mb">
+        @switch (kind()) {
+          @case ('image') { <img class="preview" [src]="inlineUrl()" [alt]="d.identity.name" style="object-fit: contain" /> }
+          @case ('video') { <video class="preview" [src]="inlineUrl()" controls preload="metadata"></video> }
+          @case ('pdf') { <iframe class="preview" [src]="safeInline()"></iframe> }
+          @case ('text') { <pre class="code">{{ jsonPreview() ?? t.app.loading }}</pre> }
+        }
+      </div>
+    }
+
+    <!-- journey -->
+    <div class="card mb">
+      <div class="card-head"><h3>{{ t.passport.journey }}</h3>
+        <span class="small">{{ t.passport.finalStorage }}: <fg-storage [storage]="d.storage?.type" /> @if (d.storage?.storedAt) { <span class="muted">· {{ d.storage!.storedAt | dt: true }}</span> }</span></div>
+      <div class="journey">
+        @for (s of d.journey; track s.step) {
+          <div class="step" [class.done]="s.done">
+            <div class="n">@if (s.done) { <span class="ms">check</span> } @else { {{ s.step }} }</div>
+            <div class="lb">{{ s.label }}</div>
+            <div class="at">{{ s.at ? (s.at | tm) : '—' }}</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="grid g2 mb">
+      <div class="card">
+        <div class="card-head"><h3>{{ t.passport.identity }}</h3></div>
+        <dl class="kv">
+          <dt>{{ t.passport.id }}</dt><dd class="mono">{{ d.identity.id }}</dd>
+          <dt>{{ t.passport.category }}</dt><dd>{{ d.identity.categoryLabel || (d.identity.category | cat) }}</dd>
+          <dt>{{ t.passport.type }}</dt><dd>{{ d.identity.contentType || '—' }}</dd>
+          <dt>{{ t.passport.size }}</dt><dd>{{ d.identity.sizeBytes | size }} <span class="muted mono tiny">({{ d.identity.sizeBytes | num }} B)</span></dd>
+          <dt>{{ t.passport.receivedAt }}</dt><dd>{{ d.identity.receivedAt | dt: true }}</dd>
+          <dt>{{ t.passport.source }}</dt><dd>{{ d.identity.source }}</dd>
+          @if (d.identity.uploadedBy) { <dt>{{ t.passport.uploadedBy }}</dt><dd>{{ d.identity.uploadedBy }}</dd> }
+          <dt>{{ t.passport.status }}</dt><dd>{{ d.statusLabel }}</dd>
+          @if (d.identity.traceId) { <dt>{{ t.app.trace }}</dt><dd class="mono tiny">{{ d.identity.traceId }}</dd> }
+        </dl>
+      </div>
+      <div class="col">
+        @if (ctx().length) {
+          <div class="card">
+            <div class="card-head"><h3>{{ t.passport.context }}</h3></div>
+            <dl class="kv">@for (c of ctx(); track c[0]) { <dt>{{ ctxLabel(c[0]) }}</dt><dd>{{ ctxValue(c[0], c[1]) }}</dd> }</dl>
+          </div>
+        }
+        <div class="card" [class.danger]="suspect()">
+          <div class="card-head"><h3>{{ t.passport.integrity }}</h3><fg-integrity [status]="d.integrity.status" /></div>
+          <dl class="kv">
+            <dt>{{ t.passport.sha }}</dt>
+            <dd><span class="sha mono">{{ d.integrity.sha256 || '—' }} @if (d.integrity.sha256) { <button class="btn ghost sm icon" (click)="copy(d.integrity.sha256)"><span class="ms">content_copy</span></button> }</span></dd>
+            @if (d.integrity.sha256Stored && d.integrity.sha256Stored !== d.integrity.sha256) { <dt>{{ t.passport.shaStored }}</dt><dd class="mono tiny">{{ d.integrity.sha256Stored }}</dd> }
+            <dt>{{ t.passport.lastVerified }}</dt><dd>{{ d.integrity.lastVerifiedAt ? (d.integrity.lastVerifiedAt | dt: true) : t.passport.never }}</dd>
+          </dl>
+          @if (verifyResult(); as v) {
+            <div class="banner mt" [class.info]="v.intact" [class.bad]="!v.intact" style="margin-bottom:0">
+              <span class="ms">{{ v.intact ? 'verified_user' : 'gpp_bad' }}</span>
+              <div><b>{{ v.intact ? t.passport.verifyOk : t.passport.verifyBad }}</b><div class="tiny mono">{{ v.actualSha256 }}</div><div class="small">{{ v.message }}</div></div>
+            </div>
+          }
+          @if (verifyError()) { <div class="small mt" style="color: var(--red)">{{ verifyError() }}</div> }
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb">
+      <div class="card-head"><h3>{{ t.decision.title }}</h3>@if (decision()) { <a class="small" routerLink="/decisions">{{ t.nav.decisions }}</a> }</div>
+      <fg-decision [d]="decision() ?? d.decision" />
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>{{ t.passport.audit }} <span class="muted">({{ d.audit.total }})</span></h3>
+        <select class="input" style="width: 220px" [value]="auditType()" (change)="setAudit($any($event.target).value)">
+          <option value="">{{ t.passport.filterAudit }}: {{ t.app.all }}</option>
+          @for (a of auditTypes(); track a) { <option [value]="a">{{ a }}</option> }
+        </select>
+      </div>
+      @for (a of d.audit.items; track a.id) {
+        <div class="audit-row">
+          <span class="mono tiny muted">{{ a.at | dt: true }}</span>
+          <b>{{ a.label }}</b>
+          <span class="small muted ellipsis" [title]="json(a.details)">{{ json(a.details) }}</span>
+          <span class="small">{{ a.actor || '—' }}</span>
+        </div>
+      } @empty { <fg-state [empty]="true" /> }
+    </div>
+  } @else {
+    <fg-state [loading]="p.loading()" [unavailable]="p.unavailable()" [error]="p.error()" (retry)="p.load()" />
+  }
+</div>

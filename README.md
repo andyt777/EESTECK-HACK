@@ -147,6 +147,30 @@ docker compose cp simulator:/app/output/injected_anomalies.json .
 
 Testele simulatorului (ruff + pytest) rulează în Docker, fără Python local: `docker build --target test simulator`.
 
+## Intelligence: Agent 02, AI Operations Assistant, voce în teren
+
+Serviciul `intelligence` (Python 3.12, FastAPI) este expus prin gateway la `/api/intelligence` (documentație OpenAPI: `https://localhost/api/intelligence/docs`).
+
+- **Agent 02 — Grid Intelligence** (determinist, fără LLM): la fiecare 60 s (`INTELLIGENCE_ANALYSIS_INTERVAL_SECONDS`) citește citirile din store-db (ultimele 24 h de date, încărcare incrementală) și topologia, detectează `ZERO_CONSUMPTION`, `SPIKE`, `MISSING_READINGS`, `REPEATED_VALUES`, `LOW_VOLTAGE` (per post), `NIGHT_EXPORT`, `IMPOSSIBLE_VALUES` și salvează constatările în meta-db (`grid_finding`) cu observații, dovezi, încredere explicată și verificarea umană necesară — fără a afirma cauze. Tensiunea scăzută la un post (încredere ≥ 0,8) deschide automat un incident `GRID_ANOMALY` / `SUSPECTED`.
+- **AI Operations Assistant**: `POST /api/intelligence/assistant/chat`. Cu `ANTHROPIC_API_KEY` folosește Claude (`ASSISTANT_MODEL`, implicit `claude-sonnet-5-5`) cu tools; fără cheie rulează în mod `SIMULATED` (rutare deterministă pe cuvinte-cheie), care apelează aceleași tools reale și răspunde doar din datele lor. Refuză cererile de date personale și de scriere.
+- **Voce (simulată)**: `POST /api/intelligence/voice/call` (apel simulat către echipă, cu script generat din incident), `POST /api/intelligence/voice/field-report` (transcriere din teren → propunere de incident; `create:true` îl creează).
+
+| Endpoint | Ce face |
+| --- | --- |
+| `GET /api/intelligence/summary` | totaluri pe tip/regiune/stare, ultima rulare, contoare analizate |
+| `GET /api/intelligence/findings?type=&status=&region=&station=&post=&meterId=&limit=` | constatări |
+| `GET /api/intelligence/findings/{id}`, `POST .../{id}/status` `{status, note}` | detaliu, NEW/CONFIRMED/DISMISSED |
+| `GET /api/intelligence/grid` | regiuni/stații/posturi cu x/y, legături și starea fiecărui post |
+| `POST /api/intelligence/analyze` | rulează analiza acum |
+| `GET /api/intelligence/evaluation` | precision/recall față de `injected_anomalies.json` |
+
+```bash
+curl -sk https://localhost/api/intelligence/summary
+curl -sk -H 'Content-Type: application/json' -d '{"message":"Câte contoare sunt active și există anomalii?"}' https://localhost/api/intelligence/assistant/chat
+```
+
+Testele (ruff + pytest): `docker build --target test intelligence`.
+
 ## Teste
 
 ```bash
@@ -187,6 +211,7 @@ Toate se rulează din rădăcina repository-ului.
 | `rabbitmq` | cozi de mesaje | `internal` |
 | `prometheus`, `alertmanager`, `grafana`, `loki`, `tempo`, `alloy` | metrici, alerte, dashboard-uri, loguri, trace-uri | `internal` |
 | `simulator` | contoare inteligente simulate (Python, httpx), metrici pe portul 9105 | `internal` |
+| `intelligence` | Agent 02 (anomalii), AI Operations Assistant, voce simulată (Python, FastAPI), port 8000 | `internal` |
 | `toxiproxy` | simularea unei rețele degradate (configurat în Etapa 18) | `internal` |
 
 Rețeaua `internal` este izolată (`internal: true`): storage-urile nu publică niciun port și nu pot fi accesate din afara Docker. Singura cale de acces la ele este FileGrid.
@@ -211,3 +236,14 @@ Niciun secret nu se află în repository. `.env` și `infra/certs/` sunt ignorat
 ├── scripts/               # init-env, gen-certs, wait-healthy, ...
 └── docs/                  # cerința, experiența, arhitectura, planul
 ```
+
+## Frontend (Smart Grid Control Center)
+
+https://localhost (certificat self-signed). Angular 21 servit de nginx (`frontend`, intern :8080) în spatele Traefik
+(ruta `/`, prioritate 1 — `/api` și `/grafana` au prioritate). Pagini: Control Center/Village (`/`), Încărcare (`/upload`),
+File Explorer (`/files`, `/categories/:category`), File Passport (`/files/:id`), Decision Explorer (`/decisions`),
+Politici (`/policies`), Incidente (`/incidents`, `/incidents/:id`, telefon WhatsApp simulat), Grid Intelligence (`/grid`),
+AI Assistant (`/assistant` + panou lateral global), Comunicare teren (`/field`), Performance (`/performance`).
+Toate textele UI sunt în `frontend/src/app/core/texts.ts`. Detalii: `frontend/README.md`.
+
+Rebuild doar frontend: `docker compose up -d --build --no-deps frontend`.

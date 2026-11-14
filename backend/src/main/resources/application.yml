@@ -84,6 +84,18 @@ springdoc:
     enabled: false
 
 filegrid:
+  crypto:
+    # Key-encryption key (256 bit, base64). Wraps the per-file data keys of personal data.
+    kek: ${FILEGRID_KEK:}
+    kek-id: ${FILEGRID_KEK_ID:kek-1}
+    # Rotation: older KEKs still needed to open old files, "id:base64,id:base64".
+    previous-keks: ${FILEGRID_KEK_PREVIOUS:}
+  notify:
+    mode: ${NOTIFY_MODE:SIMULATED}
+    routing-file: ${NOTIFY_ROUTING_FILE:../config/notification-routing.yaml}
+    templates-dir: ${NOTIFY_TEMPLATES_DIR:../config/templates}
+    # For example 2m: one escalation delay for every severity (demo).
+    escalation-override: ${NOTIFY_ESCALATION_OVERRIDE:}
   # store-db: the "Database" storage, a separate PostgreSQL instance
   store-db:
     url: ${STORE_DB_URL:jdbc:postgresql://localhost:5433/filegrid_store}

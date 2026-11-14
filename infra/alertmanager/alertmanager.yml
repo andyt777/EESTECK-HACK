@@ -1,11 +1,15 @@
-# Stage 1: alerts are only collected and visible in the Alertmanager UI/API.
-# Stage 8 adds the internal webhook (POST /api/internal/alerts) as receiver.
+# Business alerts go to the api, which opens / resolves incidents in the
+# Security & Incident Center. The receiver URL is internal (Docker network);
+# the api refuses calls to this endpoint that come through the public gateway.
 route:
-  receiver: default
+  receiver: filegrid-incidents
   group_by: [alertname, category]
   group_wait: 10s
   group_interval: 1m
   repeat_interval: 1h
 
 receivers:
-  - name: default
+  - name: filegrid-incidents
+    webhook_configs:
+      - url: http://api:8080/api/incidents/alertmanager
+        send_resolved: true

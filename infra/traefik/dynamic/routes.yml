@@ -1,4 +1,4 @@
-# Routes. `/` (frontend) is added in Stage 10.
+# Routes. `/` goes to the frontend (lowest priority).
 http:
   routers:
     grafana:
@@ -22,6 +22,21 @@ http:
       middlewares: [api-health-path]
       priority: 1000
 
+    # Intelligence service (Agent 02, AI Operations Assistant, field voice).
+    # Higher priority than the generic /api router.
+    intelligence:
+      rule: "PathPrefix(`/api/intelligence`)"
+      entryPoints: [websecure]
+      service: intelligence
+      priority: 500
+
+    # Frontend (Angular SPA). Lowest priority: /api and /grafana always win.
+    frontend:
+      rule: "PathPrefix(`/`)"
+      entryPoints: [websecure]
+      service: frontend
+      priority: 1
+
   middlewares:
     api-health-path:
       replacePath:
@@ -40,3 +55,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://api:8081"
+    intelligence:
+      loadBalancer:
+        servers:
+          - url: "http://intelligence:8000"
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:8080"

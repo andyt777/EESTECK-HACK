@@ -7,7 +7,7 @@ http:
         contentTypeNosniff: true
         customFrameOptionsValue: SAMEORIGIN
         referrerPolicy: strict-origin-when-cross-origin
-        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        permissionsPolicy: "camera=(), microphone=(self), geolocation=()"
         customResponseHeaders:
           Server: ""
           X-Powered-By: ""

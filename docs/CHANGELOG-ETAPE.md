@@ -1,5 +1,47 @@
 # Jurnalul etapelor
 
+## Etapele 15 și 16 — serviciul intelligence: Agent 02, AI Operations Assistant, voce simulată (2026-11-14)
+
+### Ce s-a făcut
+- Serviciu nou `intelligence/` (Python 3.12, uv, FastAPI, pandas), în compose (doar rețeaua `internal`, 384M) și în Traefik (`/api/intelligence`, prioritate 500).
+- **Agent 02** determinist: caracteristici per citire calculate în SQL (store-db), detectori pe reguli + statistici robuste (mediană/MAD, normalizare la mediana populației pe interval), analiză la 60 s + la cerere, constatări în `grid_finding` (meta-db, creat de serviciu), texte în română fără afirmarea cauzelor, incidente `GRID_ANOMALY` pentru tensiune scăzută la post, evaluare precision/recall față de adevărul simulatorului.
+- **AI Operations Assistant**: tools read-only peste api (fișiere, passport, decizia Agent 01, incidente, contoare, storage, categorii), Agent 02 și RAG BM25 peste `docs/` + `config/`; provider Anthropic (Claude, tool use) sau `SIMULATED` determinist; citări; refuz pentru date personale și scrieri.
+- **Voce**: apeluri simulate (`voice_call`), `VoiceProvider` cu stub Twilio; raport vocal din teren → propunere de incident.
+
+### Cum se verifică
+- `docker build --target test intelligence` (36 de teste).
+- `curl -sk https://localhost/api/intelligence/summary`, `/findings`, `/grid`, `/evaluation`; chat-ul din README.
+
+### Limitări cunoscute
+- Acces direct la store-db/meta-db cu userii existenți (nu view-uri analitice dedicate), rutare directă din Traefik (nu proxy prin api); fără SSE pentru progresul analizei; fără detectorii de frecvență a avariilor și corelări spațio-temporale; RAG fără pgvector (BM25).
+- Fișierul de adevăr al simulatorului e complet doar de la ultima pornire a simulatorului: evaluarea începe de acolo.
+- Prima analiză după pornire încarcă ~24 h de citiri (~45 s pentru 120k citiri); următoarele sunt incrementale (~2–4 s).
+
+## Etapele 6, 7, 8 (alerte) și 9 (backend) — recuperare, criptare, incidente (2026-11-14)
+
+Etapa 6 (recuperare cu verificare, File Passport, căutare, scrubber de integritate) și scheletul Etapei 9 au fost scrise de un coleg; în această sesiune au fost făcute să compileze, completate și testate.
+
+### Ce s-a făcut
+- **Security & Incident Center (backend):** `IncidentController` (`/api/incidents`: listă cu filtre, detaliu, creare, preview mesaje, preluare, responsabil, schimbare stare, notificări, confirmare „OK”, `/config`), flux live `/api/incidents/stream` (eveniment `incident-event`, `IncidentHub`).
+- **WhatsApp simulat:** mod `NOTIFY_MODE=SIMULATED` (implicit), `PREPARED_ONLY` sau `REAL` (Twilio, doar cu `TWILIO_*` și numere în env). Mesajele vin din `config/templates/`, destinatarii și escaladarea din `config/notification-routing.yaml`. Escaladare automată la nivelul următor dacă nimeni nu confirmă (`NOTIFY_ESCALATION_OVERRIDE=2m` pentru demo); la rezolvare, actualizarea finală merge la toți cei alertați.
+- **Incidente automate** (`IncidentAutomation`): storage căzut → `STORAGE_UNAVAILABLE` (rezolvat automat când revine), neconcordanță SHA-256 → `INTEGRITY_MISMATCH` cu fișierul legat, transfer eșuat → `TRANSFER_FAILED`. Deduplicare pe fingerprint.
+- **Etapa 7 — criptare aplicativă** a documentelor de racordare: Tink Streaming AEAD `AES256_GCM_HKDF_1MB`, DEK per fișier împachetat cu `FILEGRID_KEK` în `file_key` (migrația `V7`), rotație KEK (`FILEGRID_KEK_ID`, `FILEGRID_KEK_PREVIOUS`). Read-back pe `sha256_stored` (ciphertext), descărcare decriptată și verificată pe `sha256_plain`; ciphertext alterat → `MISMATCH` + incident, nimic servit. Metrica `filegrid_pii_stored_unencrypted_total`. Detalii în `docs/ENCRYPTION.md`; demo `scripts/direct-access-demo.sh`.
+- **Etapa 8 (parțial) — alerte de business:** `infra/prometheus/rules/business.yml` (StorageDown, IntegrityMismatch, MeterReadingsAtRisk, PersonalDataAtRisk); Alertmanager → `POST /api/incidents/alertmanager` (refuzat dacă vine prin gateway).
+- `GET /api/storage/health`; drill `scripts/drills/storage-outage.sh` (S3 oprit → fallback/PENDING → incident → S3 pornit → incident rezolvat).
+
+### Corecturi față de codul preluat
+- `IncidentService` nu compila (referințe de metode ambigue, `IncidentHub` inexistent); toate textele `incident.*`, `notification.*`, `message.*` lipseau din bundle (orice incident ar fi dat eroare).
+- Filtrul de date personale din mesaje trata codul incidentului (`INC-2026-000003`) și ora ca numere de telefon și le ascundea.
+
+### Cum se verifică
+- `cd backend && ./mvnw verify -Dit.test='EnvelopeEncryptionIT,IncidentCenterIT,RetrievalAndPassportIT,WorkerTransferIT,MultipartUploadIT'` → 23 de teste, toate trec.
+- `curl -sk https://localhost/api/incidents/config`, `bash scripts/direct-access-demo.sh`, `bash scripts/drills/storage-outage.sh`.
+
+### Limitări cunoscute
+- Tracing OpenTelemetry, loguri JSON și dashboard-urile Grafana din Etapa 8 nu sunt făcute.
+- Câmpurile personale din metadate (nume client, CNP) nu se colectează la upload; re-wrap în masă la rotația KEK nu este automatizat.
+- Webhook-ul Alertmanager este protejat doar prin rețea (refuză cererile cu `X-Forwarded-For`), nu printr-un token.
+
 ## Etapa 5 — Simulatorul de contoare + ingestie idempotentă (2026-11-14)
 
 ### Ce s-a făcut
@@ -216,3 +258,34 @@ Consum măsurat în repaus (niciun container OOMKilled):
 - Alertmanager nu are încă receiver real (webhook-ul vine în Etapa 8); nu există încă reguli de alertare și nici dashboard-uri.
 - Toxiproxy doar pornește; proxy-urile se definesc în Etapa 18.
 - Rutele `/api` și `/` lipsesc până la Etapele 2 și 10.
+
+## Etapele 10, 12, 13, 14 (+ UI pentru 15/16) — Frontend Angular
+
+### Ce s-a făcut
+- `frontend/`: Angular 21 (standalone, signals, zoneless, strict), temă întunecată „control room” (Material + tokens CSS),
+  rute lazy, meniu lateral, căutare globală Ctrl+K → File Passport, indicator live SSE, badge „DATE SIMULATE”,
+  buton „Oprește animațiile” (+ prefers-reduced-motion), texte RO centralizate în `core/texts.ts`.
+- Control Center: FileGrid Village SVG (4 case, 3 servere, cabluri, Agent 01 animat cu GSAP), mașina de stări condusă
+  exclusiv de SSE `file-event` (succes doar la STORED_VERIFIED), flux agregat pentru contoare, storage căzut = cabluri
+  întrerupte + „Indisponibil”, drop de fișiere pe sat, drop-down Decision Explorer, KPI-uri, jurnal live, hartă rețea.
+- Upload tus reluabil (chunk 8 MB) cu cronologie de stări per fișier; File Explorer cu filtre în URL; pagini de categorie;
+  File Passport (traseu 7 pași, integritate + verificare, descărcare/previzualizare după acțiunile primite, audit filtrabil,
+  banner MISMATCH); Decision Explorer; politici (vizualizare/editare YAML, istoric).
+- Incident Center: listă cu filtre live, detaliu (notificări per destinatar, mod SIMULAT/PREGĂTIT/TRIMIS, countdown
+  escaladare, confirmare, ack/asignare/stare cu notă obligatorie la rezolvare), „Raportează incident” cu previzualizare
+  WhatsApp live (incendiu: sursă + certitudine obligatorii), telefon simulat cu „Răspunde OK”, toast la CRITICAL.
+- Grid Intelligence: hartă schematică (regiuni/stații/posturi), Agent 02, constatări cu observații, dovezi ECharts,
+  încredere, verificare umană, confirmare/respingere, „Înregistrează ca incident”, evaluare detectori.
+- AI Assistant (pagină + panou lateral cu context din passport/incident/constatare), pași agent pliabili, citări ca link-uri,
+  dictare/redare vocală (Web Speech API, ro-RO). Comunicare teren: apel vocal simulat, raport vocal → propunere incident.
+- Infra: `frontend/Dockerfile` (node 24 → nginx-unprivileged :8080), `frontend/nginx.conf`, serviciul `frontend` în compose
+  (64M), ruta Traefik `/` (prioritate 1); `permissionsPolicy` permite `microphone=(self)` pentru dictare.
+
+### Cum se verifică
+- `cd frontend && npm run build`; `docker compose up -d --build --no-deps frontend`; https://localhost.
+- Încarcă un fișier din `/upload` sau din Village → stările ajung la „Stocat și verificat” → „Deschide pașaportul”.
+
+### Limitări cunoscute
+- Fără teste unitare/Playwright automate pentru frontend încă (verificat manual cu Playwright MCP).
+- `npm ci` în Docker refuză lock-file-ul generat pe Windows (dependențe wasm opționale) → Dockerfile folosește `npm install`.
+- Fonturile/iconițele vin de la Google Fonts (fără internet, iconițele apar ca text).

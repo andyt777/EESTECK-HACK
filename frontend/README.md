@@ -1,59 +1,15 @@
-# FilegridFrontend
+# FileGrid — frontend (Angular 21)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.30.
+Standalone components, signals, zoneless, strict TS, Angular Material (dark theme), ECharts (lazy), GSAP, tus-js-client.
 
-## Development server
+- `src/app/core/texts.ts` — all Romanian UI texts (single i18n-ready catalogue).
+- `src/app/core/` — API client (`api.service.ts`), SSE streams with reconnect/backoff (`events.service.ts`),
+  resumable tus uploads + per-file live timeline (`upload.service.ts`), Web Speech wrapper (`voice.ts`).
+- `src/app/pages/` — Control Center (`/`, FileGrid Village), upload, File Explorer, categories, File Passport,
+  Decision Explorer, policies, incidents (+ detail), Grid Intelligence, AI Assistant, field communication, performance.
+- `src/app/features/` — reusable pieces: Village decision panel, grid map, assistant chat (global side panel), simulated
+  WhatsApp phone, incident report dialog, field voice calls.
 
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Commands: `npm ci && npm run build` (output `dist/filegrid-frontend/browser`), `npm start` for a dev server
+(calls go to relative `/api`, so put it behind the gateway or add a proxy). Docker: `docker compose up -d --build frontend`
+(nginx-unprivileged on :8080, SPA fallback, `/healthz`); Traefik routes `PathPrefix(/)` with priority 1.

@@ -1,0 +1,12 @@
+a.kpi { color: inherit; text-decoration: none !important; transition: border-color .15s; }
+a.kpi:hover { border-color: var(--line2); }
+.dd-head b { white-space: nowrap; }
+.dd-head { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; text-align: left; min-width: 0;
+  .ellipsis { max-width: 520px; } }
+.sh { padding: 8px 0; border-bottom: 1px solid rgba(27, 47, 85, .6); &:last-child { border: 0; } }
+.feed { flex: 1; display: flex; flex-direction: column; min-height: 260px; }
+.feed-list { display: flex; flex-direction: column; gap: 2px; max-height: 380px; overflow-y: auto; }
+.fe { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; color: inherit; text-decoration: none !important; min-width: 0;
+  &:hover { background: rgba(34, 211, 238, .05); } }
+.inc { padding: 8px 4px; border-bottom: 1px solid rgba(27, 47, 85, .6); color: inherit; text-decoration: none !important; &:hover { background: rgba(34, 211, 238, .04); } }
+h2 .ms { color: var(--cyan); }

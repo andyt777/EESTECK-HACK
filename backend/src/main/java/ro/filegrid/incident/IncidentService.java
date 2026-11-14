@@ -115,6 +115,12 @@ public class IncidentService {
      */
     @Transactional
     public IncidentDetail open(NewIncident request) {
+        return open(request, Map.of());
+    }
+
+    /** Same as {@link #open(NewIncident)}, with extra template values stored before anyone is notified. */
+    @Transactional
+    public IncidentDetail open(NewIncident request, Map<String, String> attributes) {
         if (request.type() == IncidentType.FIRE_REPORTED
                 && (request.source() != Source.USER && request.source() != Source.SENSOR)) {
             // A fire is never inferred by FileGrid: only a person or a sensor can report it.
@@ -158,6 +164,9 @@ public class IncidentService {
             throw race;
         }
         linkFiles(id, request.fileIds());
+        if (attributes != null && !attributes.isEmpty()) {
+            putAttributes(id, attributes);
+        }
         timeline(id, request.actor(), "CREATED", texts.get("incident.timeline.created",
                 texts.get("incident.source." + request.source().name()),
                 texts.get("incident.certainty." + request.certainty().name())));
@@ -610,14 +619,14 @@ public class IncidentService {
         }
         p.addValue("limit", pageSize).addValue("offset", (long) pageIndex * pageSize);
         List<IncidentSummary> items = jdbc.query(SUMMARY_SQL + where
-                + " ORDER BY i.created_at DESC LIMIT :limit OFFSET :offset", p, this::summary);
+                + " ORDER BY i.created_at DESC LIMIT :limit OFFSET :offset", p, this::mapSummary);
         Long total = jdbc.queryForObject("SELECT count(*) FROM incident i" + where, p, Long.class);
         return new Page<>(items, pageIndex, pageSize, total == null ? 0 : total);
     }
 
     public IncidentSummary summary(UUID id) {
         List<IncidentSummary> list = jdbc.query(SUMMARY_SQL + " WHERE i.id = :id",
-                new MapSqlParameterSource("id", id), this::summary);
+                new MapSqlParameterSource("id", id), this::mapSummary);
         if (list.isEmpty()) {
             throw new ProblemException(HttpStatus.NOT_FOUND, "incident-not-found", texts.get("incident.error.notFound"));
         }
@@ -638,7 +647,7 @@ public class IncidentService {
                 """, p, (rs, i) -> new TimelineEntry(rs.getLong("id"), instant(rs, "at"), rs.getString("actor"),
                 rs.getString("kind"), rs.getString("message")));
         List<Notification> notifications = jdbc.query(NOTIFICATION_SQL
-                + " WHERE n.incident_id = :id ORDER BY n.created_at, n.level", p, this::notification);
+                + " WHERE n.incident_id = :id ORDER BY n.created_at, n.level", p, this::mapNotification);
         return new IncidentDetail(summary, files, timeline, notifications, summary.status().allowedTransitions());
     }
 
@@ -662,14 +671,14 @@ public class IncidentService {
         }
         p.addValue("limit", pageSize).addValue("offset", (long) pageIndex * pageSize);
         List<Notification> items = jdbc.query(NOTIFICATION_SQL + where
-                + " ORDER BY n.created_at DESC LIMIT :limit OFFSET :offset", p, this::notification);
+                + " ORDER BY n.created_at DESC LIMIT :limit OFFSET :offset", p, this::mapNotification);
         Long total = jdbc.queryForObject("SELECT count(*) FROM notification n" + where, p, Long.class);
         return new Page<>(items, pageIndex, pageSize, total == null ? 0 : total);
     }
 
     public Notification notification(UUID id) {
         List<Notification> list = jdbc.query(NOTIFICATION_SQL + " WHERE n.id = :id",
-                new MapSqlParameterSource("id", id), this::notification);
+                new MapSqlParameterSource("id", id), this::mapNotification);
         if (list.isEmpty()) {
             throw new ProblemException(HttpStatus.NOT_FOUND, "notification-not-found",
                     texts.get("incident.error.notificationNotFound"));
@@ -737,7 +746,7 @@ public class IncidentService {
         return out;
     }
 
-    private IncidentSummary summary(ResultSet rs, int row) throws SQLException {
+    private IncidentSummary mapSummary(ResultSet rs, int row) throws SQLException {
         IncidentType type = IncidentType.valueOf(rs.getString("type"));
         Severity severity = Severity.valueOf(rs.getString("severity"));
         IncidentStatus status = IncidentStatus.valueOf(rs.getString("status"));
@@ -751,7 +760,7 @@ public class IncidentService {
                 rs.getLong("unconfirmed_count"), DataOrigin.valueOf(rs.getString("data_origin")));
     }
 
-    private Notification notification(ResultSet rs, int row) throws SQLException {
+    private Notification mapNotification(ResultSet rs, int row) throws SQLException {
         NotificationStatus status = NotificationStatus.valueOf(rs.getString("status"));
         String role = rs.getString("role");
         return new Notification(rs.getObject("id", UUID.class), rs.getObject("incident_id", UUID.class),

@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import ro.filegrid.crypto.EnvelopeEncryption;
 import ro.filegrid.events.FileLifecycle;
 import ro.filegrid.events.LiveEvent;
 import ro.filegrid.file.FileEventType;
@@ -28,6 +29,8 @@ import ro.filegrid.file.FileRecord;
 import ro.filegrid.file.FileRecordRepository;
 import ro.filegrid.file.FileStatus;
 import ro.filegrid.file.IntegrityStatus;
+import ro.filegrid.file.FileCategory;
+import ro.filegrid.file.Sensitivity;
 import ro.filegrid.file.RoutingDecisionRepository;
 import ro.filegrid.messaging.TransferJob;
 import ro.filegrid.policy.Policy;
@@ -78,17 +81,23 @@ public class TransferWorker {
     private final MultipartTransferStore multipart;
     private final Map<StorageType, StorageAdapter> adapters = new EnumMap<>(StorageType.class);
     private final Sleeper sleeper;
+    private final EnvelopeEncryption encryption;
+    private final io.micrometer.core.instrument.Counter unencryptedPii =
+            io.micrometer.core.instrument.Metrics.counter("filegrid_pii_stored_unencrypted");
 
     @Autowired
     public TransferWorker(FileRecordRepository files, RoutingDecisionRepository decisions, FileLifecycle lifecycle,
                           PolicyService policies, StagingProperties staging, TransferLock locks,
-                          MultipartTransferStore multipart, List<StorageAdapter> adapters) {
-        this(files, decisions, lifecycle, policies, staging, locks, multipart, adapters, Thread::sleep);
+                          MultipartTransferStore multipart, List<StorageAdapter> adapters,
+                          EnvelopeEncryption encryption) {
+        this(files, decisions, lifecycle, policies, staging, locks, multipart, adapters, encryption, Thread::sleep);
     }
 
     TransferWorker(FileRecordRepository files, RoutingDecisionRepository decisions, FileLifecycle lifecycle,
                    PolicyService policies, StagingProperties staging, TransferLock locks,
-                   MultipartTransferStore multipart, List<StorageAdapter> adapters, Sleeper sleeper) {
+                   MultipartTransferStore multipart, List<StorageAdapter> adapters, EnvelopeEncryption encryption,
+                   Sleeper sleeper) {
+        this.encryption = encryption;
         this.files = files;
         this.decisions = decisions;
         this.lifecycle = lifecycle;
@@ -154,6 +163,17 @@ public class TransferWorker {
         if (!Files.exists(stagingFile)) {
             return stagingMissing(transfer, chain);
         }
+        if (needsEncryption(file)) {
+            try {
+                encrypt(transfer);
+            } catch (IOException | java.security.GeneralSecurityException e) {
+                log.error("File {}: encryption before storage failed: {}", file.getId(), e.getMessage());
+                transfer.file = lifecycle.changeStatus(transfer.file, FileStatus.PENDING, FileEventType.STATUS_CHANGED,
+                        ACTOR, lifecycle.details().put("reason", "ENCRYPTION_FAILED").put("lastError", e.getMessage()),
+                        null, lifecycle.message("PENDING"));
+                return Result.PENDING;
+            }
+        }
         if (interrupted) {
             transfer.markResumed(chain.get(0));
         }
@@ -214,7 +234,7 @@ public class TransferWorker {
             boolean storageError = false;
             try {
                 StoredObject stored = write(transfer, adapter);
-                String expected = transfer.file.getSha256Plain();
+                String expected = transfer.expectedSha;
                 String readBack = readBackSha256(adapter, transfer.key);
                 if (readBack.equals(expected)) {
                     verified(transfer, storage, stored, readBack);
@@ -259,16 +279,16 @@ public class TransferWorker {
 
     private StoredObject write(Transfer transfer, StorageAdapter adapter) {
         FileRecord file = transfer.file;
-        StreamSource source = () -> new ProgressInputStream(Files.newInputStream(transfer.stagingFile),
-                file.getSizeBytes(), bytes -> transfer.progress(adapter.type(), bytes));
+        StreamSource source = () -> new ProgressInputStream(Files.newInputStream(transfer.uploadFile),
+                transfer.uploadSize, bytes -> transfer.progress(adapter.type(), bytes));
         Map<String, String> metadata = Map.of("filegrid-file-id", file.getId().toString(),
-                "filegrid-sha256", file.getSha256Plain() == null ? "" : file.getSha256Plain());
+                "filegrid-sha256", transfer.expectedSha == null ? "" : transfer.expectedSha);
         if (adapter instanceof S3StorageAdapter s3) {
             MultipartCheckpoint checkpoint = multipart.forFile(file.getId(),
                     () -> transfer.markResumed(StorageType.S3));
-            return s3.putResumable(transfer.key, source, file.getSizeBytes(), metadata, checkpoint);
+            return s3.putResumable(transfer.key, source, transfer.uploadSize, metadata, checkpoint);
         }
-        return adapter.put(transfer.key, source, file.getSizeBytes(), metadata);
+        return adapter.put(transfer.key, source, transfer.uploadSize, metadata);
     }
 
     private void verified(Transfer transfer, StorageType storage, StoredObject stored, String readBack) {
@@ -279,6 +299,9 @@ public class TransferWorker {
         file.setIntegrityStatus(IntegrityStatus.VERIFIED_INTACT);
         file.setLastVerifiedAt(now);
         file.setStoredAt(now);
+        if (file.getSensitivity() == Sensitivity.PERSONAL_DATA && !file.isEncrypted()) {
+            unencryptedPii.increment(); // must stay 0: personal data is never stored in clear
+        }
         lifecycle.audit(file, FileEventType.STORED, ACTOR, lifecycle.details()
                 .put("storage", storage.name()).put("bytesWritten", stored.sizeWritten())
                 .put("sha256Sent", stored.sha256()));
@@ -297,6 +320,9 @@ public class TransferWorker {
         multipart.delete(file.getId());
         try {
             Files.deleteIfExists(transfer.stagingFile);
+            if (transfer.uploadFile != transfer.stagingFile) {
+                Files.deleteIfExists(transfer.uploadFile);
+            }
         } catch (IOException e) {
             // Verified and recorded: a leftover staged copy is removed by the staging cleanup.
             log.warn("File {} verified but its staged copy could not be deleted: {}", file.getId(), e.getMessage());
@@ -311,7 +337,7 @@ public class TransferWorker {
         file.setIntegrityStatus(IntegrityStatus.MISMATCH);
         transfer.file = files.save(file);
         lifecycle.audit(transfer.file, FileEventType.INTEGRITY_INCIDENT, ACTOR, lifecycle.details()
-                .put("storage", adapter.type().name()).put("expectedSha256", file.getSha256Plain())
+                .put("storage", adapter.type().name()).put("expectedSha256", transfer.expectedSha)
                 .put("readBackSha256", readBack).put("attempt", attempt).put("maxAttempts", maxAttempts)
                 .put("stagingCorrupt", !willRetry));
         lifecycle.broadcast(transfer.file, LiveEvent.MISMATCH, adapter.type(),
@@ -361,12 +387,13 @@ public class TransferWorker {
         candidates.stream().filter(s -> !where.contains(s)).forEach(where::add);
         for (StorageType storage : where) {
             StorageAdapter adapter = adapters.get(storage);
-            if (adapter == null || file.getSha256Plain() == null) {
+            String expectedStored = file.isEncrypted() ? file.getSha256Stored() : file.getSha256Plain();
+            if (adapter == null || expectedStored == null) {
                 continue;
             }
             try {
                 String readBack = readBackSha256(adapter, transfer.key);
-                if (readBack.equals(file.getSha256Plain())) {
+                if (readBack.equals(expectedStored)) {
                     verified(transfer, storage, new StoredObject(transfer.key, file.getSizeBytes(), readBack),
                             readBack);
                     return Result.STORED_VERIFIED;
@@ -441,6 +468,35 @@ public class TransferWorker {
         return StorageKeys.forCategory(file.getCategory(), file.getReceivedAt(), file.getId());
     }
 
+    /** Personal data (policy needsEncryption) is encrypted by the application before any storage sees it. */
+    private boolean needsEncryption(FileRecord file) {
+        return file.getSensitivity() == Sensitivity.PERSONAL_DATA || policies.activeIfPresent()
+                .map(active -> active.policy().category(file.getCategory()).constraints().needsEncryption())
+                .orElse(file.getCategory() == FileCategory.CONNECTION_DOCUMENT);
+    }
+
+    /**
+     * Encrypts the staged copy once into {@code <id>.enc}; a retry or a resumed
+     * S3 multipart upload reuses the same ciphertext (and its recorded hash).
+     */
+    private void encrypt(Transfer transfer) throws IOException, java.security.GeneralSecurityException {
+        FileRecord file = transfer.file;
+        Path enc = transfer.stagingFile.resolveSibling(file.getId() + ".enc");
+        if (!(file.isEncrypted() && file.getSha256Stored() != null && Files.exists(enc))) {
+            EnvelopeEncryption.Encrypted result = encryption.encryptFile(file.getId(), transfer.stagingFile, enc);
+            multipart.delete(file.getId()); // a new ciphertext: earlier S3 parts no longer match
+            file.setEncrypted(true);
+            file.setSensitivity(Sensitivity.PERSONAL_DATA);
+            file.setSha256Stored(result.sha256());
+            transfer.file = files.save(file);
+            log.info("File {} encrypted with a new data key ({}, KEK {})", file.getId(), EnvelopeEncryption.ALGORITHM,
+                    result.keyId());
+        }
+        transfer.uploadFile = enc;
+        transfer.uploadSize = Files.size(enc);
+        transfer.expectedSha = transfer.file.getSha256Stored();
+    }
+
     private Policy.Retry retryPolicy(FileRecord file) {
         return policies.activeIfPresent()
                 .map(active -> active.policy().category(file.getCategory()))
@@ -453,6 +509,9 @@ public class TransferWorker {
         FileRecord file;
         final String key;
         final Path stagingFile;
+        Path uploadFile;
+        long uploadSize;
+        String expectedSha;
         int mismatches;
         int storageErrors;
         boolean stagingCorrupt;
@@ -464,6 +523,9 @@ public class TransferWorker {
             this.file = file;
             this.key = key;
             this.stagingFile = stagingFile;
+            this.uploadFile = stagingFile;
+            this.uploadSize = file.getSizeBytes();
+            this.expectedSha = file.getSha256Plain();
         }
 
         boolean onlyMismatches() {

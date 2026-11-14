@@ -212,10 +212,12 @@ class RetrievalAndPassportIT {
         // Still refused on the next attempt, and served only when the suspicion is acknowledged.
         assertThat(rest.getForEntity("/files/{id}/content", JsonNode.class, id).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT);
-        ResponseEntity<byte[]> acknowledged = rest.getForEntity("/files/{id}/content?acknowledgeSuspect=true",
-                byte[].class, id);
-        assertThat(acknowledged.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(acknowledged.getHeaders().getFirst("X-Integrity")).isEqualTo("suspect");
+        // A connection document is encrypted: an altered ciphertext cannot be decrypted, so even an
+        // acknowledged suspect download is refused (there is no content to serve).
+        assertThat(file.isEncrypted()).isTrue();
+        ResponseEntity<JsonNode> acknowledged = rest.getForEntity("/files/{id}/content?acknowledgeSuspect=true",
+                JsonNode.class, id);
+        assertThat(acknowledged.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
 
         JsonNode suspects = rest.getForObject("/files?integrity=MISMATCH", JsonNode.class);
         assertThat(suspects.path("total").asLong()).isGreaterThanOrEqualTo(1);

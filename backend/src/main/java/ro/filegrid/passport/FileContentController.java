@@ -114,6 +114,11 @@ public class FileContentController {
         if (bounds != null) {
             return partial(file, bounds, headers, actor, eventType);
         }
+        if (suspect && file.isEncrypted()) {
+            // An altered ciphertext cannot be decrypted: there is no content to serve, not even as suspect.
+            throw new ProblemException(HttpStatus.CONFLICT, "integrity-mismatch",
+                    texts.get("file.error.suspectEncrypted"));
+        }
         if (suspect) {
             // Explicitly acknowledged by an administrator: served as is, labelled as suspect.
             headers.set("X-Integrity", "suspect");
@@ -145,6 +150,11 @@ public class FileContentController {
                 out.write(buffer, 0, read);
             }
             actual = Sha256.hex(digest);
+        } catch (ro.filegrid.crypto.EnvelopeEncryption.CiphertextTamperedException e) {
+            // The stored ciphertext was altered: recorded as a mismatch, never served.
+            Files.deleteIfExists(temp);
+            content.record(file, "ciphertext-not-authentic", actor, "RETRIEVAL");
+            throw new ProblemException(HttpStatus.CONFLICT, "integrity-mismatch", texts.get("file.error.suspect"));
         } catch (IOException | StorageException e) {
             Files.deleteIfExists(temp);
             throw new ProblemException(HttpStatus.SERVICE_UNAVAILABLE, "storage-unavailable",

@@ -87,6 +87,9 @@ x-backend-env: &backend-env
   FILEGRID_ROUTING_HEALTH_MAX_AGE: ${FILEGRID_ROUTING_HEALTH_MAX_AGE:-30s}
   FILEGRID_INGESTION_RECOVERY_INTERVAL: ${FILEGRID_INGESTION_RECOVERY_INTERVAL:-30s}
   FILEGRID_UPLOAD_MAX_BYTES: ${FILEGRID_UPLOAD_MAX_BYTES:-5368709120}
+  FILEGRID_KEK: ${FILEGRID_KEK:?run scripts/init-env.sh first}
+  FILEGRID_KEK_ID: ${FILEGRID_KEK_ID:-kek-1}
+  FILEGRID_KEK_PREVIOUS: ${FILEGRID_KEK_PREVIOUS:-}
 
 # JVM memory is set explicitly (heap, direct, metaspace, code cache) instead of
 # as a percentage, so every part of the process fits the container limit.
@@ -135,6 +138,9 @@ networks:
   internal:
     name: filegrid_internal
     internal: true
+  # Outbound internet for the intelligence service (LLM API); nothing is published on it.
+  egress:
+    name: filegrid_egress
 
 volumes:
   meta-db-data:
@@ -201,6 +207,18 @@ services:
       <<: *backend-env
       SPRING_PROFILES_ACTIVE: api
       FILEGRID_POLICY_FILE: /config/policies.yaml
+      NOTIFY_ROUTING_FILE: /config/notification-routing.yaml
+      NOTIFY_TEMPLATES_DIR: /config/templates
+      NOTIFY_MODE: ${NOTIFY_MODE:-SIMULATED}
+      NOTIFY_ESCALATION_OVERRIDE: ${NOTIFY_ESCALATION_OVERRIDE:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      NOTIFY_CONTACT_DISPATCH: ${NOTIFY_CONTACT_DISPATCH:-}
+      NOTIFY_CONTACT_TECH_MANAGER: ${NOTIFY_CONTACT_TECH_MANAGER:-}
+      NOTIFY_CONTACT_FIELD_TEAM: ${NOTIFY_CONTACT_FIELD_TEAM:-}
+      NOTIFY_CONTACT_IT_SECURITY: ${NOTIFY_CONTACT_IT_SECURITY:-}
+      NOTIFY_CONTACT_PLATFORM_ADMIN: ${NOTIFY_CONTACT_PLATFORM_ADMIN:-}
       JAVA_TOOL_OPTIONS: "${API_JAVA_OPTS:--Xmx320m -XX:MaxDirectMemorySize=64m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=64m -Xss512k -XX:+UseG1GC}"
     depends_on: *backend-depends-on
 
@@ -287,6 +305,58 @@ services:
       - simulator-output:/app/output
     depends_on:
       api:
+        condition: service_healthy
+
+  # ------------------------------------------------- intelligence (Python)
+  # Agent 02 (Grid Intelligence), AI Operations Assistant, simulated field voice.
+  # Internal only: reached through the gateway at /api/intelligence.
+  intelligence:
+    <<: *defaults
+    image: filegrid/intelligence:local
+    build:
+      context: ../intelligence
+      target: runtime
+    deploy:
+      resources:
+        limits:
+          memory: ${INTELLIGENCE_MEMORY_LIMIT:-384M}
+    # egress: outbound HTTPS to the LLM provider only (no published port).
+    networks: [internal, egress]
+    environment:
+      META_DB_HOST: meta-db
+      META_DB_USER: ${META_DB_USER:?run scripts/init-env.sh first}
+      META_DB_PASSWORD: ${META_DB_PASSWORD:?run scripts/init-env.sh first}
+      STORE_DB_HOST: store-db
+      STORE_DB_USER: ${STORE_DB_USER:?run scripts/init-env.sh first}
+      STORE_DB_PASSWORD: ${STORE_DB_PASSWORD:?run scripts/init-env.sh first}
+      FILEGRID_API_URL: http://api:8080/api
+      TOPOLOGY_PATH: /app/topology.yaml
+      GROUND_TRUTH_PATH: /simulator-output/injected_anomalies.json
+      DOCS_DIRS: /app/docs:/app/config
+      INTELLIGENCE_ANALYSIS_INTERVAL_SECONDS: ${INTELLIGENCE_ANALYSIS_INTERVAL_SECONDS:-60}
+      INTELLIGENCE_WINDOW_HOURS: ${INTELLIGENCE_WINDOW_HOURS:-24}
+      INTELLIGENCE_INCIDENT_MIN_CONFIDENCE: ${INTELLIGENCE_INCIDENT_MIN_CONFIDENCE:-0.8}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-sonnet-5-5}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-3.5-flash}
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-simulated}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+    volumes:
+      - ../simulator/topology.yaml:/app/topology.yaml:ro
+      - simulator-output:/simulator-output:ro
+      - ../docs:/app/docs:ro
+      - ../config:/app/config:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      meta-db:
+        condition: service_healthy
+      store-db:
         condition: service_healthy
 
   # ------------------------------------------------------------ metadata DB
@@ -646,3 +716,25 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+
+  # -------------------------------------------------------------- frontend
+  # Angular SPA served by nginx (non-root, :8080). Only the gateway reaches it.
+  frontend:
+    <<: *defaults
+    build:
+      context: ../frontend
+    image: filegrid/frontend:local
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy

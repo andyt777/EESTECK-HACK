@@ -43,6 +43,12 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Envelope encryption of personal data (Stage 7) -->
+        <dependency>
+            <groupId>com.google.crypto.tink</groupId>
+            <artifactId>tink</artifactId>
+            <version>1.15.0</version>
+        </dependency>
         <!-- Web, validation, operations -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

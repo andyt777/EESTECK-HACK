@@ -45,3 +45,6 @@ simulator/output/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+
+# Playwright MCP scratch (screenshots, traces)
+.playwright-mcp/

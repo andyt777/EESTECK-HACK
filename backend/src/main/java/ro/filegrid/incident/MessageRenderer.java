@@ -37,7 +37,8 @@ public class MessageRenderer {
     private static final Pattern CNP = Pattern.compile("\\b[1-9]\\d{12}\\b");
     private static final Pattern IBAN = Pattern.compile("(?i)\\bRO\\d{2}[A-Z]{4}[0-9A-Z]{16}\\b");
     private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+\\.[\\w.]+");
-    private static final Pattern PHONE = Pattern.compile("(?<!\\w)\\+?\\d[\\d .-]{8,}\\d");
+    private static final Pattern PHONE = Pattern.compile(
+            "(?<![\\w.:/-])(?:\\+\\d[\\d .-]{8,}\\d|0\\d{2,3}[ .-]?\\d{3}[ .-]?\\d{3,4})(?![\\w.:/-])");
     private static final Pattern LONG_TOKEN = Pattern.compile("\\b[A-Za-z0-9_\\-]{32,}\\b");
     private static final Pattern SHA256 = Pattern.compile("\\b[a-f0-9]{64}\\b");
     private static final Pattern UUID_PATTERN =

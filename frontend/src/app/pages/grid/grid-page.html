@@ -1,0 +1,130 @@
+<div class="page">
+  <div class="page-head">
+    <div><div class="kicker">Agent 02</div><h1>{{ t.grid.title }}</h1><div class="lead">{{ t.grid.lead }}</div></div>
+    <div class="row">
+      <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
+      <button class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms">radar</span>{{ t.grid.analyze }}</button>
+    </div>
+  </div>
+
+  <div class="grid side mb">
+    <div class="card map-card">
+      <div class="card-head"><h3>{{ t.grid.map }}</h3>
+        @if (selNodeObj(); as n) { <span class="row small"><span class="badge tone-active">{{ n.name }}</span><button class="btn ghost sm" (click)="selNode.set(null)">{{ t.files.reset }}</button></span> }</div>
+      @if (model()) { <fg-grid-map [model]="model()" [selected]="selNode()" (pick)="pickNode($event)" /> }
+      @else { <fg-state [loading]="grid.loading()" [unavailable]="grid.unavailable()" [error]="grid.error()" (retry)="grid.load()" /> }
+    </div>
+    <div class="col">
+      <!-- Agent 02 -->
+      <div class="card agent2 st-{{ agent() }}">
+        <svg viewBox="0 0 120 140" class="tech" aria-hidden="true">
+          <ellipse cx="60" cy="132" rx="30" ry="6" fill="rgba(0,0,0,.4)"/>
+          <rect x="40" y="76" width="40" height="46" rx="10" fill="#1f3b63" stroke="#fbbf24" stroke-width="1.5"/>
+          <rect x="44" y="84" width="32" height="5" fill="#fbbf24" opacity=".8"/>
+          <circle cx="60" cy="56" r="20" fill="#f1c9a5"/>
+          <path d="M38 52 Q38 30 60 30 Q82 30 82 52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
+          <rect x="34" y="50" width="52" height="5" rx="2.5" fill="#f59e0b"/>
+          <rect x="56" y="33" width="8" height="10" rx="2" fill="#fde68a"/>
+          <circle cx="53" cy="60" r="2.4" fill="#0b1730"/><circle cx="67" cy="60" r="2.4" fill="#0b1730"/>
+          <path [attr.d]="agent() === 'found' ? 'M53 68 q7 -3 14 0' : agent() === 'insufficient' ? 'M53 69 h14' : 'M53 67 q7 5 14 0'" stroke="#0b1730" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <g class="tablet">
+            <rect x="66" y="84" width="34" height="26" rx="4" fill="#0b1730" stroke="#22d3ee" stroke-width="1.5" transform="rotate(-12 83 97)"/>
+            <polyline points="71,100 77,94 82,98 88,89 94,93" fill="none" stroke="#22d3ee" stroke-width="1.6" transform="rotate(-12 83 97)" class="spark"/>
+          </g>
+          <path d="M42 86 q-10 10 -4 24" stroke="#1f3b63" stroke-width="7" fill="none" stroke-linecap="round"/>
+          @if (agent() === 'found') { <path d="M24 26 l10 6 l-10 6" fill="none" stroke="#f43f5e" stroke-width="3" class="point"/> }
+          @if (agent() === 'analyzing') { <circle cx="22" cy="34" r="10" fill="none" stroke="#22d3ee" stroke-width="2" class="radar"/> }
+        </svg>
+        <div class="col grow">
+          <b class="who">{{ t.grid.agent02 }}</b>
+          <div class="bubble">{{ agentMsg() }}</div>
+          <div class="tiny muted">{{ t.grid.disclaimer }}</div>
+          @if (actionMsg()) { <div class="small" style="color: var(--amber)">{{ actionMsg() }}</div> }
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>{{ t.grid.stats }}</h3></div>
+        @if (summary.data()) {
+          <div class="sgrid">@for (s of summaryFacts(); track s[0]) { <div class="sf"><span class="tiny muted">{{ s[0] }}</span><b class="mono">{{ s[1] }}</b></div> }</div>
+          @for (b of summaryBreakdown(); track b[0]) {
+            <div class="tiny muted mt">{{ b[0] }}</div>
+            <div class="row wrap">@for (e of b[1]; track e[0]) { <span class="chip">{{ e[0] }}: <b>&nbsp;{{ e[1] }}</b></span> }</div>
+          }
+        } @else { <fg-state [loading]="summary.loading()" [unavailable]="summary.unavailable()" [error]="summary.error()" (retry)="summary.load()" /> }
+      </div>
+    </div>
+  </div>
+
+  <div class="grid side">
+    <div class="card flush">
+      <div class="card-head pad"><h3>{{ t.grid.findings }} ({{ list().length }})</h3>
+        <div class="row">
+          <select class="input" style="width: 200px" (change)="setF('type', $any($event.target).value)"><option value="">{{ t.grid.type }}: {{ t.app.all }}</option>
+            @for (x of types(); track x) { <option [value]="x">{{ typeLabel(x) }}</option> }</select>
+          <select class="input" style="width: 160px" (change)="setF('status', $any($event.target).value)"><option value="">{{ t.grid.status }}: {{ t.app.all }}</option>
+            @for (s of ['NEW', 'CONFIRMED', 'DISMISSED']; track s) { <option [value]="s">{{ t.grid.findingStatuses[s] }}</option> }</select>
+        </div>
+      </div>
+      @if (findings.data()) {
+        <div class="flist">
+          @for (f of list(); track f.id) {
+            <button class="fi" [class.sel]="sel()?.id === f.id" (click)="pick(f)">
+              <span class="ms ic" [class.ins]="f.type === 'INSUFFICIENT_DATA'">{{ f.type === 'INSUFFICIENT_DATA' ? 'help' : 'insights' }}</span>
+              <span class="grow col" style="gap: 2px; min-width: 0">
+                <b class="ellipsis">{{ title(f) }}</b>
+                <span class="tiny muted ellipsis">{{ obs(f) }}</span>
+                <span class="row tiny muted">{{ loc(f) | join }} · {{ from(f) | dt }}</span>
+              </span>
+              <span class="col" style="align-items: flex-end; gap: 4px">
+                <span class="badge conf-{{ conf(f).level }}">{{ conf(f).level || '—' }}</span>
+                <span class="badge tone-muted">{{ t.grid.findingStatuses[f.status] || f.status }}</span>
+                <fg-origin [origin]="f.dataOrigin" />
+              </span>
+            </button>
+          } @empty { <fg-state [empty]="true" [emptyText]="t.grid.findingsEmpty" /> }
+        </div>
+      } @else { <fg-state [loading]="findings.loading()" [unavailable]="findings.unavailable()" [error]="findings.error()" (retry)="findings.load()" /> }
+    </div>
+
+    <div class="col">
+      @if (sel(); as f) {
+        <div class="card glow">
+          <div class="card-head"><h2>{{ title(f) }}</h2><fg-origin [origin]="f.dataOrigin" /></div>
+          <h3>{{ t.grid.observation }}</h3>
+          <ul class="obs">@for (o of obsList(f); track $index) { <li>{{ o }}</li> }</ul>
+          <dl class="kv mt">
+            <dt>{{ t.grid.location }}</dt><dd>{{ loc(f) | join }}</dd>
+            <dt>{{ t.grid.period }}</dt><dd>{{ from(f) | dt }} → {{ to(f) | dt }}</dd>
+            <dt>{{ t.grid.confidence }}</dt><dd><span class="badge conf-{{ conf(f).level }}">{{ conf(f).level }}</span> @if (conf(f).score !== null) { <span class="mono small">{{ pct(conf(f).score) }}</span> } @if (conf(f).how) { <div class="tiny muted">{{ conf(f).how }}</div> }</dd>
+          </dl>
+          @if (human(f); as h) { <div class="banner warn mt small" style="margin-bottom: 0"><span class="ms">engineering</span><div><b>{{ t.grid.humanCheck }}</b><div>{{ h }}</div></div></div> }
+          <h3 class="mt">{{ t.grid.evidence }}</h3>
+          @if (chart()) { <div echarts [options]="chart()" class="chart"></div> }
+          @if (facts().length) { <div class="row wrap mt">@for (x of facts(); track x[0]) { <span class="chip"><span class="muted">{{ x[0] }}:</span>&nbsp;{{ x[1] }}</span> }</div> }
+          @if (fileIds(f).length) { <div class="row wrap mt"><span class="tiny muted">Fișiere sursă:</span>@for (id of fileIds(f); track id) { <a class="chip" [routerLink]="['/files', id]"><span class="ms">badge</span>{{ id.slice(0, 8) }}</a> }</div> }
+          <label class="field mt"><span>{{ t.grid.note }}</span><input class="input" [value]="note()" (input)="note.set($any($event.target).value)" /></label>
+          <div class="row wrap mt">
+            <button class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms">check</span>{{ t.grid.confirm }}</button>
+            <button class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms">block</span>{{ t.grid.dismiss }}</button>
+            <button class="btn danger sm" (click)="promote()"><span class="ms">campaign</span>{{ t.grid.promote }}</button>
+            <button class="btn ghost sm" (click)="ask()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
+          </div>
+        </div>
+      } @else {
+        <div class="card"><div class="state muted"><span class="ms big">touch_app</span>{{ t.grid.agentIdle }}</div></div>
+      }
+      <div class="card">
+        <div class="card-head"><h3>{{ t.grid.evaluation }}</h3></div>
+        @if (evaluation.data()?.available === false) {
+          <div class="muted small">{{ evaluation.data()?.reason || t.app.empty }}</div>
+        } @else if (evaluation.data()) {
+          <table class="tbl"><thead><tr><th>Detector</th><th>Precision</th><th>Recall</th></tr></thead><tbody>
+            @for (r of evalRows(); track r[0]) { <tr><td class="small">{{ typeLabel(r[0]) }}</td><td class="mono">{{ pct(r[1].precision) }}</td><td class="mono">{{ pct(r[1].recall) }}</td></tr> }
+          </tbody></table>
+          @if (evaluation.data()?.note) { <div class="tiny muted mt">{{ evaluation.data()?.note }}</div> }
+        } @else { <fg-state [loading]="evaluation.loading()" [unavailable]="evaluation.unavailable()" [error]="evaluation.error()" (retry)="evaluation.load()" /> }
+      </div>
+    </div>
+  </div>
+</div>

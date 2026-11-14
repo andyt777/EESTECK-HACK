@@ -53,12 +53,14 @@ public class FileContentService {
     private final ApplicationEventPublisher publisher;
     private final Texts texts;
     private final Counter mismatches;
+    private final ro.filegrid.crypto.EnvelopeEncryption encryption;
     private final Map<StorageType, StorageAdapter> adapters = new EnumMap<>(StorageType.class);
 
     public FileContentService(FileRecordRepository files, FileLifecycle lifecycle,
                               @Qualifier(StoreDbConfig.QUALIFIER) JdbcTemplate storeDb,
                               List<StorageAdapter> adapters, ApplicationEventPublisher publisher, Texts texts,
-                              MeterRegistry registry) {
+                              MeterRegistry registry, ro.filegrid.crypto.EnvelopeEncryption encryption) {
+        this.encryption = encryption;
         this.files = files;
         this.lifecycle = lifecycle;
         this.storeDb = storeDb;
@@ -94,8 +96,14 @@ public class FileContentService {
         }
     }
 
-    /** The hash the stored bytes must have. */
+    /**
+     * The hash the content returned by {@link #open} must have: an encrypted
+     * file is decrypted, so it is checked against the original.
+     */
     public String expectedHash(FileRecord file) {
+        if (file.isEncrypted()) {
+            return file.getSha256Plain();
+        }
         return file.getSha256Stored() != null ? file.getSha256Stored() : file.getSha256Plain();
     }
 
@@ -105,8 +113,24 @@ public class FileContentService {
                 && file.getStorageType() == StorageType.DATABASE;
     }
 
-    /** Opens the stored content. The caller closes the stream. */
+    /**
+     * Opens the stored content, decrypted when the file is encrypted (an altered
+     * ciphertext fails while reading with {@code CiphertextTamperedException}).
+     * The caller closes the stream.
+     */
     public InputStream open(FileRecord file) {
+        InputStream raw = openStored(file);
+        if (!file.isEncrypted()) {
+            return raw;
+        }
+        try {
+            return encryption.decrypting(file.getId(), raw);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    private InputStream openStored(FileRecord file) {
         if (isMeterBlob(file)) {
             List<byte[]> rows = storeDb.query("SELECT content FROM meter_reading_blob WHERE reading_id = ?",
                     (rs, i) -> rs.getBytes(1), file.getIdempotencyKey());
@@ -137,6 +161,16 @@ public class FileContentService {
             actual = Sha256.hex(digest);
         } catch (StorageObjectNotFoundException e) {
             actual = null; // the object is gone: the stored copy is not valid
+        } catch (ro.filegrid.crypto.EnvelopeEncryption.CiphertextTamperedException e) {
+            log.warn("File {}: stored ciphertext failed authentication: {}", id, e.getMessage());
+            actual = "ciphertext-not-authentic"; // altered in the storage: not a valid copy
+        } catch (java.io.UncheckedIOException e) {
+            if (e.getCause() instanceof ro.filegrid.crypto.EnvelopeEncryption.CiphertextTamperedException) {
+                actual = "ciphertext-not-authentic";
+            } else {
+                throw new ProblemException(HttpStatus.SERVICE_UNAVAILABLE, "storage-unavailable",
+                        texts.get("file.error.storageUnavailable", lifecycle.storageName(file.getStorageType())));
+            }
         } catch (IOException | StorageException e) {
             log.warn("File {} could not be read back from {}: {}", id, file.getStorageType(), e.getMessage());
             throw new ProblemException(HttpStatus.SERVICE_UNAVAILABLE, "storage-unavailable",

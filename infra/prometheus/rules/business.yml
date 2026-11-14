@@ -1,0 +1,32 @@
+# Business alerts (Stage 8), mapped on the requirement table §2.1. Alertmanager
+# sends them to the api (POST /api/incidents/alertmanager), which opens or
+# resolves an incident. Labels: severity, category, requirement, incident_type.
+groups:
+  - name: filegrid-business
+    rules:
+      - alert: StorageDown
+        expr: filegrid_storage_up == 0
+        for: 30s
+        labels: {severity: HIGH, category: all, requirement: "§2.1 disponibilitate", incident_type: STORAGE_UNAVAILABLE}
+        annotations:
+          summary: "Storage-ul {{ $labels.storage }} nu răspunde"
+          description: "FileGrid nu poate scrie în {{ $labels.storage }}; fișierele noi merg pe fallback sau rămân în așteptare."
+      - alert: IntegrityMismatch
+        expr: increase(filegrid_integrity_mismatch_total[5m]) > 0
+        labels: {severity: HIGH, category: all, requirement: "§2.1 integritate", incident_type: INTEGRITY_MISMATCH}
+        annotations:
+          summary: "Conținut recuperat diferit de cel primit"
+          description: "Cel puțin un fișier citit din storage nu are SHA-256-ul original."
+      - alert: MeterReadingsAtRisk
+        expr: filegrid_meter_duplicates_written_total > 0 or increase(filegrid_meter_gaps_total[10m]) > 50
+        for: 1m
+        labels: {severity: HIGH, category: METER_READING, requirement: "§2.1 citiri contoare", incident_type: BUSINESS_SLA_AT_RISK}
+        annotations:
+          summary: "Citiri de contor în pericol (dubluri scrise sau goluri noi)"
+          description: "Verificați reconcilierea citirilor: dublurile scrise trebuie să fie 0."
+      - alert: PersonalDataAtRisk
+        expr: filegrid_pii_stored_unencrypted_total > 0
+        labels: {severity: CRITICAL, category: CONNECTION_DOCUMENT, requirement: "§4 securitate", incident_type: CYBER_SECURITY}
+        annotations:
+          summary: "Document cu date personale stocat necriptat"
+          description: "Un document de racordare a ajuns în storage fără criptare aplicativă."

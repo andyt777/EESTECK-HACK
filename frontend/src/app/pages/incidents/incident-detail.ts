@@ -29,8 +29,8 @@ import { SHARED } from '../../shared/ui';
           </div>
         </div>
         <div class="row">
-          <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms">smartphone</span>{{ t.incidents.phone }}</button>
-          <button class="btn ghost" (click)="ask()"><span class="ms">smart_toy</span>{{ t.incidents.askAssistant }}</button>
+          <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms" aria-hidden="true">smartphone</span>{{ t.incidents.phone }}</button>
+          <button class="btn ghost" (click)="ask()"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.incidents.askAssistant }}</button>
         </div>
       </div>
 
@@ -56,7 +56,7 @@ import { SHARED } from '../../shared/ui';
               @for (n of x.notifications; track n.id) {
                 <div class="nt" [class.esc]="n.status === 'ESCALATED'" [class.conf]="!!n.confirmedAt">
                   <div class="row between wrap">
-                    <span class="row"><span class="ms">person</span><b>{{ n.recipientName }}</b><span class="muted small">{{ n.roleLabel || n.role }} · {{ n.phoneMasked }}</span>@if (n.level) { <span class="badge tone-muted">nivel {{ n.level }}</span> }</span>
+                    <span class="row"><span class="ms" aria-hidden="true">person</span><b>{{ n.recipientName }}</b><span class="muted small">{{ n.roleLabel || n.role }} · {{ n.phoneMasked }}</span>@if (n.level) { <span class="badge tone-muted">nivel {{ n.level }}</span> }</span>
                     <span class="row">
                       <span class="badge sim">{{ modeOf(n) }}</span>
                       <span class="badge" [class.tone-ok]="n.status === 'CONFIRMED'" [class.tone-bad]="n.status === 'ESCALATED'" [class.tone-info]="n.status !== 'CONFIRMED' && n.status !== 'ESCALATED'">{{ n.statusLabel || t.incidents.notifStatuses[n.status] || n.status }}</span>
@@ -66,7 +66,7 @@ import { SHARED } from '../../shared/ui';
                   <div class="wa-bubble mt"><fg-wa [text]="n.body" /></div>
                   <div class="row between wrap tiny muted mt">
                     <span>creat {{ n.createdAt | tm }} @if (n.sentAt) { · trimis {{ n.sentAt | tm }} } @if (n.deliveredAt) { · livrat {{ n.deliveredAt | tm }} } @if (n.escalatedAt) { · escaladat {{ n.escalatedAt | tm }} }</span>
-                    @if (n.confirmedAt) { <span class="ok"><span class="ms">done_all</span> {{ t.incidents.confirmedBy }} {{ n.confirmedBy }} · {{ n.confirmedAt | tm }}</span> }
+                    @if (n.confirmedAt) { <span class="ok"><span class="ms" aria-hidden="true">done_all</span> {{ t.incidents.confirmedBy }} {{ n.confirmedBy }} · {{ n.confirmedAt | tm }}</span> }
                     @else if (n.kind === 'ALERT' && n.escalationDueAt && n.status !== 'ESCALATED' && n.status !== 'CLOSED') {
                       <span class="countdown" [class.urgent]="left(n) < 30">{{ t.incidents.escalatesIn }} {{ fmtLeft(n) }}</span>
                     }
@@ -89,7 +89,7 @@ import { SHARED } from '../../shared/ui';
             <div class="col">
               <label class="field"><span>{{ t.incidents.note }}</span><textarea class="input" rows="3" [value]="note()" (input)="note.set($any($event.target).value)"></textarea></label>
               <div class="row wrap">
-                @if (i.status === 'NEW' || i.status === 'NOTIFIED') { <button class="btn ok sm" (click)="ack()"><span class="ms">task_alt</span>{{ t.incidents.acknowledge }}</button> }
+                @if (i.status === 'NEW' || i.status === 'NOTIFIED') { <button class="btn ok sm" (click)="ack()"><span class="ms" aria-hidden="true">task_alt</span>{{ t.incidents.acknowledge }}</button> }
                 @for (s of x.allowedTransitions; track s) {
                   <button class="btn sm" [class.ghost]="s !== 'RESOLVED'" [class.ok]="s === 'RESOLVED'" (click)="status(s)" [disabled]="s === 'RESOLVED' && !note().trim()">{{ t.incidents.statuses[s] || s }}</button>
                 }
@@ -104,7 +104,7 @@ import { SHARED } from '../../shared/ui';
           <div class="card">
             <div class="card-head"><h3>{{ t.incidents.files }} ({{ x.files.length }})</h3></div>
             @for (f of x.files; track f.fileId) {
-              <a class="row fl" [routerLink]="['/files', f.fileId]"><span class="ms">description</span><span class="grow ellipsis small">{{ f.name }}</span><span class="tiny muted">{{ f.category | cat }}</span><fg-integrity [status]="f.integrityStatus" /></a>
+              <a class="row fl" [routerLink]="['/files', f.fileId]"><span class="ms" aria-hidden="true">description</span><span class="grow ellipsis small">{{ f.name }}</span><span class="tiny muted">{{ f.category | cat }}</span><fg-integrity [status]="f.integrityStatus" /></a>
             } @empty { <div class="muted small">—</div> }
           </div>
 

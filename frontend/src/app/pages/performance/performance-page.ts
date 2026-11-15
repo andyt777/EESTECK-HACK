@@ -9,7 +9,7 @@ import { SHARED } from '../../shared/ui';
   template: `
   <div class="page">
     <div class="page-head"><div><div class="kicker">Observabilitate</div><h1>{{ t.performance.title }}</h1><div class="lead">{{ t.performance.lead }}</div></div>
-      <a class="btn" href="/grafana/" target="_blank" rel="noopener"><span class="ms">monitoring</span>{{ t.performance.grafana }}</a></div>
+      <a class="btn" href="/grafana/" target="_blank" rel="noopener"><span class="ms" aria-hidden="true">monitoring</span>{{ t.performance.grafana }}</a></div>
     <div class="grid g4 mb">
       <div class="card kpi info"><span class="label">{{ t.control.kpiMeterRate }} <fg-origin [origin]="meter.data()?.dataOrigin" /></span><span class="value">{{ meter.data()?.readingsLastMinute | num }}</span><span class="sub">medie 5 min: {{ meter.data()?.readingsPerMinute | num: 1 }}</span></div>
       <div class="card kpi ok"><span class="label">{{ t.control.kpiReadingsTotal }}</span><span class="value">{{ meter.data()?.readingsStored | num }}</span><span class="sub">{{ meter.data()?.activeMeters | num }} contoare active</span></div>

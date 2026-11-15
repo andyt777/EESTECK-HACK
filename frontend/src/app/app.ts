@@ -84,6 +84,20 @@ export class App {
       }
     });
     effect(() => document.documentElement.classList.toggle('reduce-motion', !this.ui.animations()));
+    // Keyboard: opening the menu moves focus into it (the page behind is inert); closing returns it to ☰.
+    let wasOpen = false;
+    effect(() => {
+      const open = this.menuOpen();
+      if (open === wasOpen) return;
+      wasOpen = open;
+      setTimeout(() => {
+        const target = open
+          ? document.querySelector<HTMLElement>('aside.nav .nav-item.on, aside.nav .nav-item')
+          : document.getElementById('fg-menu-button');
+        const active = document.activeElement;
+        if (open || active === document.body || active?.closest('aside.nav')) target?.focus();
+      });
+    });
   }
 
   @HostListener('document:keydown', ['$event'])

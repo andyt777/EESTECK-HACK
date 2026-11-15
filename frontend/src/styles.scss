@@ -53,8 +53,14 @@ body {
   font-size: 14px;
   line-height: 1.45;
 }
-a { color: var(--cyan); text-decoration: none; }
+a { color: var(--cyan); text-decoration: none; text-underline-offset: 3px; }
 a:hover { text-decoration: underline; }
+::selection { background: rgba(255, 119, 188, .35); color: #fff; }
+html { scrollbar-color: var(--line2) transparent; caret-color: var(--pink); }
+/* Keyboard focus: one visible ring everywhere (pointer clicks keep the calm look). */
+:where(a, button, [role="button"], [tabindex], summary, select, input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline: 2px solid var(--pink); outline-offset: 2px; border-radius: 6px;
+}
 /* Italic is reserved for titles; body text stays upright for legibility. */
 h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -.01em; font-style: italic; }
 h1 { font-size: 26px; }
@@ -128,9 +134,6 @@ h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spa
   &.warn .value { color: var(--amber); }
   &.bad .value { color: var(--red); }
   &.info .value { color: var(--cyan); }
-  &::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--line2); }
-  &.ok::before { background: var(--green); } &.warn::before { background: var(--amber); }
-  &.bad::before { background: var(--red); } &.info::before { background: var(--cyan); }
 }
 
 // badges & chips
@@ -185,7 +188,8 @@ h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spa
 .input, select.input, textarea.input {
   height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line2); background: rgba(6, 18, 58, .6);
   color: var(--text); font: inherit; outline: none; min-width: 0; width: 100%;
-  &:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(255, 119, 188, .12); }
+  &:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(255, 119, 188, .28); }
+  &::placeholder { color: #8fa3dc; }
 }
 textarea.input { height: auto; min-height: 80px; padding: 8px 10px; resize: vertical; }
 select.input option { background: var(--panel); }
@@ -247,6 +251,9 @@ pre.code { background: rgba(6, 18, 58, .7); border: 1px solid var(--line); borde
   button.on { color: var(--cyan); border-bottom-color: var(--cyan); } }
 
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation: none !important; transition: none !important; }
+/* Reduced motion keeps the feedback that work is in progress: a slow spin and a soft pulse, nothing travelling. */
+.reduce-motion .spinner { animation: spin 1.8s linear infinite !important; }
+.reduce-motion .pulse { animation: pulse 2.4s ease-in-out infinite !important; }
 
 .wa-bubble {
   background: #0b3d2e; border: 1px solid #14532d; color: #e7fbe9; border-radius: 10px 10px 10px 2px; padding: 10px 12px;

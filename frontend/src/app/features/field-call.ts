@@ -24,15 +24,15 @@ export function callLines(c: any): { who: string; text: string }[] {
       <select class="input" [value]="role()" (change)="role.set($any($event.target).value)">
         @for (r of roles; track r) { <option [value]="r">{{ t.field.roles[r] }}</option> }
       </select></label>
-    <button class="btn" style="align-self: flex-end" (click)="call()" [disabled]="busy() || !incidentId()"><span class="ms">call</span>{{ t.field.call }}</button>
+    <button class="btn" style="align-self: flex-end" (click)="call()" [disabled]="busy() || !incidentId()"><span class="ms" aria-hidden="true">call</span>{{ t.field.call }}</button>
   </div>
   @if (error()) { <div class="small mt" [style.color]="unavailable() ? 'var(--amber)' : 'var(--red)'">{{ unavailable() ? t.app.unavailable : error() }}</div> }
   @for (c of calls(); track $index) {
     <div class="call mt">
       <div class="row between small">
-        <span class="row"><span class="ms">phone_in_talk</span><b>{{ c.roleLabel || t.field.roles[c.role] || c.role }}</b> {{ c.recipientName || c.recipient || '' }}</span>
+        <span class="row"><span class="ms" aria-hidden="true">phone_in_talk</span><b>{{ c.roleLabel || t.field.roles[c.role] || c.role }}</b> {{ c.recipientName || c.recipient || '' }}</span>
         <span class="row"><fg-origin [origin]="c.dataOrigin || c.mode || 'SIMULATED'" /><span class="tiny muted">{{ (c.createdAt || c.startedAt) | dt: true }}</span>
-          @if (canSpeak) { <button class="btn ghost sm icon" (click)="play(c)" [title]="t.assistant.speak"><span class="ms">volume_up</span></button> }</span>
+          @if (canSpeak) { <button class="btn ghost sm icon" (click)="play(c)" [title]="t.assistant.speak" [attr.aria-label]="t.assistant.speak"><span class="ms" aria-hidden="true">volume_up</span></button> }</span>
       </div>
       @if (c.status) { <div class="tiny muted">{{ c.status }}</div> }
       <div class="lines">

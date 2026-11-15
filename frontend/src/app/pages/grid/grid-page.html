@@ -2,8 +2,8 @@
   <div class="page-head">
     <div><div class="kicker">Agent 02</div><h1>{{ t.grid.title }}</h1><div class="lead">{{ t.grid.lead }}</div></div>
     <div class="row">
-      <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
-      <button class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms">radar</span>{{ t.grid.analyze }}</button>
+      <span class="badge sim"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulatedData }}</span>
+      <button class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms" aria-hidden="true">radar</span>{{ t.grid.analyze }}</button>
     </div>
   </div>
 
@@ -70,7 +70,7 @@
         <div class="flist">
           @for (f of list(); track f.id) {
             <button class="fi" [class.sel]="sel()?.id === f.id" (click)="pick(f)">
-              <span class="ms ic" [class.ins]="f.type === 'INSUFFICIENT_DATA'">{{ f.type === 'INSUFFICIENT_DATA' ? 'help' : 'insights' }}</span>
+              <span class="ms ic" aria-hidden="true" [class.ins]="f.type === 'INSUFFICIENT_DATA'">{{ f.type === 'INSUFFICIENT_DATA' ? 'help' : 'insights' }}</span>
               <span class="grow col" style="gap: 2px; min-width: 0">
                 <b class="ellipsis">{{ title(f) }}</b>
                 <span class="tiny muted ellipsis">{{ obs(f) }}</span>
@@ -98,21 +98,21 @@
             <dt>{{ t.grid.period }}</dt><dd>{{ from(f) | dt }} → {{ to(f) | dt }}</dd>
             <dt>{{ t.grid.confidence }}</dt><dd><span class="badge conf-{{ conf(f).level }}">{{ conf(f).level }}</span> @if (conf(f).score !== null) { <span class="mono small">{{ pct(conf(f).score) }}</span> } @if (conf(f).how) { <div class="tiny muted">{{ conf(f).how }}</div> }</dd>
           </dl>
-          @if (human(f); as h) { <div class="banner warn mt small" style="margin-bottom: 0"><span class="ms">engineering</span><div><b>{{ t.grid.humanCheck }}</b><div>{{ h }}</div></div></div> }
+          @if (human(f); as h) { <div class="banner warn mt small" style="margin-bottom: 0"><span class="ms" aria-hidden="true">engineering</span><div><b>{{ t.grid.humanCheck }}</b><div>{{ h }}</div></div></div> }
           <h3 class="mt">{{ t.grid.evidence }}</h3>
           @if (chart()) { <div echarts [options]="chart()" class="chart"></div> }
           @if (facts().length) { <div class="row wrap mt">@for (x of facts(); track x[0]) { <span class="chip"><span class="muted">{{ x[0] }}:</span>&nbsp;{{ x[1] }}</span> }</div> }
-          @if (fileIds(f).length) { <div class="row wrap mt"><span class="tiny muted">Fișiere sursă:</span>@for (id of fileIds(f); track id) { <a class="chip" [routerLink]="['/files', id]"><span class="ms">badge</span>{{ id.slice(0, 8) }}</a> }</div> }
+          @if (fileIds(f).length) { <div class="row wrap mt"><span class="tiny muted">Fișiere sursă:</span>@for (id of fileIds(f); track id) { <a class="chip" [routerLink]="['/files', id]"><span class="ms" aria-hidden="true">badge</span>{{ id.slice(0, 8) }}</a> }</div> }
           <label class="field mt"><span>{{ t.grid.note }}</span><input class="input" [value]="note()" (input)="note.set($any($event.target).value)" /></label>
           <div class="row wrap mt">
-            <button class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms">check</span>{{ t.grid.confirm }}</button>
-            <button class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms">block</span>{{ t.grid.dismiss }}</button>
-            <button class="btn danger sm" (click)="promote()"><span class="ms">campaign</span>{{ t.grid.promote }}</button>
-            <button class="btn ghost sm" (click)="ask()"><span class="ms">smart_toy</span>{{ t.passport.askAssistant }}</button>
+            <button class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms" aria-hidden="true">check</span>{{ t.grid.confirm }}</button>
+            <button class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms" aria-hidden="true">block</span>{{ t.grid.dismiss }}</button>
+            <button class="btn danger sm" (click)="promote()"><span class="ms" aria-hidden="true">campaign</span>{{ t.grid.promote }}</button>
+            <button class="btn ghost sm" (click)="ask()"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.passport.askAssistant }}</button>
           </div>
         </div>
       } @else {
-        <div class="card"><div class="state muted"><span class="ms big">touch_app</span>{{ t.grid.agentIdle }}</div></div>
+        <div class="card"><div class="state muted"><span class="ms big" aria-hidden="true">touch_app</span>{{ t.grid.agentIdle }}</div></div>
       }
       <div class="card">
         <div class="card-head"><h3>{{ t.grid.evaluation }}</h3></div>

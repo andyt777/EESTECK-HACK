@@ -12,7 +12,7 @@ import { SHARED } from '../../shared/ui';
   template: `
   <div class="page">
     <div class="page-head"><div><div class="kicker">Agent 01</div><h1>{{ t.decision.title }}</h1><div class="lead">{{ t.decision.lead }}</div></div>
-      <a class="btn ghost" routerLink="/policies"><span class="ms">rule</span>{{ t.nav.policies }}</a></div>
+      <a class="btn ghost" routerLink="/policies"><span class="ms" aria-hidden="true">rule</span>{{ t.nav.policies }}</a></div>
     <div class="card mb"><div class="filters">
       <label class="field"><span>{{ t.files.category }}</span><select class="input" (change)="setF('category', $any($event.target).value)">
         <option value="">{{ t.app.all }}</option>@for (c of cats; track c) { <option [value]="c">{{ t.category[c] }}</option> }</select></label>
@@ -49,7 +49,7 @@ import { SHARED } from '../../shared/ui';
         <div class="card glow">
           <div class="card-head"><h3>{{ t.decision.open }}</h3>
             <div class="row"><a class="btn ghost sm" [routerLink]="['/files', d.fileId]">{{ t.control.openPassport }}</a>
-              <button class="btn ghost sm icon" (click)="sel.set(null); selId.set(null)"><span class="ms">close</span></button></div></div>
+              <button class="btn ghost sm icon" (click)="sel.set(null); selId.set(null)" [title]="t.app.close" [attr.aria-label]="t.app.close"><span class="ms" aria-hidden="true">close</span></button></div></div>
           <fg-decision [d]="d" />
         </div>
       }

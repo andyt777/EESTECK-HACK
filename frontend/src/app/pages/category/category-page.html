@@ -5,7 +5,7 @@
       <h1>{{ t.category[category()] }}</h1>
       <div class="lead">{{ t.categoryDescription[category()] }}</div>
     </div>
-    @if (hasSim()) { <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span> }
+    @if (hasSim()) { <span class="badge sim"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulatedData }}</span> }
   </div>
 
   @if (catSummary(); as s) {
@@ -21,10 +21,10 @@
 
   <div class="card mb">
     <div class="row">
-      <span class="ms">search</span>
+      <span class="ms" aria-hidden="true">search</span>
       <input class="input grow" [placeholder]="t.files.q" [value]="f()['q'] ?? ''" (input)="set('q', $any($event.target).value, true)" />
       <button class="btn ghost sm" (click)="showFilters.set(!showFilters())" [attr.aria-expanded]="showFilters()">
-        <span class="ms">tune</span>{{ t.files.filters }}@if (activeFilters() > 0) { ({{ activeFilters() }}) }
+        <span class="ms" aria-hidden="true">tune</span>{{ t.files.filters }}@if (activeFilters() > 0) { ({{ activeFilters() }}) }
       </button>
     </div>
     @if (showFilters()) {
@@ -52,7 +52,7 @@
           <select class="input" [value]="f()['dataOrigin'] ?? ''" (change)="set('dataOrigin', $any($event.target).value)">
             <option value="">{{ t.app.all }}</option><option value="REAL">{{ t.app.real }}</option><option value="SIMULATED">{{ t.app.simulated }}</option>
           </select></label>
-        <button class="btn ghost sm" (click)="reset()"><span class="ms">filter_alt_off</span>{{ t.files.reset }}</button>
+        <button class="btn ghost sm" (click)="reset()"><span class="ms" aria-hidden="true">filter_alt_off</span>{{ t.files.reset }}</button>
       </div>
     }
   </div>
@@ -74,7 +74,7 @@
             @for (i of p.items; track i.id) {
               <tr class="click" (click)="open(i.id)">
                 <td><a [routerLink]="['/files', i.id]" (click)="$event.stopPropagation()"><b>{{ i.name }}</b></a>
-                  <div class="row tiny muted">@if (i.encrypted) { <span class="ms" style="font-size:13px">lock</span> } {{ i.contentType }} <fg-origin [origin]="i.dataOrigin" /></div></td>
+                  <div class="row tiny muted">@if (i.encrypted) { <span class="ms" aria-hidden="true" style="font-size:13px">lock</span> } {{ i.contentType }} <fg-origin [origin]="i.dataOrigin" /></div></td>
                 <td class="small nowrap">{{ i.receivedAt | dt }}</td>
                 <td class="right mono small nowrap">{{ i.sizeBytes | size }}</td>
                 <td class="small">{{ [i.station, i.zone, i.equipment, i.meterId] | join }}</td>

@@ -17,8 +17,8 @@ import { SHARED } from '../../shared/ui';
       <div><div class="kicker">Security & Incident Center</div><h1>{{ t.incidents.title }}</h1><div class="lead">{{ t.incidents.lead }}</div></div>
       <div class="row">
         <span class="row small muted"><span class="dot" [class.ok]="events.incidentsConnected()" [class.bad]="!events.incidentsConnected()"></span>{{ events.incidentsConnected() ? t.app.live : t.app.offline }}</span>
-        <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms">smartphone</span>{{ t.incidents.phone }}</button>
-        <button class="btn danger" (click)="report()"><span class="ms">campaign</span>{{ t.incidents.report }}</button>
+        <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms" aria-hidden="true">smartphone</span>{{ t.incidents.phone }}</button>
+        <button class="btn danger" (click)="report()"><span class="ms" aria-hidden="true">campaign</span>{{ t.incidents.report }}</button>
       </div>
     </div>
     <div class="card mb"><div class="filters">

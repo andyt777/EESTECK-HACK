@@ -16,7 +16,7 @@ const SEV = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
   imports: [WaText],
   template: `
   <div class="dlg">
-    <h2><span class="ms">campaign</span> {{ t.incidents.report }}</h2>
+    <h2><span class="ms" aria-hidden="true">campaign</span> {{ t.incidents.report }}</h2>
     <div class="cols">
       <div class="col">
         <div class="frm">
@@ -45,8 +45,8 @@ const SEV = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
           <label class="field wide"><span>{{ t.incidents.description }}</span><textarea class="input" rows="3" [value]="m().description" (input)="set('description', $any($event.target).value)"></textarea></label>
           <label class="check wide"><input type="checkbox" [checked]="m().dataOrigin === 'SIMULATED'" (change)="set('dataOrigin', $any($event.target).checked ? 'SIMULATED' : 'REAL')" /> Exercițiu / date simulate (dataOrigin=SIMULATED)</label>
         </div>
-        @if (isFire()) { <div class="banner warn small"><span class="ms">local_fire_department</span>{{ t.incidents.fireWarning }}</div> }
-        @if (error()) { <div class="banner bad small"><span class="ms">error</span>{{ error() }}</div> }
+        @if (isFire()) { <div class="banner warn small"><span class="ms" aria-hidden="true">local_fire_department</span>{{ t.incidents.fireWarning }}</div> }
+        @if (error()) { <div class="banner bad small"><span class="ms" aria-hidden="true">error</span>{{ error() }}</div> }
       </div>
       <div class="col prev">
         <h3>{{ t.incidents.preview }} <span class="badge sim">{{ mode() }}</span></h3>
@@ -59,7 +59,7 @@ const SEV = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
     <div class="row between mt">
       <span class="tiny muted">source=USER · {{ t.incidents.mode }}: {{ mode() }}</span>
       <div class="row"><button class="btn ghost" (click)="ref.close()">{{ t.app.cancel }}</button>
-        <button class="btn danger" (click)="submit()" [disabled]="!valid() || busy()"><span class="ms">send</span>{{ t.incidents.submit }}</button></div>
+        <button class="btn danger" (click)="submit()" [disabled]="!valid() || busy()"><span class="ms" aria-hidden="true">send</span>{{ t.incidents.submit }}</button></div>
     </div>
   </div>`,
   styles: [`

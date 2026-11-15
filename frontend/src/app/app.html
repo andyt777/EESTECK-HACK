@@ -9,53 +9,53 @@
         </svg>
         <div><b>{{ t.app.name }}</b><span>{{ t.app.subtitle }}</span></div>
       </a>
-      <button class="btn ghost sm icon" (click)="menuOpen.set(false)" [title]="t.nav.closeMenu" [attr.aria-label]="t.nav.closeMenu"><span class="ms">close</span></button>
+      <button class="btn ghost sm icon" (click)="menuOpen.set(false)" [title]="t.nav.closeMenu" [attr.aria-label]="t.nav.closeMenu"><span class="ms" aria-hidden="true">close</span></button>
     </div>
     @for (s of sections(); track s.title) {
       <div class="nav-sec">{{ s.title }}</div>
       @for (i of s.items; track i.path) {
         <a class="nav-item" [routerLink]="i.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: !!i.exact }">
-          <span class="ms">{{ i.icon }}</span><span>{{ i.label }}</span>
+          <span class="ms" aria-hidden="true">{{ i.icon }}</span><span>{{ i.label }}</span>
         </a>
       }
     }
     <div class="nav-foot">
       @if (authz.me(); as me) {
         <div class="user" [title]="t.app.signedInAs + ' ' + me.actor">
-          <span class="ms">account_circle</span>
+          <span class="ms" aria-hidden="true">account_circle</span>
           <div class="grow ellipsis"><b>{{ me.name || me.actor }}</b><span class="muted tiny">{{ authz.roleLabel() }}</span></div>
         </div>
       }
-      <button class="nav-item" (click)="authz.logout()"><span class="ms">logout</span><span>{{ t.app.logout }}</span></button>
+      <button class="nav-item" (click)="authz.logout()"><span class="ms" aria-hidden="true">logout</span><span>{{ t.app.logout }}</span></button>
       <button class="nav-item" (click)="ui.toggleAnimations()" [attr.aria-pressed]="!ui.animations()">
-        <span class="ms">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span><span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}</span>
+        <span class="ms" aria-hidden="true">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span><span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}</span>
       </button>
       <button class="nav-item" (click)="ui.phoneOpen.set(!ui.phoneOpen()); menuOpen.set(false)">
-        <span class="ms">smartphone</span><span>{{ t.nav.phone }}</span>
+        <span class="ms" aria-hidden="true">smartphone</span><span>{{ t.nav.phone }}</span>
       </button>
       <div class="row small conn"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>
         <span>{{ events.connected() ? t.app.live : t.app.offline }}</span><span class="muted tiny">SSE</span></div>
     </div>
   </aside>
 
-  <div class="main">
+  <div class="main" [attr.inert]="menuOpen() ? '' : null">
     <header class="top">
-      <button class="btn ghost sm icon" (click)="menuOpen.set(true)" [title]="t.nav.menu" [attr.aria-label]="t.nav.menu" [attr.aria-expanded]="menuOpen()"><span class="ms">menu</span></button>
+      <button id="fg-menu-button" class="btn ghost sm icon" (click)="menuOpen.set(true)" [title]="t.nav.menu" [attr.aria-label]="t.nav.menu" [attr.aria-expanded]="menuOpen()"><span class="ms" aria-hidden="true">menu</span></button>
       <a class="wordmark" routerLink="/">{{ t.app.name }}</a>
       @if (!onVillage()) {
-        <a class="btn ghost sm" routerLink="/"><span class="ms">arrow_back</span>{{ t.app.backToVillage }}</a>
+        <a class="btn ghost sm" routerLink="/"><span class="ms" aria-hidden="true">arrow_back</span>{{ t.app.backToVillage }}</a>
       }
       <div class="grow"></div>
-      <button class="search" (click)="openSearch()"><span class="ms">search</span><span>{{ t.app.search }}</span><kbd>Ctrl K</kbd></button>
+      <button class="search" (click)="openSearch()"><span class="ms" aria-hidden="true">search</span><span>{{ t.app.search }}</span><kbd>Ctrl K</kbd></button>
       @if (ui.simulatedOnPage()) {
-        <span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
+        <span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulatedData }}</span>
       }
       <span class="live" [class.on]="events.connected()" [title]="events.connected() ? t.app.live : t.app.offline"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>{{ events.connected() ? t.app.live : t.app.offline }}</span>
       @if (authz.can('assistant:use')) {
-        <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
+        <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.app.assistant }}</button>
       }
       @if (authz.me(); as me) {
-        <span class="badge user-chip" [title]="t.app.signedInAs + ' ' + me.actor"><span class="ms">person</span>{{ authz.roleLabel() || me.actor }}</span>
+        <span class="badge user-chip" [title]="t.app.signedInAs + ' ' + me.actor"><span class="ms" aria-hidden="true">person</span>{{ authz.roleLabel() || me.actor }}</span>
       }
     </header>
     <main class="content" [class.full]="onVillage()"><router-outlet /></main>
@@ -64,10 +64,10 @@
   @if (ui.assistantOpen()) {
     <aside class="drawer">
       <div class="drawer-head">
-        <b><span class="ms">smart_toy</span> {{ t.assistant.title }}</b>
+        <b><span class="ms" aria-hidden="true">smart_toy</span> {{ t.assistant.title }}</b>
         <div class="row">
           <a class="btn ghost sm" routerLink="/assistant" (click)="ui.assistantOpen.set(false)">{{ t.assistant.openFull }}</a>
-          <button class="btn ghost sm icon" (click)="ui.assistantOpen.set(false)" [title]="t.app.close"><span class="ms">close</span></button>
+          <button class="btn ghost sm icon" (click)="ui.assistantOpen.set(false)" [title]="t.app.close" [attr.aria-label]="t.app.close"><span class="ms" aria-hidden="true">close</span></button>
         </div>
       </div>
       <fg-assistant-chat [context]="ui.assistantContext()" [seed]="ui.assistantSeed()" [compact]="true" (clearContext)="ui.assistantContext.set(null)" />
@@ -81,13 +81,13 @@
   @if (searchOpen()) {
     <div class="overlay" (click)="searchOpen.set(false)">
       <div class="palette" (click)="$event.stopPropagation()">
-        <div class="row"><span class="ms">search</span>
+        <div class="row"><span class="ms" aria-hidden="true">search</span>
           <input id="fg-search" class="pal-input" [placeholder]="t.app.search" [value]="searchQ()" (input)="onSearch($any($event.target).value)" (keydown)="searchKey($event)" autocomplete="off" />
         </div>
         <div class="pal-list">
           @for (f of searchResults(); track f.id; let i = $index) {
             <button class="pal-item" [class.sel]="i === searchSel()" (click)="go(f.id)" (mouseenter)="searchSel.set(i)">
-              <span class="ms">description</span>
+              <span class="ms" aria-hidden="true">description</span>
               <span class="grow ellipsis"><b>{{ f.name }}</b> <span class="muted small">· {{ f.category | cat }} · {{ f.station || f.zone || f.meterId || '' }}</span></span>
               <fg-status [status]="f.status" />
             </button>

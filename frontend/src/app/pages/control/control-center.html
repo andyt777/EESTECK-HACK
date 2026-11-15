@@ -4,13 +4,13 @@
   @if (messageFor(); as id) {
     <section class="decision-msg" [class.ok]="verified()" aria-live="polite">
       <header>
-        <span class="ms">account_tree</span>
+        <span class="ms" aria-hidden="true">account_tree</span>
         <h2>{{ t.control.decision }}</h2>
         <span class="grow"></span>
-        <button class="btn ghost sm icon" (click)="dismiss()" [title]="t.control.dismiss" [attr.aria-label]="t.control.dismiss"><span class="ms">close</span></button>
+        <button class="btn ghost sm icon" (click)="dismiss()" [title]="t.control.dismiss" [attr.aria-label]="t.control.dismiss"><span class="ms" aria-hidden="true">close</span></button>
       </header>
       <div class="file row">
-        <span class="ms">description</span><span class="grow ellipsis"><b>{{ fileName() || id }}</b></span>
+        <span class="ms" aria-hidden="true">description</span><span class="grow ellipsis"><b>{{ fileName() || id }}</b></span>
         @if (fileStatus(); as s) { <fg-status [status]="s" /> }
       </div>
       @if (decision(); as d) {
@@ -22,10 +22,10 @@
         @if (details()) { <div class="details"><fg-decision [d]="d" [compact]="true" /></div> }
         <div class="row actions">
           <button class="btn ghost sm" (click)="details.set(!details())">
-            <span class="ms">{{ details() ? 'expand_less' : 'expand_more' }}</span>{{ details() ? t.control.decisionHide : t.control.decisionDetails }}
+            <span class="ms" aria-hidden="true">{{ details() ? 'expand_less' : 'expand_more' }}</span>{{ details() ? t.control.decisionHide : t.control.decisionDetails }}
           </button>
           <span class="grow"></span>
-          @if (verified()) { <a class="btn sm" [routerLink]="['/files', id]"><span class="ms">badge</span>{{ t.control.openPassport }}</a> }
+          @if (verified()) { <a class="btn sm" [routerLink]="['/files', id]"><span class="ms" aria-hidden="true">badge</span>{{ t.control.openPassport }}</a> }
         </div>
       } @else {
         <p class="why muted">{{ t.control.decisionWaiting }}</p>

@@ -1,20 +1,21 @@
 import { Component, ElementRef, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { MdBlock, markdown } from '../shared/markdown';
 import { Api, errorText, isUnavailable } from '../core/api.service';
 import { ChatContext, ChatResponse } from '../core/models';
 import { T } from '../core/texts';
 import { Dictation, canSpeak, speak, stopSpeaking } from '../core/voice';
-import { OriginBadge } from '../shared/ui';
 
-interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse; error?: string; unavailable?: boolean; open?: boolean; }
 
-@Component({
+interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse; error?: string; unavailable?: boolean; open?: boolean; }@Component({
   selector: 'fg-assistant-chat',
-  imports: [RouterLink, OriginBadge],
+  imports: [RouterLink, NgTemplateOutlet],
   template: `
+  <ng-template #spans let-spans>@for (s of spans; track $index) {@switch (s.kind) {@case ('bold') {<b>{{ s.text }}</b>} @case ('code') {<code>{{ s.text }}</code>} @default {{{ s.text }}}}}</ng-template>
   <div class="chat" [class.compact]="compact()">
     @if (context(); as c) {
-      <div class="ctx"><span class="ms">link</span>{{ t.assistant.context }}:
+      <div class="ctx"><span class="ms" aria-hidden="true">link</span>{{ t.assistant.context }}:
         @if (c.fileId) { <span class="mono">fișier {{ c.fileId.slice(0, 8) }}</span> }
         @if (c.incidentId) { <span class="mono">incident {{ c.incidentId.slice(0, 8) }}</span> }
         @if (c.findingId) { <span class="mono">constatare {{ c.findingId.slice(0, 8) }}</span> }
@@ -24,7 +25,7 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
     <div class="msgs" #scroller>
       @if (!msgs().length) {
         <div class="hello">
-          <span class="ms big">smart_toy</span>
+          <span class="ms big" aria-hidden="true">smart_toy</span>
           <p class="muted">{{ t.assistant.lead }}</p>
           <div class="ex">
             @for (q of t.assistant.examples; track q) { <button class="btn ghost sm" (click)="send(q)">{{ q }}</button> }
@@ -36,28 +37,45 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
           @if (m.role === 'user') {
             <div class="bubble me">{{ m.content }}</div>
           } @else if (m.unavailable) {
-            <div class="bubble warn"><span class="ms">power_off</span> {{ t.assistant.unavailable }}</div>
+            <div class="bubble warn"><span class="ms" aria-hidden="true">power_off</span> {{ t.assistant.unavailable }}</div>
           } @else if (m.error) {
-            <div class="bubble bad"><span class="ms">error</span> {{ m.error }}</div>
+            <div class="bubble bad"><span class="ms" aria-hidden="true">error</span> {{ m.error }}</div>
           } @else {
             <div class="bubble">
               <div class="meta row wrap">
-                <span class="badge tone-active"><span class="ms">memory</span>{{ t.assistant.provider }}: {{ m.res?.provider || '—' }}</span>
-                @if (m.res?.provider === 'SIMULATED') { <span class="badge sim"><span class="ms">science</span>{{ t.app.simulated }}</span> }
-                @if (m.res?.provider !== 'SIMULATED') { <fg-origin [origin]="m.res?.dataOrigin" /> }
-                @if (canSpeak) { <button class="btn ghost sm icon" (click)="say(m.content)" [title]="t.assistant.speak"><span class="ms">volume_up</span></button> }
+                @if (m.res?.provider === 'SIMULATED') {
+                  <span class="fact fallback" [title]="t.assistant.fallbackHint"><span class="ms" aria-hidden="true">build</span>{{ t.assistant.answeredBy }}: <b>{{ t.assistant.fallback }}</b></span>
+                } @else {
+                  <span class="fact ai"><span class="ms" aria-hidden="true">auto_awesome</span>{{ t.assistant.answeredBy }}: <b>{{ providerName(m.res?.provider) }}</b></span>
+                }
+                @if (m.res?.dataOrigin === 'SIMULATED') {
+                  <span class="fact sim" [title]="t.assistant.dataSimulatedHint"><span class="ms" aria-hidden="true">science</span>{{ t.assistant.data }}: <b>{{ t.assistant.dataSimulated }}</b></span>
+                } @else if (m.res?.dataOrigin === 'REAL') {
+                  <span class="fact" [title]="t.assistant.dataRealHint"><span class="ms" aria-hidden="true">verified</span>{{ t.assistant.data }}: <b>{{ t.assistant.dataReal }}</b></span>
+                }
+                @if (canSpeak) { <button class="btn ghost sm icon" (click)="say(m.content)" [title]="t.assistant.speak" [attr.aria-label]="t.assistant.speak"><span class="ms" aria-hidden="true">volume_up</span></button> }
               </div>
-              <div class="answer">{{ m.content }}</div>
+              <div class="answer">
+                @for (b of md(m.content); track $index) {
+                  @switch (b.kind) {
+                    @case ('h') { <div class="md-h"><ng-container *ngTemplateOutlet="spans; context: { $implicit: $any(b).spans }" /></div> }
+                    @case ('hr') { <hr class="md-hr" /> }
+                    @case ('ul') { <ul class="md-list">@for (it of $any(b).items; track $index) { <li><ng-container *ngTemplateOutlet="spans; context: { $implicit: it }" /></li> }</ul> }
+                    @case ('ol') { <ol class="md-list">@for (it of $any(b).items; track $index) { <li><ng-container *ngTemplateOutlet="spans; context: { $implicit: it }" /></li> }</ol> }
+                    @default { <p class="md-p"><ng-container *ngTemplateOutlet="spans; context: { $implicit: $any(b).spans }" /></p> }
+                  }
+                }
+              </div>
               @if (m.res?.citations?.length) {
                 <div class="cites"><span class="muted tiny">{{ t.assistant.citations }}:</span>
                   @for (c of m.res!.citations; track $index) {
-                    @if (c.href.startsWith('/')) { <a class="chip" [routerLink]="path(c.href)" [queryParams]="query(c.href)"><span class="ms">link</span>{{ c.label }}</a> }
-                    @else { <a class="chip" [href]="c.href" target="_blank" rel="noopener"><span class="ms">open_in_new</span>{{ c.label }}</a> }
+                    @if (c.href.startsWith('/')) { <a class="chip" [routerLink]="path(c.href)" [queryParams]="query(c.href)"><span class="ms" aria-hidden="true">link</span>{{ c.label }}</a> }
+                    @else { <a class="chip" [href]="c.href" target="_blank" rel="noopener"><span class="ms" aria-hidden="true">open_in_new</span>{{ c.label }}</a> }
                   }
                 </div>
               }
               @if (m.res?.steps?.length) {
-                <button class="steps-toggle" (click)="toggle($index)"><span class="ms">{{ m.open ? 'expand_less' : 'expand_more' }}</span>{{ t.assistant.steps }} ({{ m.res!.steps.length }})</button>
+                <button class="steps-toggle" (click)="toggle($index)"><span class="ms" aria-hidden="true">{{ m.open ? 'expand_less' : 'expand_more' }}</span>{{ t.assistant.steps }} ({{ m.res!.steps.length }})</button>
                 @if (m.open) {
                   <ol class="steps">
                     @for (s of m.res!.steps; track $index) {
@@ -76,9 +94,9 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
       <textarea class="input" rows="2" [placeholder]="t.assistant.placeholder" [value]="draft() + (dict.interim() ? ' ' + dict.interim() : '')"
         (input)="draft.set($any($event.target).value)" (keydown.enter)="enter($event)"></textarea>
       <div class="col">
-        <button class="btn icon" [class.danger]="dict.listening()" (click)="mic()" [disabled]="!dict.supported" [title]="dict.supported ? (dict.listening() ? t.assistant.micStop : t.assistant.mic) : t.assistant.noVoice">
-          <span class="ms" [class.pulse]="dict.listening()">{{ dict.listening() ? 'stop_circle' : 'mic' }}</span></button>
-        <button class="btn icon" (click)="send(draft())" [disabled]="busy() || !draft().trim()" [title]="t.assistant.send"><span class="ms">send</span></button>
+        <button class="btn icon" [class.danger]="dict.listening()" (click)="mic()" [disabled]="!dict.supported" [title]="dict.supported ? (dict.listening() ? t.assistant.micStop : t.assistant.mic) : t.assistant.noVoice" [attr.aria-label]="dict.listening() ? t.assistant.micStop : t.assistant.mic" [attr.aria-pressed]="dict.listening()">
+          <span class="ms" aria-hidden="true" [class.pulse]="dict.listening()">{{ dict.listening() ? 'stop_circle' : 'mic' }}</span></button>
+        <button class="btn icon" (click)="send(draft())" [disabled]="busy() || !draft().trim()" [title]="t.assistant.send" [attr.aria-label]="t.assistant.send"><span class="ms" aria-hidden="true">send</span></button>
       </div>
     </div>
     <div class="foot row between tiny muted">
@@ -97,8 +115,19 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
     .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-width: 92%; }
     .bubble.me { background: rgba(255,119,188,.14); border-color: rgba(255,119,188,.35); white-space: pre-wrap; }
     .bubble.warn { border-color: rgba(251,191,36,.5); color: #fef3c7; } .bubble.bad { border-color: rgba(244,63,94,.5); color: #ffe4e6; }
-    .meta { margin-bottom: 6px; gap: 6px; }
-    .answer { white-space: pre-wrap; line-height: 1.55; }
+    .meta { margin-bottom: 8px; gap: 6px 14px; }
+    .fact { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+    .fact b { color: var(--text); font-weight: 600; }
+    .fact .ms { font-size: 15px; }
+    .fact.ai .ms { color: var(--pink); }
+    .fact.fallback, .fact.fallback b { color: #fde68a; }
+    .fact.sim .ms { color: var(--amber); }
+    .answer { line-height: 1.55; display: flex; flex-direction: column; gap: 6px; }
+    .md-p { margin: 0; white-space: pre-wrap; }
+    .md-h { font-weight: 700; margin-top: 4px; }
+    .md-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+    .md-hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+    .answer code { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(6, 18, 58, .6); border: 1px solid var(--line); }
     .cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
     .steps-toggle { background: none; border: 0; color: var(--cyan); cursor: pointer; font: inherit; font-size: 12px; margin-top: 8px; padding: 0; display: flex; align-items: center; gap: 4px; }
     .steps { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
@@ -110,6 +139,16 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
 export class AssistantChat {
   readonly t = T;
   readonly canSpeak = canSpeak;
+  private readonly mdCache = new Map<string, MdBlock[]>();
+  md(text: string): MdBlock[] {
+    let blocks = this.mdCache.get(text);
+    if (!blocks) { blocks = markdown(text); this.mdCache.set(text, blocks); }
+    return blocks;
+  }
+  providerName(p: string | null | undefined): string {
+    const names: Record<string, string> = { gemini: 'Gemini', anthropic: 'Claude', ollama: 'Ollama', openai: 'OpenAI' };
+    return p ? (names[p.toLowerCase()] ?? p) : '—';
+  }
   readonly context = input<ChatContext | null>(null);
   readonly seed = input<string | null>(null);
   readonly compact = input(false);

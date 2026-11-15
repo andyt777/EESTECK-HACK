@@ -74,7 +74,7 @@ export const STATUS_META: Record<string, { icon: string; tone: string }> = {
 @Component({
   selector: 'fg-status',
   template: `<span class="badge tone-{{ meta().tone }}" [attr.title]="label()">
-    <span class="ms">{{ meta().icon }}</span>{{ label() }}</span>`,
+    <span class="ms" aria-hidden="true">{{ meta().icon }}</span>{{ label() }}</span>`,
 })
 export class StatusBadge {
   readonly status = input.required<string | null | undefined>();
@@ -84,7 +84,7 @@ export class StatusBadge {
 
 @Component({
   selector: 'fg-integrity',
-  template: `<span class="badge tone-{{ tone() }}"><span class="ms">{{ icon() }}</span>{{ label() }}</span>`,
+  template: `<span class="badge tone-{{ tone() }}"><span class="ms" aria-hidden="true">{{ icon() }}</span>{{ label() }}</span>`,
 })
 export class IntegrityBadge {
   readonly status = input.required<string | null | undefined>();
@@ -95,7 +95,7 @@ export class IntegrityBadge {
 
 @Component({
   selector: 'fg-storage',
-  template: `@if (storage()) {<span class="chip storage-{{ storage() }}"><span class="ms">{{ icon() }}</span>{{ label() }}</span>} @else {<span class="muted">—</span>}`,
+  template: `@if (storage()) {<span class="chip storage-{{ storage() }}"><span class="ms" aria-hidden="true">{{ icon() }}</span>{{ label() }}</span>} @else {<span class="muted">—</span>}`,
 })
 export class StorageChip {
   readonly storage = input<string | null | undefined>();
@@ -105,7 +105,7 @@ export class StorageChip {
 
 @Component({
   selector: 'fg-origin',
-  template: `@if (origin() === 'SIMULATED') {<span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms">science</span>{{ t.app.simulated }}</span>}
+  template: `@if (origin() === 'SIMULATED') {<span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulated }}</span>}
     @else if (showReal() && origin() === 'REAL') {<span class="badge tone-muted">{{ t.app.real }}</span>}`,
 })
 export class OriginBadge {
@@ -116,7 +116,7 @@ export class OriginBadge {
 
 @Component({
   selector: 'fg-severity',
-  template: `<span class="badge sev-{{ value() }}"><span class="ms">{{ icon() }}</span>{{ label() || t.incidents.severities[value() ?? ''] || value() }}</span>`,
+  template: `<span class="badge sev-{{ value() }}"><span class="ms" aria-hidden="true">{{ icon() }}</span>{{ label() || t.incidents.severities[value() ?? ''] || value() }}</span>`,
 })
 export class SeverityBadge {
   readonly value = input<string | null | undefined>();
@@ -131,13 +131,13 @@ export class SeverityBadge {
     @if (loading()) {
       <div class="state"><div class="spinner"></div><span>{{ t.app.loading }}</span></div>
     } @else if (unavailable()) {
-      <div class="state"><span class="ms big">power_off</span><b>{{ t.app.unavailable }}</b><span class="muted">{{ t.app.unavailableHint }}</span>
+      <div class="state"><span class="ms big" aria-hidden="true">power_off</span><b>{{ t.app.unavailable }}</b><span class="muted">{{ t.app.unavailableHint }}</span>
         <button class="btn ghost sm" (click)="retry.emit()">{{ t.app.retry }}</button></div>
     } @else if (error()) {
-      <div class="state bad"><span class="ms big">error</span><b>{{ t.app.error }}</b><span class="muted mono small">{{ error() }}</span>
+      <div class="state bad"><span class="ms big" aria-hidden="true">error</span><b>{{ t.app.error }}</b><span class="muted mono small">{{ error() }}</span>
         <button class="btn ghost sm" (click)="retry.emit()">{{ t.app.retry }}</button></div>
     } @else if (empty()) {
-      <div class="state"><span class="ms big">inbox</span><span>{{ emptyText() || t.app.empty }}</span></div>
+      <div class="state"><span class="ms big" aria-hidden="true">inbox</span><span>{{ emptyText() || t.app.empty }}</span></div>
     }`,
 })
 export class StateView {

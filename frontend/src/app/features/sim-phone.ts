@@ -14,9 +14,9 @@ import { TimePipe, WaText } from '../shared/ui';
   <div class="phone">
     <div class="notch"></div>
     <div class="ph-head">
-      <span class="ms">chat</span>
+      <span class="ms" aria-hidden="true">chat</span>
       <div class="grow"><b>WhatsApp</b><div class="tiny">{{ t.incidents.phone }} · <span class="badge sim">{{ t.app.simulated }}</span></div></div>
-      <button class="x" (click)="close.emit()" [title]="t.app.close"><span class="ms">close</span></button>
+      <button class="x" (click)="close.emit()" [title]="t.app.close"><span class="ms" aria-hidden="true">close</span></button>
     </div>
     <div class="ph-body">
       @if (unavailable()) { <div class="empty">{{ t.app.unavailable }}</div> }
@@ -30,7 +30,7 @@ import { TimePipe, WaText } from '../shared/ui';
           <div class="acts">
             <a class="tiny" [routerLink]="['/incidents', n.incidentId]">{{ n.incidentCode }}</a>
             @if (n.confirmedAt) {
-              <span class="ok tiny"><span class="ms">done_all</span> {{ t.incidents.confirmedBy }} {{ n.confirmedBy }}</span>
+              <span class="ok tiny"><span class="ms" aria-hidden="true">done_all</span> {{ t.incidents.confirmedBy }} {{ n.confirmedBy }}</span>
             } @else if (n.kind !== 'UPDATE') {
               <button class="okbtn" (click)="confirm(n)" [disabled]="busy() === n.id">{{ t.incidents.confirmOk }}</button>
             }

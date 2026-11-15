@@ -10,13 +10,13 @@ import { CategoryPipe, DatePipe, StatusBadge, StorageChip } from '../shared/ui';
   template: `
   @if (d(); as d) {
     <div class="dec">
-      @if (explanation()) { <blockquote class="expl"><span class="ms">format_quote</span>{{ explanation() }}</blockquote> }
+      @if (explanation()) { <blockquote class="expl"><span class="ms" aria-hidden="true">format_quote</span>{{ explanation() }}</blockquote> }
       <div class="facts">
         <div><span class="lbl">{{ t.decision.category }}</span><b>{{ (d.category || d.features?.category) | cat }}</b>
           @if (detectionText()) { <span class="tiny muted">{{ detectionText() }}</span> }</div>
         <div><span class="lbl">{{ t.decision.selected }}</span><fg-storage [storage]="d.selectedStorage" /></div>
         <div><span class="lbl">{{ t.decision.fallback }}</span>
-          @if (d.fallbackUsed) { <span class="badge tone-warn"><span class="ms">fork_right</span>{{ t.decision.fallbackUsed }}</span> <span class="small">{{ d.fallbackReason }}</span> }
+          @if (d.fallbackUsed) { <span class="badge tone-warn"><span class="ms" aria-hidden="true">fork_right</span>{{ t.decision.fallbackUsed }}</span> <span class="small">{{ d.fallbackReason }}</span> }
           @else { <span class="muted small">{{ t.decision.fallbackNone }}</span> }</div>
         @if (d.fileStatus) { <div><span class="lbl">{{ t.decision.result }}</span><fg-status [status]="d.fileStatus" /></div> }
         <div><span class="lbl">{{ t.decision.policyVersion }}</span><span class="mono">{{ d.policyVersion }}</span></div>
@@ -49,7 +49,7 @@ import { CategoryPipe, DatePipe, StatusBadge, StorageChip } from '../shared/ui';
             }
             <ul class="reasons">
               @for (r of c.reasons; track $index) {
-                <li class="k-{{ r.kind }}"><span class="ms">{{ r.kind === 'POSITIVE' ? 'check_circle' : r.kind === 'NEGATIVE' ? 'cancel' : 'info' }}</span>{{ r.text }}</li>
+                <li class="k-{{ r.kind }}"><span class="ms" aria-hidden="true">{{ r.kind === 'POSITIVE' ? 'check_circle' : r.kind === 'NEGATIVE' ? 'cancel' : 'info' }}</span>{{ r.text }}</li>
               }
             </ul>
           </div>
@@ -60,7 +60,7 @@ import { CategoryPipe, DatePipe, StatusBadge, StorageChip } from '../shared/ui';
     <div class="muted small">{{ t.decision.none }}</div>
   }`,
   styles: [`
-    .expl { margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--cyan); background: rgba(255,119,188,.06); border-radius: 0 8px 8px 0; font-size: 13.5px; display: flex; gap: 8px; }
+    .expl { margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(255,119,188,.28); background: rgba(255,119,188,.07); border-radius: 8px; font-size: 13.5px; display: flex; gap: 8px; }
     .expl .ms { color: var(--cyan); }
     .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
     .facts > div { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }

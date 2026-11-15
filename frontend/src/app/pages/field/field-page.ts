@@ -13,10 +13,10 @@ import { SHARED } from '../../shared/ui';
   template: `
   <div class="page">
     <div class="page-head"><div><div class="kicker">Voce · teren</div><h1>{{ t.field.title }}</h1><div class="lead">{{ t.field.lead }}</div></div>
-      <span class="badge sim"><span class="ms">science</span>{{ t.app.simulated }}</span></div>
+      <span class="badge sim"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulated }}</span></div>
     <div class="grid g2">
       <div class="card">
-        <div class="card-head"><h2><span class="ms">record_voice_over</span> {{ t.field.report }}</h2></div>
+        <div class="card-head"><h2><span class="ms" aria-hidden="true">record_voice_over</span> {{ t.field.report }}</h2></div>
         <p class="muted small">{{ t.field.reportLead }}</p>
         <div class="row wrap">
           <label class="field grow"><span>{{ t.incidents.zone }}</span><input class="input" [value]="zone()" (input)="zone.set($any($event.target).value)" /></label>
@@ -26,11 +26,11 @@ import { SHARED } from '../../shared/ui';
           <textarea class="input" rows="5" [value]="transcript() + (dict.interim() ? ' ' + dict.interim() : '')" (input)="transcript.set($any($event.target).value)"
             placeholder="ex. „Sunt la stația Timișoara Nord, văd fum la transformatorul T2, nu sunt răniți…”"></textarea></label>
         <div class="row mt">
-          <button class="btn" [class.danger]="dict.listening()" (click)="dict.toggle()" [disabled]="!dict.supported"><span class="ms" [class.pulse]="dict.listening()">{{ dict.listening() ? 'stop_circle' : 'mic' }}</span>{{ dict.listening() ? t.field.stop : t.field.dictate }}</button>
-          <button class="btn ghost" (click)="propose()" [disabled]="!transcript().trim() || busy()"><span class="ms">auto_awesome</span>{{ t.field.analyze }}</button>
+          <button class="btn" [class.danger]="dict.listening()" (click)="dict.toggle()" [disabled]="!dict.supported"><span class="ms" aria-hidden="true" [class.pulse]="dict.listening()">{{ dict.listening() ? 'stop_circle' : 'mic' }}</span>{{ dict.listening() ? t.field.stop : t.field.dictate }}</button>
+          <button class="btn ghost" (click)="propose()" [disabled]="!transcript().trim() || busy()"><span class="ms" aria-hidden="true">auto_awesome</span>{{ t.field.analyze }}</button>
           @if (!dict.supported) { <span class="tiny muted">{{ t.assistant.noVoice }}</span> }
         </div>
-        @if (error()) { <div class="banner mt" [class.warn]="unavailable()" [class.bad]="!unavailable()"><span class="ms">error</span>{{ unavailable() ? t.app.unavailable : error() }}</div> }
+        @if (error()) { <div class="banner mt" [class.warn]="unavailable()" [class.bad]="!unavailable()"><span class="ms" aria-hidden="true">error</span>{{ unavailable() ? t.app.unavailable : error() }}</div> }
         @if (proposal(); as p) {
           <div class="card mt glow">
             <div class="card-head"><h3>{{ t.field.proposal }}</h3><fg-origin [origin]="p.dataOrigin || 'SIMULATED'" /></div>
@@ -40,14 +40,14 @@ import { SHARED } from '../../shared/ui';
             </dl>
             @if (p.warnings?.length) { <div class="small mt" style="color: var(--amber)">{{ p.warnings.join(' · ') }}</div> }
             <div class="row mt">
-              @if (created()) { <button class="btn ok" (click)="openCreated()"><span class="ms">open_in_new</span>{{ t.app.open }} incident</button> }
-              @else { <button class="btn danger" (click)="create()" [disabled]="busy()"><span class="ms">campaign</span>{{ t.field.create }}</button> }
+              @if (created()) { <button class="btn ok" (click)="openCreated()"><span class="ms" aria-hidden="true">open_in_new</span>{{ t.app.open }} incident</button> }
+              @else { <button class="btn danger" (click)="create()" [disabled]="busy()"><span class="ms" aria-hidden="true">campaign</span>{{ t.field.create }}</button> }
             </div>
           </div>
         }
       </div>
       <div class="card">
-        <div class="card-head"><h2><span class="ms">call</span> {{ t.field.call }}</h2></div>
+        <div class="card-head"><h2><span class="ms" aria-hidden="true">call</span> {{ t.field.call }}</h2></div>
         <label class="field"><span>{{ t.field.incident }}</span>
           <select class="input" [value]="incidentId() ?? ''" (change)="incidentId.set($any($event.target).value || null)">
             <option value="">—</option>

@@ -61,6 +61,7 @@ public class RoutingEngine {
     public static final String AVAILABLE = "AVAILABLE";
     public static final String DOWN = "UNAVAILABLE";
     public static final String STATE_UNKNOWN = "STATE_UNKNOWN";
+    public static final String MAINTENANCE = "MAINTENANCE";
     public static final String LATENCY_MEASURED = "LATENCY_MEASURED";
     public static final String LATENCY_UNKNOWN = "LATENCY_UNKNOWN";
 
@@ -188,6 +189,8 @@ public class RoutingEngine {
             reasons.add(reason(AVAILABLE, Kind.POSITIVE, secondsSince(state.lastCheck(), now)));
         } else if (state.status() == StorageState.Status.DOWN) {
             reasons.add(reason(DOWN, Kind.NEGATIVE, secondsSince(state.lastCheck(), now)));
+        } else if (state.status() == StorageState.Status.MAINTENANCE) {
+            reasons.add(reason(MAINTENANCE, Kind.NEGATIVE, state.note() == null ? "" : state.note()));
         } else {
             reasons.add(reason(STATE_UNKNOWN, Kind.NEGATIVE));
         }

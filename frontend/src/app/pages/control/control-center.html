@@ -1,5 +1,5 @@
 <div class="cc">
-  <fg-village [summary]="summary.data()" [health]="health.data()" [meter]="meter.data()" (focusFile)="onFocus($event)" />
+  <fg-village [summary]="summary.data()" [health]="health.data()" [meter]="meter.data()" (focusFile)="onFocus($event)" (maintenanceChanged)="health.load(true)" />
 
   @if (messageFor(); as id) {
     <section class="decision-msg" [class.ok]="verified()" aria-live="polite">

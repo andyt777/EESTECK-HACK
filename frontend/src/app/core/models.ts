@@ -39,6 +39,8 @@ export interface MeterStats {
 
 export interface StorageHealth {
   storage: StorageType; label: string; status: 'UP' | 'DOWN'; lastCheck: string | null; latencyMs: number | null;
+  /** an administrator took the storage out of routing (planned maintenance) */
+  maintenance?: boolean; maintenanceReason?: string | null;
 }
 
 export interface LiveEvent {

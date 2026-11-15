@@ -492,6 +492,28 @@ Consum măsurat în repaus (niciun container OOMKilled):
 - Pe Windows, `umask 077` nu restrânge permisiunile fișierelor generate pe NTFS; directorul rămâne ignorat de git.
 - Keycloak, Toxiproxy și drill-urile de haos nu sunt portate în k8s.
 
+## Mentenanță planificată a unui storage + fișa de demo (2026-11-15)
+
+### Ce s-a făcut
+- Tabela `storage_maintenance` (migrația `V9`); `PUT` / `DELETE /api/admin/storage/{storage}/maintenance` (doar `policy:write`,
+  adică admin), `GET /api/storage/maintenance`; rândul păstrează cine și când, iar fiecare schimbare e logată cu actorul.
+- Agentul 01 vede starea `MAINTENANCE` (`HealthTableStorageStateProvider`) și scrie în decizie „destinația este în mentenanță
+  planificată (motiv)”; fișierele noi merg pe fallback-ul politicii. Nu e o cădere: nu pornește `StorageDown` și nu deschide incident.
+- `/api/storage/health` include `maintenance` / `maintenanceReason`; în Village, adminul are un buton cu cheie franceză pe
+  fiecare server, iar serverul în mentenanță are barieră portocalie și eticheta „În mentenanță”.
+- `docs/DEMO.md`: scenariul de demo pas cu pas (ce faci, ce se vede, ce spui) și ce faci dacă ceva nu merge.
+
+### Cum se verifică
+- `./mvnw -B test` → 113 teste unitare trec (inclusiv `RoutingEngineTest.storageInMaintenanceIsSkippedWithTheAdministratorsReason`);
+  `npx ng test --watch=false` → 21 de teste trec.
+- Live (2026-11-15): butonul de pe S3 → rândul `S3 | … | admin.demo` în `storage_maintenance`, log „Storage S3 put in maintenance
+  by admin.demo”, serverul afișează „În mentenanță”.
+
+### Limitări cunoscute
+- Fără test de integrare pentru endpoint-uri și pentru citirea tabelei de către Agentul 01 (verificate doar live).
+- Fallback-ul unui upload real cu S3 în mentenanță nu a fost încă verificat cap-coadă.
+- Mentenanța afectează doar deciziile noi; un transfer deja rutat spre acel storage se termină acolo.
+
 ## Design — pagina de login FileGrid (2026-11-15)
 
 ### Ce s-a făcut

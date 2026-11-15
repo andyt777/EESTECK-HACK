@@ -103,6 +103,27 @@ class RoutingEngineTest {
     }
 
     @Test
+    void storageInMaintenanceIsSkippedWithTheAdministratorsReason() {
+        Map<StorageType, StorageState> s3Maintenance = allUp();
+        s3Maintenance.put(StorageType.S3,
+                new StorageState(Status.MAINTENANCE, CHECKED_AT, null, null, "upgrade firmware"));
+
+        RoutingOutcome doc = engine.evaluate(policy, FileCategory.CONNECTION_DOCUMENT, 2 * MB, s3Maintenance,
+                ADAPTER_LIMITS, NOW);
+
+        assertThat(doc.selected()).isEqualTo(StorageType.DATABASE);
+        assertThat(doc.fallbackUsed()).isTrue();
+        assertThat(doc.candidates()).filteredOn(c -> c.storage() == StorageType.S3).singleElement()
+                .satisfies(s3 -> {
+                    assertThat(s3.available()).isFalse();
+                    assertThat(s3.reasons()).anySatisfy(r -> {
+                        assertThat(r.code()).isEqualTo(RoutingEngine.MAINTENANCE);
+                        assertThat(r.text()).contains("mentenanță planificată").contains("upgrade firmware");
+                    });
+                });
+    }
+
+    @Test
     void excludesStoragesWhenFileExceedsSizeLimit() {
         Map<StorageType, StorageState> states = allUp();
         RoutingOutcome oversizedMeter = engine.evaluate(

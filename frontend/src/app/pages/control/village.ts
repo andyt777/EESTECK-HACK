@@ -1,6 +1,7 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
+import { Api } from '../../core/api.service';
 import { AuthzService } from '../../core/auth';
 import { EventStream } from '../../core/events.service';
 import { CATEGORIES, Category, CategorySummary, LiveEvent, MeterStats, STORAGES, StorageHealth, StorageType, TERMINAL } from '../../core/models';
@@ -55,11 +56,17 @@ export class Village {
   readonly health = input<StorageHealth[] | null>(null);
   readonly meter = input<MeterStats | null>(null);
   readonly focusFile = output<string | null>();
+  /** A storage was put in or taken out of planned maintenance: the parent reloads the health at once. */
+  readonly maintenanceChanged = output<void>();
 
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly events = inject(EventStream);
   private readonly uploads = inject(UploadService);
   private readonly authz = inject(AuthzService);
+  private readonly api = inject(Api);
+  /** Only policy:write (admin) may take a storage out of routing. */
+  readonly canMaintain = computed(() => this.authz.can('policy:write'));
+  readonly maintenanceBusy = signal<StorageType | null>(null);
   private readonly ui = inject(UiState);
   private readonly router = inject(Router);
 
@@ -149,6 +156,24 @@ export class Village {
   warnings(c: Category): number { const s = this.byCat()[c]; return s ? s.pending + s.mismatch + s.transferFailed : 0; }
   inProgress(c: Category): number { return this.byCat()[c]?.inProgress ?? 0; }
   status(s: StorageType): 'UP' | 'DOWN' | 'UNKNOWN' { return this.healthBy()[s]?.status ?? 'UNKNOWN'; }
+  inMaintenance(s: StorageType): boolean { return !!this.healthBy()[s]?.maintenance; }
+  statusLabel(s: StorageType): string { return this.inMaintenance(s) ? T.storage.MAINTENANCE : T.storage[this.status(s)]; }
+  maintenanceTitle(s: StorageType): string {
+    return fmt(this.inMaintenance(s) ? T.control.maintenanceStop : T.control.maintenanceStart, { s: T.storage[s] });
+  }
+  toggleMaintenance(s: StorageType, e?: Event): void {
+    e?.stopPropagation();
+    if (!this.canMaintain() || this.maintenanceBusy()) return;
+    this.maintenanceBusy.set(s);
+    const call = this.inMaintenance(s) ? this.api.stopMaintenance(s) : this.api.startMaintenance(s, T.control.maintenanceReason);
+    call.subscribe({
+      next: () => { this.maintenanceBusy.set(null); this.maintenanceChanged.emit(); },
+      error: () => this.maintenanceBusy.set(null),
+    });
+  }
+  onMaintenanceKeydown(e: KeyboardEvent, s: StorageType): void {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggleMaintenance(s); }
+  }
   latency(s: StorageType): string { const l = this.healthBy()[s]?.latencyMs; return l === null || l === undefined ? '' : `· ${l} ms`; }
   openHouse(c: Category): void { this.router.navigate(['/categories', c]); }
   houseKey(e: KeyboardEvent, c: Category): void { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openHouse(c); } }

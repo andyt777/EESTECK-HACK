@@ -4,7 +4,7 @@ import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import {
   CategorySummary, ChatContext, ChatResponse, DecisionSummary, DecisionView, FileSummary, Finding,
   IncidentConfig, IncidentDetail, IncidentNotification, IncidentSummary, MeterStats, Page, Passport,
-  StorageHealth, VerifyResult,
+  StorageHealth, StorageType, VerifyResult,
 } from './models';
 
 export type Params = Record<string, string | number | boolean | null | undefined>;
@@ -91,6 +91,10 @@ export class Api {
   // platform
   meterStats() { return this.http.get<MeterStats>('/api/meters/stats'); }
   storageHealth() { return this.http.get<StorageHealth[]>('/api/storage/health'); }
+  startMaintenance(storage: StorageType, reason: string) {
+    return this.http.put(`/api/admin/storage/${storage}/maintenance`, { reason });
+  }
+  stopMaintenance(storage: StorageType) { return this.http.delete(`/api/admin/storage/${storage}/maintenance`); }
 
   // incidents
   incidents(p: Params) { return this.http.get<Page<IncidentSummary>>('/api/incidents', { params: params(p) }); }

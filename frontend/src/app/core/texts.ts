@@ -83,6 +83,7 @@ export const T = {
     UP: 'Disponibil',
     DOWN: 'Indisponibil',
     UNKNOWN: 'Necunoscut',
+    MAINTENANCE: 'În mentenanță',
     latency: 'latență',
   } as Record<string, string>,
   status: {
@@ -140,6 +141,9 @@ export const T = {
     recent: 'Ultima activitate',
     serversTitle: 'Destinații de stocare',
     housesTitle: 'Categorii',
+    maintenanceStart: 'Pune {s} în mentenanță (PPCastor îl ocolește)',
+    maintenanceStop: 'Scoate {s} din mentenanță',
+    maintenanceReason: 'pornită de administrator din Control Center',
     meterRate: '{n} citiri/min',
     // used by the Performance page
     kpiMeterRate: 'Citiri contoare / min',

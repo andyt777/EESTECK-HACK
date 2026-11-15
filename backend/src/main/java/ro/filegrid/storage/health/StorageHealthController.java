@@ -17,8 +17,9 @@ import ro.filegrid.text.Texts;
 @Profile("api")
 public class StorageHealthController {
 
+    /** {@code maintenance}: an administrator took the storage out of routing (see StorageMaintenanceController). */
     public record StorageHealthView(String storage, String label, String status, Instant lastCheck, long latencyMs,
-                                    String detail) {
+                                    String detail, boolean maintenance, String maintenanceReason) {
     }
 
     private final JdbcTemplate metaDb;
@@ -34,12 +35,17 @@ public class StorageHealthController {
     @GetMapping("/storage/health")
     public List<StorageHealthView> health() {
         authorizer.require(RolePermissions.STORAGE_READ);
-        return metaDb.query("SELECT storage, status, last_check, latency_ms, detail FROM storage_health ORDER BY storage",
+        return metaDb.query("""
+                SELECT h.storage, h.status, h.last_check, h.latency_ms, h.detail, m.reason AS maintenance_reason
+                  FROM storage_health h LEFT JOIN storage_maintenance m ON m.storage = h.storage
+                 ORDER BY h.storage
+                """,
                 (rs, i) -> {
                     Timestamp t = rs.getTimestamp("last_check");
                     String storage = rs.getString("storage");
                     return new StorageHealthView(storage, texts.get("storage." + storage), rs.getString("status"),
-                            t == null ? null : t.toInstant(), rs.getLong("latency_ms"), rs.getString("detail"));
+                            t == null ? null : t.toInstant(), rs.getLong("latency_ms"), rs.getString("detail"),
+                            rs.getString("maintenance_reason") != null, rs.getString("maintenance_reason"));
                 });
     }
 }

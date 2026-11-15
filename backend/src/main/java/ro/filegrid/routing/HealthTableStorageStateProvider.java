@@ -46,6 +46,13 @@ public class HealthTableStorageStateProvider implements StorageStateProvider {
                     lastCheck, up ? rs.getLong("latency_ms") : null,
                     up ? StorageState.SOURCE_HEALTH_PROBE : null));
         });
+        // Planned maintenance wins over the probe: the storage may answer, but it is out of routing.
+        metaDb.query("SELECT storage, reason FROM storage_maintenance", rs -> {
+            StorageType storage = StorageType.valueOf(rs.getString("storage"));
+            StorageState probed = states.get(storage);
+            states.put(storage, new StorageState(StorageState.Status.MAINTENANCE, probed.lastCheck(), null, null,
+                    rs.getString("reason")));
+        });
         return states;
     }
 }

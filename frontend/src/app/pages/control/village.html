@@ -185,8 +185,8 @@
     <!-- storage buildings -->
     @for (s of storages; track s) {
       <g class="server" [class.hot]="wire()?.st === s" [class.down]="status(s) === 'DOWN'" [class.pulse-in]="pulseServer() === s"
-         [attr.transform]="'translate(' + S[s].x + ' ' + S[s].y + ')'">
-        <title>{{ t.storage[s] }} — {{ t.storage[status(s)] }}</title>
+         [class.maint]="inMaintenance(s)" [attr.transform]="'translate(' + S[s].x + ' ' + S[s].y + ')'">
+        <title>{{ t.storage[s] }} — {{ statusLabel(s) }}</title>
         <ellipse cy="63" rx="60" ry="9" class="ground-shadow"/>
         <rect x="-44" y="-60" width="88" height="122" rx="12" class="rack"/>
         @for (i of [0, 1, 2, 3]; track i) {
@@ -195,7 +195,20 @@
         }
         <text y="-42" text-anchor="middle" class="ms sicon">{{ S[s].icon }}</text>
         <text y="86" text-anchor="middle" class="slabel">{{ t.storage[s] }}</text>
-        <text y="104" text-anchor="middle" class="sstatus s-{{ status(s) }}">{{ t.storage[status(s)] }} {{ latency(s) }}</text>
+        <text y="104" text-anchor="middle" class="sstatus s-{{ inMaintenance(s) ? 'MAINTENANCE' : status(s) }}">{{ statusLabel(s) }} {{ inMaintenance(s) ? '' : latency(s) }}</text>
+        @if (inMaintenance(s)) {
+          <!-- maintenance: a striped barrier across the rack -->
+          <g class="barrier"><rect x="-52" y="-6" width="104" height="14" rx="3"/><path d="M-40 -6 l-10 14 M-20 -6 l-10 14 M0 -6 l-10 14 M20 -6 l-10 14 M40 -6 l-10 14 M58 -6 l-10 14" class="barrier-stripe"/></g>
+        }
+        @if (canMaintain()) {
+          <g class="maint-btn" [class.on]="inMaintenance(s)" [class.busy]="maintenanceBusy() === s" transform="translate(44 -60)"
+             role="button" tabindex="0" [attr.aria-pressed]="inMaintenance(s)" [attr.aria-label]="maintenanceTitle(s)"
+             (click)="toggleMaintenance(s, $event)" (keydown)="onMaintenanceKeydown($event, s)">
+            <title>{{ maintenanceTitle(s) }}</title>
+            <circle r="13"/>
+            <text y="6" text-anchor="middle" class="ms">{{ inMaintenance(s) ? 'construction' : 'build' }}</text>
+          </g>
+        }
       </g>
     }
 

@@ -9,8 +9,13 @@ import java.time.Instant;
  * @param lastCheck     when the storage was last probed, or {@code null}
  * @param latencyMs     measured latency, or {@code null} when nothing was measured
  * @param latencySource where {@code latencyMs} comes from (see {@link #SOURCE_HEALTH_PROBE})
+ * @param note          for MAINTENANCE: the reason given by the administrator, otherwise {@code null}
  */
-public record StorageState(Status status, Instant lastCheck, Long latencyMs, String latencySource) {
+public record StorageState(Status status, Instant lastCheck, Long latencyMs, String latencySource, String note) {
+
+    public StorageState(Status status, Instant lastCheck, Long latencyMs, String latencySource) {
+        this(status, lastCheck, latencyMs, latencySource, null);
+    }
 
     /**
      * Latency of the periodic health probe. Until the real p95 of store
@@ -22,7 +27,9 @@ public record StorageState(Status status, Instant lastCheck, Long latencyMs, Str
     public enum Status {
         UP,
         DOWN,
-        UNKNOWN
+        UNKNOWN,
+        /** Answers its probe, but an administrator took it out of routing (planned maintenance). */
+        MAINTENANCE
     }
 
     public static StorageState unknown() {

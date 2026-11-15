@@ -8,6 +8,14 @@ spring:
   profiles:
     default: api
 
+  # Several @Scheduled jobs (storage health probe, recovery, reconciliation, incidents, metrics) share this
+  # pool. With the default single thread, one slow job delays the 10 s health probe past
+  # filegrid.routing.health-max-age and Agent 01 then sees every storage as UNKNOWN (file goes PENDING).
+  task:
+    scheduling:
+      pool:
+        size: 4
+
   # meta-db: metadata, routing decisions, audit
   datasource:
     url: ${META_DB_URL:jdbc:postgresql://localhost:5432/filegrid_meta}

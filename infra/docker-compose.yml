@@ -340,6 +340,10 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
       OTEL_SERVICE_NAME: simulator
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-false}
+      # A meter batch fans out into ~750 spans (one RabbitMQ message per reading). Trace only a share of the
+      # batches; api and workers follow the parent's decision, so unsampled batches cost nothing downstream.
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: ${SIM_TRACE_RATIO:-0.05}
     volumes:
       - simulator-output:/app/output
     depends_on:
@@ -762,10 +766,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          # 256M was OOM-killed under the simulator's traces (~750 spans per meter batch).
+          memory: ${TEMPO_MEMORY_LIMIT:-384M}
         reservations:
           memory: 96M
     command: ["-config.file=/etc/tempo/tempo.yml"]
+    environment:
+      # Go GC target below the container limit, so Tempo frees memory instead of being OOM-killed.
+      GOMEMLIMIT: ${TEMPO_GOMEMLIMIT:-300MiB}
     volumes:
       - ./tempo/tempo.yml:/etc/tempo/tempo.yml:ro
       - tempo-data:/var/tempo

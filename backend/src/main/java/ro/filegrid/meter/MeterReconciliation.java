@@ -92,8 +92,11 @@ public class MeterReconciliation {
                 SELECT count(DISTINCT meter_id) FROM meter_reading_blob WHERE created_at > now() - interval '24 hours'
                 """, Long.class);
         // Independent of the constraints that should make this impossible: count, do not assume.
+        // Same 24 h window as the gaps (index on created_at): over the whole table this took over a minute
+        // with a few million readings and, on the shared scheduler, starved the storage health probe.
         Long storedTwice = storeDb.queryForObject("""
                 SELECT count(*) - count(DISTINCT (meter_id, period_start)) FROM meter_reading_blob
+                 WHERE created_at > now() - interval '24 hours'
                 """, Long.class);
         Long recordedTwice = metaDb.queryForObject("""
                 SELECT coalesce(sum(n - 1), 0) FROM (

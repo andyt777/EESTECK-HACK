@@ -517,6 +517,13 @@ Consum măsurat în repaus (niciun container OOMKilled):
   limitele: api 704M, workeri 576M, worker-video 640M. În Kubernetes agentul e oprit (`OTEL_JAVAAGENT_ENABLED=false`).
 - Fix în `backend/Dockerfile`: `/opt/otel` e creat înainte de `ADD --chmod=444` (altfel directorul primea 444, fără bitul x, și
   utilizatorul non-root nu putea citi agentul: JVM-ul nu pornea).
+- Fix „S3/FTP indisponibil” la upload: planificatorul Spring avea un singur fir, iar `MeterReconciliation` (numărarea
+  duplicatelor pe toată tabela, 68 s la câteva milioane de citiri, la fiecare 60 s) bloca proba de sănătate a storage-urilor
+  peste `health-max-age` (30 s); Agentul 01 vedea toate destinațiile UNKNOWN și punea fișierul în PENDING. Acum: pool de 4 fire
+  (`spring.task.scheduling.pool.size`) și verificarea duplicatelor pe ultimele 24 h (index pe `created_at`).
+- Tempo era OOM-killed (256M) de trace-urile simulatorului (~750 span-uri per lot): simulatorul trasează 5% din loturi
+  (`parentbased_traceidratio`, `SIM_TRACE_RATIO`), Tempo are 384M, `GOMEMLIMIT=300MiB` și blocuri de 1 min. Verificat:
+  0 reporniri în 150 s, 64% memorie.
 
 ### Cum se verifică
 - `cd backend && ./mvnw -B test` → 112 teste unitare trec (inclusiv `FileGridMetricsTest`).

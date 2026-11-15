@@ -14,7 +14,8 @@ distributor:
           endpoint: 0.0.0.0:4318
 
 ingester:
-  max_block_duration: 5m
+  # Small in-memory blocks: flushed to disk every minute (the container has a 384M limit).
+  max_block_duration: 1m
 
 compactor:
   compaction:

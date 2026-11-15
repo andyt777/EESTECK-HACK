@@ -26,3 +26,7 @@ data:
   FILEGRID_ROUTING_HEALTH_MAX_AGE: 30s
   FILEGRID_INGESTION_RECOVERY_INTERVAL: 30s
   FILEGRID_UPLOAD_MAX_BYTES: "5368709120"
+  # The image starts the OpenTelemetry Java agent (Stage 8). The kind overlay has no
+  # Alloy/Tempo, so it is switched off here: no failing exports and no extra ~60 MiB
+  # per pod (the 448Mi worker limits assume it is off).
+  OTEL_JAVAAGENT_ENABLED: "false"

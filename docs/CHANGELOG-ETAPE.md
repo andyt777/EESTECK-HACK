@@ -491,3 +491,45 @@ Consum măsurat în repaus (niciun container OOMKilled):
 - Volumul de staging este `ReadWriteOnce` pe un cluster cu un singur nod; multi-nod necesită `ReadWriteMany`.
 - Pe Windows, `umask 077` nu restrânge permisiunile fișierelor generate pe NTFS; directorul rămâne ignorat de git.
 - Keycloak, Toxiproxy și drill-urile de haos nu sunt portate în k8s.
+
+## Etapa 8 — Observabilitate și alerte de business (2026-11-15)
+
+### Ce s-a făcut
+- Integrat branch-ul de lucru al Etapei 8 (metrici, tracing, loguri JSON, dashboard-uri), adaptat la `FileIntakeService`
+  (traceId-ul upload-ului vine din span-ul curent, deci și pozele de pe WhatsApp au trace).
+- **Metrici** (`observability/FileGridMetrics.java`, `QueueMetrics.java`, `TimedInputStream.java`): histogramele
+  `filegrid_store_duration_seconds` / `filegrid_retrieve_duration_seconds` (p50/p95/p99), `filegrid_operations_total{outcome}`,
+  `filegrid_bytes_total`, `filegrid_fallback_total`, `filegrid_queue_depth`, `filegrid_queue_consumers`, `filegrid_pending_files`.
+- **Tracing**: agentul OpenTelemetry Java 2.33.1 în imaginea backend (descărcat cu checksum SHA-256), propagare prin RabbitMQ,
+  span-uri manuale `classify`, `route`, `encrypt`, `storage.put`, `storage.verify` (`observability/Tracing.java`).
+  **Simulatorul** e instrumentat: un span `simulator.send_batch` per lot, cu `traceparent` în cerere
+  (`simulator/src/filegrid_simulator/tracing.py`; dependențe `opentelemetry-sdk` și `opentelemetry-exporter-otlp-proto-http` 1.45.2).
+- **Loguri** JSON (format Logstash din Spring Boot) cu `traceId`, `spanId`, `fileId`, `category`, `storage` → Alloy → Loki;
+  în Grafana, `traceId` din Loki deschide trace-ul în Tempo, iar din Tempo se ajunge la logurile trace-ului.
+- **Dashboard-uri** provizionate (`infra/grafana/dashboards/`): latență categorie × storage, contoare, cozi (bulkhead),
+  storage-uri, securitate și PII.
+- **Alerte noi** în `infra/prometheus/rules/business.yml`: `FaultRecordsNotImmediatelyAvailable`, `DroneTransfersFailing`, plus
+  al doilea declanșator pentru `MeterReadingsAtRisk` (coada meter > 5000 timp de 5 min) și `PersonalDataAtRisk` (> 10 refuzuri
+  `pii:read` în 10 min).
+- `docs/OBSERVABILITY.md`: pentru fiecare cerință, dashboard-ul, query-ul și trace-ul care o arată.
+- **Memorie**: agentul OpenTelemetry adaugă ~60 MiB per JVM. Cu `MaxMetaspaceSize=128m`, api-ul dădea
+  `OutOfMemoryError: Metaspace` (containerul rămânea „healthy”, dar cererile simulatorului picau). Acum `MaxMetaspaceSize=192m`,
+  limitele: api 704M, workeri 576M, worker-video 640M. În Kubernetes agentul e oprit (`OTEL_JAVAAGENT_ENABLED=false`).
+- Fix în `backend/Dockerfile`: `/opt/otel` e creat înainte de `ADD --chmod=444` (altfel directorul primea 444, fără bitul x, și
+  utilizatorul non-root nu putea citi agentul: JVM-ul nu pornea).
+
+### Cum se verifică
+- `cd backend && ./mvnw -B test` → 112 teste unitare trec (inclusiv `FileGridMetricsTest`).
+- `docker build --target test simulator` → ruff curat, 27 de teste trec (inclusiv `test_tracing.py`).
+- `promtool check rules` pe `business.yml` → 8 reguli valide.
+- Live (2026-11-15): trace simulator → api → RabbitMQ → worker-meter în Tempo; `docker compose stop ftp` → `StorageDown{FTP}`
+  activă în 79 s → incident `STORAGE_UNAVAILABLE` → `docker compose start ftp`; p95 `METER_READING × DATABASE` în Prometheus;
+  liniile din Loki sunt JSON cu `traceId`; toate query-urile din dashboard-uri folosesc metrici existente.
+
+### Limitări cunoscute
+- `filegrid_fallback_total` și `filegrid_retrieve_duration_seconds` apar abia după primul eveniment de acel tip; până atunci
+  panourile lor arată „No data”.
+- Intelligence (Python) nu e instrumentat cu OpenTelemetry și nu scrie loguri JSON.
+- Un lot de contoare produce un trace mare (~750 de span-uri, un mesaj RabbitMQ per citire).
+- Pragurile alertei de avarii copiază `sla` din `config/policies.yaml`; se actualizează manual împreună.
+- `scripts/drills/storage-outage.sh` e anterior autentificării (fără token) și primește 401; se reface în Etapa 18.

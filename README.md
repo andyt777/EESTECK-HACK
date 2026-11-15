@@ -129,6 +129,8 @@ Fiecare serviciu are o limită de memorie în `infra/docker-compose.yml` (`deplo
 bash scripts/mem-report.sh      # sau: make mem
 ```
 
+Agentul OpenTelemetry (Etapa 8) adaugă ~60 MiB per JVM, de aceea `MaxMetaspaceSize=192m` și limitele 704M / 576M / 640M. Pe un fișier de mediu creat înainte de Etapa 8, copiază din `.env.example` liniile `API_*`, `WORKER_*` și `WORKER_VIDEO_*` (cu 128m de metaspace, api-ul dă `OutOfMemoryError: Metaspace`). Fără tracing: `OTEL_JAVAAGENT_ENABLED=false`.
+
 Postgres (`meta-db`, `store-db`) pornește cu `shared_buffers=64MB`, `max_connections=50`, `work_mem=4MB`; valorile se schimbă din `.env` (`PG_SHARED_BUFFERS`, `PG_MAX_CONNECTIONS`, `PG_WORK_MEM`).
 
 **Cum mărești memoria pe Windows (Docker Desktop cu WSL2):** creează sau editează fișierul `C:\Users\<utilizator>\.wslconfig`:
@@ -285,6 +287,20 @@ Doar numerele din `NOTIFY_CONTACT_*` pot vorbi cu PPCastor. Textul mesajelor nu 
 5. Pune URL-ul + `/api/whatsapp/inbound` în `.env` (`WHATSAPP_WEBHOOK_URL`) **și** în sandbox-ul Twilio, la „When a message comes in” (metoda POST). Apoi `docker compose up -d api`.
 
 **De știut:** regula WhatsApp de 24 de ore (scrie-i ceva lui PPCastor înainte de demo, ca alertele să poată ajunge); URL-ul tunelului se schimbă la fiecare pornire (repetă pasul 5); în sandbox, numele și poza contului sunt ale Twilio.
+
+## Observabilitate
+
+Metrici (Prometheus), trace-uri (OpenTelemetry → Alloy → Tempo), loguri JSON (Loki) și alerte de business, toate în Grafana (https://localhost/grafana, folderul **FileGrid**). Pentru fiecare cerință: ce dashboard, ce query și ce trace o demonstrează — [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
+| Dashboard | Adresă |
+| --- | --- |
+| Latență p50/p95/p99, throughput, erori (categorie × storage) | https://localhost/grafana/d/filegrid-latency |
+| Cozi și workeri per categorie (bulkhead) | https://localhost/grafana/d/filegrid-queues |
+| Citiri contoare (rată, goluri, dubluri) | https://localhost/grafana/d/filegrid-meters |
+| Starea storage-urilor | https://localhost/grafana/d/filegrid-storage |
+| Securitate și date personale | https://localhost/grafana/d/filegrid-security |
+
+Trace-ul unui fișier: Grafana → Explore → Tempo, TraceQL `{ name = "storage.put" }`; `traceId`-ul din File Passport e același. Alertele: `infra/prometheus/rules/business.yml` → Alertmanager → incident în `/incidents`.
 
 ## Teste și CI
 

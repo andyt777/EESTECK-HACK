@@ -25,7 +25,7 @@ from pathlib import Path
 import httpx
 from prometheus_client import start_http_server
 
-from . import metrics
+from . import metrics, tracing
 from .anomalies import AnomalyPlan, iso, load_specs
 from .auth import ClientCredentialsToken
 from .client import FileGridClient
@@ -208,7 +208,11 @@ def run(argv: list[str] | None = None) -> None:
                 loop.add_signal_handler(sig, stop.set)
         await run_async(settings, stop)
 
-    asyncio.run(main())
+    tracing.setup()
+    try:
+        asyncio.run(main())
+    finally:
+        tracing.shutdown()
 
 
 if __name__ == "__main__":

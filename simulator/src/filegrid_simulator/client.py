@@ -15,8 +15,9 @@ import uuid
 from dataclasses import dataclass
 
 import httpx
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from . import metrics
+from . import metrics, tracing
 from .auth import ClientCredentialsToken, TokenUnavailable
 
 log = logging.getLogger(__name__)
@@ -49,6 +50,19 @@ class FileGridClient:
 
     async def send(self, readings: list[dict], stop: asyncio.Event | None = None) -> BatchResult:
         key = f"sim-{uuid.uuid4()}"
+        attributes = {"filegrid.batch_key": key, "filegrid.readings": len(readings), "http.url": self.url}
+        with tracing.tracer().start_as_current_span(
+            "simulator.send_batch", kind=SpanKind.CLIENT, attributes=attributes
+        ) as span:
+            result = await self._send(key, readings, stop)
+            span.set_attribute("filegrid.attempts", result.attempts)
+            span.set_attribute("filegrid.accepted", result.accepted)
+            span.set_attribute("filegrid.duplicate", result.duplicate)
+            if result.rejected:
+                span.set_status(Status(StatusCode.ERROR, "batch refused by FileGrid"))
+            return result
+
+    async def _send(self, key: str, readings: list[dict], stop: asyncio.Event | None) -> BatchResult:
         body = {"readings": readings}
         attempt = 0
         auth_retried = False
@@ -59,7 +73,7 @@ class FileGridClient:
             if attempt > 1:
                 metrics.RETRIED.inc()
             try:
-                headers = {"Idempotency-Key": key}
+                headers = tracing.inject({"Idempotency-Key": key})
                 if self.tokens is not None:
                     headers["Authorization"] = f"Bearer {await self.tokens.get()}"
                 response = await self.http.post(self.url, json=body, headers=headers)

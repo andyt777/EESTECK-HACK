@@ -30,3 +30,38 @@ groups:
         annotations:
           summary: "Document cu date personale stocat necriptat"
           description: "Un document de racordare a ajuns în storage fără criptare aplicativă."
+      # Second trigger of the same requirement: the meter queue does not drain (§2.1 "fără pierderi").
+      - alert: MeterReadingsAtRisk
+        expr: max by (category) (filegrid_queue_depth{category="METER_READING"}) > 5000
+        for: 5m
+        labels: {severity: MEDIUM, category: METER_READING, requirement: "§2.1 citiri contoare", incident_type: BUSINESS_SLA_AT_RISK}
+        annotations:
+          summary: "Coada citirilor de contor nu se golește"
+          description: "Peste 5000 de citiri așteaptă în coadă de 5 minute; verificați worker-meter și store-db."
+      # Repeated refusals of personal data (someone keeps trying to read documents without pii:read).
+      - alert: PersonalDataAtRisk
+        expr: sum(increase(filegrid_access_denied_total{permission="pii:read"}[10m])) > 10
+        labels: {severity: HIGH, category: CONNECTION_DOCUMENT, requirement: "§4 securitate", incident_type: CYBER_SECURITY}
+        annotations:
+          summary: "Încercări repetate de acces la date personale fără drept"
+          description: "Peste 10 refuzuri pii:read în 10 minute; verificați cine încearcă și de ce."
+      # Thresholds mirror config/policies.yaml (FAULT_RECORD.sla: maxStoreP95Seconds=5, maxPendingSeconds=120);
+      # Prometheus cannot read the policy file, so keep both in sync.
+      - alert: FaultRecordsNotImmediatelyAvailable
+        expr: >
+          histogram_quantile(0.95, sum by (le) (rate(filegrid_store_duration_seconds_bucket{category="FAULT_RECORD",outcome="verified"}[5m]))) > 5
+          or max(filegrid_pending_files{category="FAULT_RECORD"}) > 0
+        for: 2m
+        labels: {severity: HIGH, category: FAULT_RECORD, requirement: "§2.1 înregistrări de avarie", incident_type: BUSINESS_SLA_AT_RISK}
+        annotations:
+          summary: "Înregistrările de avarie nu sunt disponibile imediat"
+          description: "Stocarea avariilor depășește 5 s la p95 sau există avarii în așteptare de peste 2 minute; dispeceratul le poate primi cu întârziere."
+      - alert: DroneTransfersFailing
+        expr: >
+          sum(increase(filegrid_operations_total{operation="store",category="DRONE_VIDEO",outcome=~"error|mismatch"}[15m]))
+          / sum(increase(filegrid_operations_total{operation="store",category="DRONE_VIDEO"}[15m])) > 0.05
+          or sum(increase(filegrid_fallback_total{category="DRONE_VIDEO"}[15m])) > 5
+        labels: {severity: MEDIUM, category: DRONE_VIDEO, requirement: "§2.1 video-uri dronă", incident_type: TRANSFER_FAILED}
+        annotations:
+          summary: "Transferurile video eșuează"
+          description: "Peste 5% din încercările de stocare video au eșuat în 15 minute, sau au fost peste 5 treceri pe fallback."

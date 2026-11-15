@@ -56,16 +56,16 @@ export function evidenceOption(ev: any): any | null {
     backgroundColor: 'transparent',
     color: colors,
     grid: { left: 48, right: 18, top: 30, bottom: 36 },
-    tooltip: { trigger: 'axis', backgroundColor: '#0c1f5a', borderColor: '#3355b0', textStyle: { color: '#ffffff' } },
-    legend: { textStyle: { color: '#b4c3ee' }, top: 0 },
-    xAxis: { type: timeAxis ? 'time' : 'category', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { show: false } },
-    yAxis: [{ type: 'value', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { lineStyle: { color: '#132b74' } } },
-      { type: 'value', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { show: false } }],
+    tooltip: { trigger: 'axis', backgroundColor: '#ffffff', borderColor: '#a9cdee', textStyle: { color: '#12305e' } },
+    legend: { textStyle: { color: '#4f6a92' }, top: 0 },
+    xAxis: { type: timeAxis ? 'time' : 'category', axisLine: { lineStyle: { color: '#a9cdee' } }, axisLabel: { color: '#4f6a92' }, splitLine: { show: false } },
+    yAxis: [{ type: 'value', axisLine: { lineStyle: { color: '#a9cdee' } }, axisLabel: { color: '#4f6a92' }, splitLine: { lineStyle: { color: '#e2edf8' } } },
+      { type: 'value', axisLine: { lineStyle: { color: '#a9cdee' } }, axisLabel: { color: '#4f6a92' }, splitLine: { show: false } }],
     series: series.map((s, i) => ({
       yAxisIndex: secondary.has(i) ? 1 : 0,
       name: s.name, type: 'line', showSymbol: s.data.length < 40, smooth: true, data: s.data, lineStyle: { width: 2 },
       areaStyle: i === 0 ? { opacity: 0.08 } : undefined,
-      markLine: i === 0 && baseline !== null ? { symbol: 'none', lineStyle: { color: '#b4c3ee', type: 'dashed' }, label: { color: '#b4c3ee', formatter: 'referință' }, data: [{ yAxis: baseline }] } : undefined,
+      markLine: i === 0 && baseline !== null ? { symbol: 'none', lineStyle: { color: '#4f6a92', type: 'dashed' }, label: { color: '#4f6a92', formatter: 'referință' }, data: [{ yAxis: baseline }] } : undefined,
     })),
   };
 }

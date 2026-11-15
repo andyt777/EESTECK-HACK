@@ -114,20 +114,20 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
     .msg { display: flex; } .msg.me { justify-content: flex-end; }
     .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-width: 92%; }
     .bubble.me { background: rgba(255,119,188,.14); border-color: rgba(255,119,188,.35); white-space: pre-wrap; }
-    .bubble.warn { border-color: rgba(251,191,36,.5); color: #fef3c7; } .bubble.bad { border-color: rgba(244,63,94,.5); color: #ffe4e6; }
+    .bubble.warn { border-color: rgba(251,191,36,.5); color: #7a4a00; } .bubble.bad { border-color: rgba(244,63,94,.5); color: #9f1239; }
     .meta { margin-bottom: 8px; gap: 6px 14px; }
     .fact { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
     .fact b { color: var(--text); font-weight: 600; }
     .fact .ms { font-size: 15px; }
     .fact.ai .ms { color: var(--pink); }
-    .fact.fallback, .fact.fallback b { color: #fde68a; }
+    .fact.fallback, .fact.fallback b { color: #7a4a00; }
     .fact.sim .ms { color: var(--amber); }
     .answer { line-height: 1.55; display: flex; flex-direction: column; gap: 6px; }
     .md-p { margin: 0; white-space: pre-wrap; }
     .md-h { font-weight: 700; margin-top: 4px; }
     .md-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
     .md-hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
-    .answer code { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(6, 18, 58, .6); border: 1px solid var(--line); }
+    .answer code { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--inset); border: 1px solid var(--line); }
     .cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
     .steps-toggle { background: none; border: 0; color: var(--cyan); cursor: pointer; font: inherit; font-size: 12px; margin-top: 8px; padding: 0; display: flex; align-items: center; gap: 4px; }
     .steps { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }

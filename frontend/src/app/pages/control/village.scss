@@ -1,102 +1,138 @@
 :host { display: block; height: 100%; }
-.village { position: relative; height: 100%; overflow: hidden; background: #06123a; }
-.scene { display: block; width: 100%; height: 100%; user-select: none; }
+/* The scene keeps its own daylight palette: sky blue, white ground, leaf green, beaver brown, navy ink, pink energy. */
+.village {
+  --ink: #12305e; --ink-soft: #4f6a92; --pink: #ff77bc; --pink-ink: #c2327e;
+  --leaf: #8fd3a6; --leaf-hi: #b9e8c6; --fur: #9b6238; --fur-dark: #6f4424; --cream: #f1d9b5;
+  position: relative; height: 100%; overflow: hidden; background: #ffffff;
+}
+.scene { display: block; width: 100%; height: 100%; user-select: none; overflow: visible; }
 .ms { font-family: 'Material Symbols Outlined'; }
-.zone-label { fill: #ffffff; opacity: .55; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; font-weight: 700; font-style: italic; }
+.zone-label { fill: var(--ink); opacity: .7; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; font-weight: 700; font-style: italic; }
+
+/* landscape */
+.clouds path { fill: #ffffff; }
+.hill.far { fill: #d9f1e0; } .hill.near { fill: #c8e9d2; }
+.ground { fill: #ffffff; }
+.creek { fill: none; stroke: #a9d9ff; stroke-width: 30; stroke-linecap: round; }
+.ripple { fill: none; stroke: #ffffff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 14 26; opacity: .9; animation: drift 6s linear infinite; }
+@keyframes drift { to { stroke-dashoffset: -80; } }
+.tshadow { fill: rgba(18, 48, 94, .09); } .trunk { fill: var(--fur-dark); }
+.leaf { fill: var(--leaf); } .leaf-hi { fill: var(--leaf-hi); }
+.mast { fill: #ffffff; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.blade { fill: #ffffff; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.hub { fill: var(--pink); stroke: var(--ink); stroke-width: 1.2; }
+.blades { transform-origin: 0 -78px; animation: spin-blades 9s linear infinite; }
+.t2 .blades { animation-duration: 12s; } .t3 .blades { animation-duration: 10.5s; animation-direction: reverse; }
+@keyframes spin-blades { to { transform: rotate(360deg); } }
 
 /* footpaths */
-.paths path { fill: none; stroke: #ffffff; stroke-opacity: .12; stroke-width: 10; stroke-linecap: round; transition: stroke .3s, stroke-opacity .3s; }
-.paths path.hot { stroke: #ff77bc; stroke-opacity: .45; }
-.plaza { fill: rgba(255, 255, 255, .05); stroke: rgba(255, 255, 255, .18); stroke-dasharray: 4 6; }
-.dragging .plaza { stroke: #ff77bc; stroke-opacity: .8; animation: breathe 1.2s ease-in-out infinite alternate; }
-.over .plaza { fill: rgba(255, 119, 188, .18); stroke-dasharray: none; }
-@keyframes breathe { from { stroke-width: 1; } to { stroke-width: 4; } }
+.paths path { fill: none; stroke: #e2edf8; stroke-width: 11; stroke-linecap: round; transition: stroke .3s; }
+.paths path.hot { stroke: #ffc4e2; }
+.plaza { fill: #f1f8ff; stroke: #a9cdee; stroke-width: 1.5; stroke-dasharray: 4 6; }
+.dragging .plaza { stroke: var(--pink); animation: breathe 1.2s ease-in-out infinite alternate; }
+.over .plaza { fill: #ffe3f1; stroke: var(--pink); stroke-dasharray: none; }
+@keyframes breathe { from { stroke-width: 1.5; } to { stroke-width: 4; } }
 
-/* wires */
+/* energy lines */
 .wire { fill: none; stroke-linecap: round; }
-.wire.meter { stroke: #ffffff; stroke-opacity: .55; stroke-width: 2; stroke-dasharray: 5 9; animation: flow 1s linear infinite; }
-.wire.hot { stroke: #ff77bc; stroke-width: 3.5; filter: drop-shadow(0 0 6px #ff77bc); stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: plug .9s ease-out forwards; }
-.wire.hot.broken { stroke: #f43f5e; filter: none; stroke-dasharray: 3 9; stroke-dashoffset: 0; animation: none; }
+.wire.meter { stroke: var(--ink); stroke-opacity: .55; stroke-width: 2; stroke-dasharray: 5 9; animation: flow 1s linear infinite; }
+.wire.hot { stroke: var(--pink); stroke-width: 4; stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: plug .9s cubic-bezier(.16, 1, .3, 1) forwards; }
+.wire.hot.broken { stroke: #d92d4f; stroke-dasharray: 3 9; stroke-dashoffset: 0; animation: none; }
 @keyframes flow { to { stroke-dashoffset: -28; } }
 @keyframes plug { to { stroke-dashoffset: 0; } }
-.meter-pill rect { fill: #06123a; stroke: #ffffff; stroke-opacity: .6; }
-.meter-pill text { fill: #ffffff; font: 600 11px var(--mono); }
+.meter-pill rect { fill: #ffffff; stroke: var(--ink); stroke-width: 1.4; }
+.meter-pill text { fill: var(--ink); font: 600 11px var(--mono); }
 
-/* entry */
-.entry .pad { fill: rgba(255, 255, 255, .06); }
-.entry .arch { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; opacity: .85; }
-.entry .lbl, .alabel { fill: #ffffff; opacity: .7; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; font-style: italic; }
+/* entry: the lodge */
+.entry .pad { fill: rgba(18, 48, 94, .1); }
+.lodge { fill: var(--fur); stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+.logline { fill: none; stroke: var(--fur-dark); stroke-width: 1.6; stroke-linecap: round; }
+.logend { fill: var(--cream); stroke: var(--fur-dark); stroke-width: 1.2; }
+.lodge-door { fill: var(--ink); }
+.entry .lbl, .alabel { fill: var(--ink); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; font-style: italic; }
 .incoming { animation: hover 1s ease-in-out infinite alternate; }
 @keyframes hover { to { transform: translateY(-6px); } }
 
-/* houses: white walls, bubblegum-pink roofs */
+/* category buildings: white walls, pink roofs, solar panels */
 .house { cursor: pointer; outline: none; }
-.house .halo { fill: #ff77bc; opacity: 0; transition: opacity .3s; }
-.house .ground { fill: rgba(0, 0, 0, .28); }
-.house .wall { fill: #ffffff; }
-.house .roof { fill: #ff77bc; stroke: #ff77bc; stroke-width: 4; stroke-linejoin: round; }
-.house .chimney { fill: #e2559f; }
-.house .emblem { fill: #ffffff; }
-.house .icon { fill: #0a1a4d; font-size: 17px; }
-.house .win { fill: #0f2a7a; }
-.house .door { fill: #0a1a4d; }
-.house .socket { fill: #0a1a4d; stroke: #ffffff; stroke-width: 1.5; }
-.house .hlabel { fill: #ffffff; font-size: 14px; font-weight: 700; font-style: italic; }
-.house .hsub { fill: #ffffff; opacity: .65; font-size: 11px; font-family: var(--mono); }
-.house .act { fill: #ff77bc; }
-.house:hover .halo, .house:focus-visible .halo { opacity: .35; }
-.house:focus-visible .wall { stroke: #ff77bc; stroke-width: 3; }
-.house.hot .halo { opacity: .6; }
-.house.hot .win { fill: #ffd84d; filter: drop-shadow(0 0 4px #ffd84d); }
-.house.hot .door { fill: #ff77bc; }
-.warn-dot { fill: #fbbf24; stroke: #06123a; stroke-width: 2; } .warn-txt { fill: #06123a; font-size: 11px; font-weight: 800; }
+.ground-shadow { fill: rgba(18, 48, 94, .1); transition: fill .3s; }
+.house .wall { fill: #ffffff; stroke: var(--ink); stroke-width: 1.6; }
+.house .roof { fill: var(--pink); stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+.house .solar { fill: #2f66b3; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.house .solar-line { stroke: #ffffff; stroke-width: 1; opacity: .8; }
+.house .emblem { fill: #ffffff; stroke: var(--ink); stroke-width: 1.4; }
+.house .icon { fill: var(--ink); font-size: 17px; }
+.house .win { fill: #cfe8ff; stroke: var(--ink); stroke-width: 1.2; transition: fill .3s; }
+.house .door { fill: var(--ink); transition: fill .3s; }
+.house .socket { fill: #ffffff; stroke: var(--ink); stroke-width: 1.5; }
+.house .hlabel { fill: var(--ink); font-size: 14px; font-weight: 700; font-style: italic; }
+.house .hsub { fill: var(--ink-soft); font-size: 11px; font-family: var(--mono); }
+.house .act { fill: var(--pink-ink); font-weight: 600; }
+.house:hover .ground-shadow, .house:focus-visible .ground-shadow { fill: rgba(255, 119, 188, .45); }
+.house:hover .wall { fill: #fff5fa; }
+.house:focus-visible .wall { stroke: var(--pink-ink); stroke-width: 3; }
+.house.hot .ground-shadow { fill: rgba(255, 119, 188, .6); }
+.house.hot .win { fill: #ffd84d; }
+.house.hot .door { fill: var(--pink-ink); }
+.warn-dot { fill: #fbbf24; stroke: var(--ink); stroke-width: 1.4; } .warn-txt { fill: var(--ink); font-size: 11px; font-weight: 800; }
 
-/* storage servers */
-.server .halo { fill: #ffffff; opacity: .06; transition: opacity .3s; }
-.server .rack { fill: #10276b; stroke: #ffffff; stroke-opacity: .85; stroke-width: 2; }
-.server .slot { fill: #06123a; stroke: #3355b0; }
-.server .led { fill: #ff77bc; animation: blink 1.4s steps(2) infinite; }
-.server .sicon { fill: #ffffff; font-size: 20px; }
-.server .slabel { fill: #ffffff; font-size: 15px; font-weight: 800; font-style: italic; letter-spacing: .03em; }
+/* storage buildings */
+.server .rack { fill: #ffffff; stroke: var(--ink); stroke-width: 1.8; transition: stroke .3s; }
+.server .slot { fill: #e4f2ff; stroke: #a9cdee; }
+.server .led { fill: var(--pink); animation: blink 1.4s steps(2) infinite; }
+.server .sicon { fill: var(--ink); font-size: 20px; }
+.server .slabel { fill: var(--ink); font-size: 15px; font-weight: 800; font-style: italic; letter-spacing: .03em; }
 .server .sstatus { font-size: 11px; font-family: var(--mono); }
-.s-UP { fill: #ffffff; opacity: .75; } .s-DOWN { fill: #f43f5e; font-weight: 700; } .s-UNKNOWN { fill: #b4c3ee; }
-.server.hot .halo { fill: #ff77bc; opacity: .45; } .server.hot .rack { stroke: #ff77bc; stroke-opacity: 1; }
-.server.pulse-in .halo { animation: pulseIn .8s ease-out 2; }
-@keyframes pulseIn { 0% { opacity: .2; } 40% { opacity: 1; } 100% { opacity: .3; } }
-.server.down .rack { fill: #3b0d1a; stroke: #f43f5e; } .server.down .led { fill: #f43f5e; animation: none; opacity: .5; }
+.s-UP { fill: var(--ink-soft); } .s-DOWN { fill: #c81e45; font-weight: 700; } .s-UNKNOWN { fill: var(--ink-soft); }
+.server.hot .rack { stroke: var(--pink-ink); stroke-width: 3; } .server.hot .ground-shadow { fill: rgba(255, 119, 188, .55); }
+.server.pulse-in .rack { animation: arrive .8s ease-out 2; }
+@keyframes arrive { 0% { fill: #ffffff; } 40% { fill: #ffd9ec; } 100% { fill: #ffffff; } }
+.server.down .rack { fill: #ffe9ee; stroke: #c81e45; } .server.down .led { fill: #c81e45; animation: none; opacity: .6; }
 @keyframes blink { 50% { opacity: .25; } }
 
 /* packet */
-.packet .phalo { fill: #ff77bc; opacity: .6; } .packet .pcore { fill: #ffffff; }
-.plabel { fill: #ffffff; font: 700 11px var(--mono); }
+.packet .phalo { fill: #ffffff; stroke: var(--pink-ink); stroke-width: 1.5; } .packet .pcore { fill: var(--pink); }
+.plabel { fill: var(--ink); font: 700 11px var(--mono); }
 
-/* Agent 01: white robot with pink accents */
+/* PPCastor: beaver line-worker; --ac is the state colour (hat stripe, bubble border) */
 .agent { --ac: #ff77bc; }
 .agent .hit { fill: transparent; }
-.agent .shadow { fill: rgba(0, 0, 0, .35); }
-.agent .wheel { fill: #0a1a4d; stroke: #ffffff; stroke-width: 1.5; }
-.agent .body { fill: #ffffff; }
-.agent .chest { fill: var(--ac); }
-.agent .arm { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; }
-.agent .head { fill: #ffffff; }
-.agent .screen { fill: #06123a; stroke: var(--ac); stroke-width: 1.2; }
-.agent .antenna { stroke: #ffffff; stroke-width: 2; }
-.agent .bulb { fill: var(--ac); filter: drop-shadow(0 0 5px var(--ac)); }
-.agent .eye { fill: var(--ac); animation: blinkEye 4s infinite; transform-box: fill-box; transform-origin: center; }
-.agent .eye-l { fill: none; stroke: var(--ac); stroke-width: 2.4; stroke-linecap: round; }
-.agent .eye-t { fill: var(--ac); font: 700 16px var(--mono); }
-.agent .scanline { fill: var(--ac); animation: scan .9s ease-in-out infinite alternate; }
-.agent .beam { fill: var(--ac); opacity: .14; animation: beam .9s ease-in-out infinite alternate; }
-.doc { fill: #ffffff; stroke: #ff77bc; } .fold { fill: #ffd1e8; }
-.agent .parcel { filter: drop-shadow(0 0 6px #ff77bc); }
+.agent .shadow { fill: rgba(18, 48, 94, .16); }
+.fur { fill: var(--fur); stroke: var(--ink); stroke-width: 1.3; }
+.fur-dark { fill: var(--fur-dark); stroke: var(--ink); stroke-width: 1.3; }
+.cream { fill: var(--cream); }
+.tail-line { fill: none; stroke: var(--ink); stroke-width: .9; opacity: .55; stroke-linecap: round; }
+.vest { fill: var(--pink); stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.vest-stripe { fill: none; stroke: #ffffff; stroke-width: 3; }
+.arm { fill: none; stroke: var(--fur-dark); stroke-width: 6; stroke-linecap: round; }
+.teeth { fill: #ffffff; stroke: var(--ink); stroke-width: 1; } .tooth-line { stroke: var(--ink); stroke-width: .9; }
+.nose { fill: var(--ink); }
+.eye { fill: var(--ink); } .eye-w { fill: #ffffff; stroke: var(--ink); stroke-width: 1; } .glint { fill: #ffffff; }
+.eye.blink { animation: blinkEye 4s infinite; transform-box: fill-box; transform-origin: center; }
+.eye-l { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
+.hat { fill: #ffffff; stroke: var(--ink); stroke-width: 1.4; }
+.hat-brim { fill: #ffffff; stroke: var(--ink); stroke-width: 1.4; }
+.hat-stripe { fill: var(--ac); transition: fill .3s; }
+.log-body { fill: #b9793f; stroke: var(--ink); stroke-width: 1.3; }
+.log-ring { stroke: var(--fur-dark); stroke-width: 1.1; opacity: .7; }
+.log-end { fill: var(--cream); stroke: var(--ink); stroke-width: 1.2; } .log-core { fill: none; stroke: var(--fur-dark); stroke-width: 1; }
+.doc { fill: #ffffff; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; } .fold { fill: #ffd1e8; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.doc-line { stroke: var(--pink-ink); stroke-width: 1.2; stroke-linecap: round; }
 @keyframes blinkEye { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
-@keyframes scan { from { transform: translateY(-8px); } to { transform: translateY(8px); } }
-@keyframes beam { from { opacity: .06; } to { opacity: .22; } }
-.agent.st-success { --ac: #34d399; } .agent.st-warning { --ac: #fbbf24; } .agent.st-error { --ac: #f43f5e; }
-.over .agent .body, .over .agent .head { filter: drop-shadow(0 0 12px #ff77bc); }
+/* walking: a small waddle and alternating feet, only while he actually moves */
+.gait { transform-origin: 0 0; }
+.moving .gait { animation: waddle .42s ease-in-out infinite alternate; }
+.moving .f1 { animation: step .42s ease-in-out infinite alternate; } .moving .f2 { animation: step .42s ease-in-out infinite alternate-reverse; }
+.moving .tail { animation: wag .42s ease-in-out infinite alternate; transform-origin: -12px -10px; }
+@keyframes waddle { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+@keyframes step { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes wag { from { transform: rotate(-5deg); } to { transform: rotate(6deg); } }
+.st-scanning .log { animation: inspect .7s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: left center; }
+@keyframes inspect { from { translate: 0 0; } to { translate: 0 -3px; } }
+.agent.st-success { --ac: #1fb37c; } .agent.st-warning { --ac: #f5a524; } .agent.st-error { --ac: #d92d4f; }
+.over .agent .hat, .over .agent .hat-brim { fill: #ffe3f1; }
 
 .bwrap { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; &.left { justify-content: center; } }
-.bubble { background: #ffffff; border: 2px solid var(--ac, #ff77bc); border-radius: 14px; padding: 7px 12px; color: #06123a;
-  font: 500 12.5px/1.35 Inter, sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); display: flex; flex-direction: column; gap: 1px;
-  b { color: #e2559f; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-style: italic; } }
-.agent .bubble { border-color: var(--ac); }
+.bubble { background: #ffffff; border: 2px solid var(--ac, #ff77bc); border-radius: 14px; padding: 7px 12px; color: #12305e;
+  font: 500 12.5px/1.35 Inter, sans-serif; box-shadow: 0 6px 16px rgba(18, 48, 94, .16); display: flex; flex-direction: column; gap: 1px;
+  b { color: #c2327e; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-style: italic; } }

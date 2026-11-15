@@ -26,7 +26,7 @@ export const SERVER: Record<StorageType, { x: number; y: number; icon: string }>
 const AGENT_HOME = { x: 330, y: 400 };
 const ENTRY = { x: 96, y: 400 };
 /** Where Agent 01 stands when it delivers a file to a house: in front of the door, on the path. */
-const doorstep = (c: Category) => ({ x: HOUSE[c].x - 108, y: HOUSE[c].y + 4 });
+const doorstep = (c: Category) => ({ x: HOUSE[c].x - 152, y: HOUSE[c].y + 6 });
 /** Wire from a house (right wall, plug) to a storage server (left side). */
 export function wirePath(c: Category, s: StorageType): string {
   const h = HOUSE[c], v = SERVER[s];
@@ -65,7 +65,7 @@ export class Village {
 
   readonly agentState = signal<AgentState>('idle');
   readonly agentMsg = signal<string>(T.agent01.idle);
-  /** Speech bubble: above the robot on the plaza, to its left when it stands at a house (keeps house labels visible). */
+  /** Speech bubble: above PPCastor on the plaza, to its left when it stands at a house (keeps house labels visible). */
   readonly bubbleSide = signal<'above' | 'left'>('above');
   readonly hotHouse = signal<Category | null>(null);
   readonly wire = signal<{ cat: Category; st: StorageType } | null>(null);
@@ -75,6 +75,8 @@ export class Village {
   readonly dragging = signal(false);
   readonly overAgent = signal(false);
   readonly packetLabel = signal('');
+  /** True only while PPCastor is actually walking (drives the waddle). */
+  readonly moving = signal(false);
 
   private agentEl?: SVGGElement;
   private packetEl?: SVGGElement;
@@ -162,7 +164,9 @@ export class Village {
   private moveAgent(x: number, y: number, d = 0.8): void {
     if (!this.agentEl) return;
     this.bubbleSide.set(x > AGENT_HOME.x + 60 ? 'left' : 'above');
-    gsap.to(this.agentEl, { x, y, duration: this.dur(d), ease: 'power2.inOut', overwrite: 'auto' });
+    const walks = this.dur(d) > 0 && (Math.abs(Number(gsap.getProperty(this.agentEl, 'x')) - x) > 2 || Math.abs(Number(gsap.getProperty(this.agentEl, 'y')) - y) > 2);
+    this.moving.set(walks);
+    gsap.to(this.agentEl, { x, y, duration: this.dur(d * 1.5), ease: 'power1.inOut', overwrite: 'auto', onComplete: () => this.moving.set(false) });
   }
 
   private say(state: AgentState, key: string, vals: Record<string, string> = {}, msg?: string | null): void {

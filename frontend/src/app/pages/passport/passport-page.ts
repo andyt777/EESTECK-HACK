@@ -24,10 +24,10 @@ import { SHARED } from '../../shared/ui';
     .step:first-child::before { display: none; }
     .step.done::before { background: linear-gradient(90deg, var(--cyan), var(--green)); }
     .step .n { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; z-index: 1; background: var(--panel); border: 2px solid var(--line2); color: var(--muted); font-weight: 700; }
-    .step.done .n { border-color: var(--green); color: #052e1f; background: var(--green); box-shadow: 0 0 14px rgba(52,211,153,.45); }
+    .step.done .n { border-color: var(--green); color: #ffffff; background: var(--green); box-shadow: none; }
     .step .lb { font-size: 12px; font-weight: 600; } .step .at { font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
     .sha { display: flex; gap: 6px; align-items: center; word-break: break-all; }
-    .audit-row { display: grid; grid-template-columns: 150px 200px 1fr 120px; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(34,64,143,.6); font-size: 12.5px; align-items: center; }
+    .audit-row { display: grid; grid-template-columns: 150px 200px 1fr 120px; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; align-items: center; }
     .preview { width: 100%; max-height: 520px; border: 1px solid var(--line); border-radius: 8px; background: #000; }
     iframe.preview { height: 520px; background: #fff; }
     @media (max-width: 900px) { .journey { grid-template-columns: repeat(4, 1fr); row-gap: 14px; } .audit-row { grid-template-columns: 1fr 1fr; } }

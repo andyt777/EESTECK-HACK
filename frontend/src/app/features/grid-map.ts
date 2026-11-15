@@ -134,17 +134,17 @@ export function normalizeGrid(raw: any): GridModel | null {
   styles: [`
     :host { display: block; position: relative; }
     .map { width: 100%; height: auto; display: block; }
-    .halo { fill: rgba(255,119,188,.03); stroke: rgba(255,119,188,.18); stroke-dasharray: 4 6; cursor: pointer; }
-    .region.sel .halo { fill: rgba(255,119,188,.08); stroke: var(--cyan); }
+    .halo { fill: rgba(255,119,188,.2); stroke: rgba(194,50,126,.45); stroke-dasharray: 4 6; cursor: pointer; }
+    .region.sel .halo { fill: rgba(255,119,188,.2); stroke: var(--cyan); }
     .halo.h-bad { stroke: rgba(244,63,94,.45); fill: rgba(244,63,94,.05); } .halo.h-warn { stroke: rgba(251,191,36,.45); fill: rgba(251,191,36,.04); }
-    .rlabel { fill: #b4c3ee; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
-    .slabel { fill: #e6ecff; font-size: 11px; pointer-events: none; }
-    .ln { stroke: #3355b0; stroke-width: 1; } .ln.hv { stroke: #3b6aa8; stroke-width: 2.4; } .ln.dim, .node.dim { opacity: .25; }
+    .rlabel { fill: #4f6a92; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
+    .slabel { fill: #12305e; font-size: 11px; pointer-events: none; }
+    .ln { stroke: #a9cdee; stroke-width: 1; } .ln.hv { stroke: #5f97cf; stroke-width: 2.4; } .ln.dim, .node.dim { opacity: .25; }
     .node { cursor: pointer; }
-    .st { stroke: #06123a; stroke-width: 2; } .st.sel, .pt.sel { stroke: #fff; stroke-width: 3; }
-    .h-ok { fill: #34d399; } .h-warn { fill: #fbbf24; } .h-bad { fill: #f43f5e; } .h-unknown { fill: #7f93cf; }
-    .halo.h-ok, .halo.h-unknown { fill: rgba(255,119,188,.03); }
-    .ping { fill: none; stroke: #f43f5e; stroke-width: 2; animation: ping 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+    .st { stroke: #ffffff; stroke-width: 2; } .st.sel, .pt.sel { stroke: #12305e; stroke-width: 3; }
+    .h-ok { fill: #1fb37c; } .h-warn { fill: #f5a524; } .h-bad { fill: #d92d4f; } .h-unknown { fill: #9db4d6; }
+    .halo.h-ok, .halo.h-unknown { fill: rgba(255,119,188,.2); }
+    .ping { fill: none; stroke: #d92d4f; stroke-width: 2; animation: ping 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
     @keyframes ping { from { opacity: .9; transform: scale(.6); } to { opacity: 0; transform: scale(1.6); } }
     .cnt { fill: #fff; font-size: 10px; font-weight: 700; }
     .legend { position: absolute; left: 10px; bottom: 8px; display: flex; gap: 12px; color: var(--muted); }

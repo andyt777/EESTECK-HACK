@@ -42,7 +42,7 @@ export function callLines(c: any): { who: string; text: string }[] {
     </div>
   } @empty { @if (!error()) { <div class="muted small mt">{{ t.field.callsEmpty }}</div> } }`,
   styles: [`
-    .call { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: rgba(6,18,58,.4); }
+    .call { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--inset); }
     .lines { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 12.5px; }
     .ln b { color: var(--cyan); } .ln.sys b { color: var(--amber); }
   `],

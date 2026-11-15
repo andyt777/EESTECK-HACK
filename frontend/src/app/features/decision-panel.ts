@@ -68,12 +68,12 @@ import { CategoryPipe, DatePipe, StatusBadge, StorageChip } from '../shared/ui';
     h3 { margin-bottom: 8px; }
     .feat { display: flex; flex-wrap: wrap; gap: 6px; }
     .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
-    .cand { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: rgba(6,18,58,.4); }
-    .cand.chosen { border-color: rgba(52,211,153,.6); box-shadow: 0 0 20px rgba(52,211,153,.08); }
+    .cand { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--inset); }
+    .cand.chosen { border-color: rgba(52,211,153,.6); box-shadow: none; }
     .cand.out { opacity: .9; }
-    .score { display: flex; gap: 8px; align-items: center; } .bar { flex: 1; height: 6px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
-    .bar i { display: block; height: 100%; background: linear-gradient(90deg, #e2559f, #ff77bc); }
-    .chosen .bar i { background: linear-gradient(90deg, #059669, #34d399); }
+    .score { display: flex; gap: 8px; align-items: center; } .bar { flex: 1; height: 6px; background: #e2edf8; border-radius: 4px; overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--pink); }
+    .chosen .bar i { background: #1fb37c; }
     .reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
     .reasons li { display: flex; gap: 5px; align-items: flex-start; } .reasons .ms { font-size: 14px; margin-top: 1px; }
     .k-POSITIVE .ms { color: var(--green); } .k-NEGATIVE .ms { color: var(--red); } .k-INFO .ms { color: var(--blue); }

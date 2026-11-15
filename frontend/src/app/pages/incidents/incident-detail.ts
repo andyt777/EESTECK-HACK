@@ -124,11 +124,11 @@ import { SHARED } from '../../shared/ui';
   </div>`,
   styles: [`
     .notifs { display: flex; flex-direction: column; gap: 12px; }
-    .nt { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: rgba(6,18,58,.4); }
+    .nt { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--inset); }
     .nt.esc { border-color: rgba(244,63,94,.6); } .nt.conf { border-color: rgba(52,211,153,.45); }
     .ok { color: var(--green); display: inline-flex; gap: 4px; align-items: center; } .ok .ms { font-size: 14px; }
     .countdown { font-family: var(--mono); color: var(--amber); font-weight: 600; } .countdown.urgent { color: var(--red); animation: pulse 1s infinite; }
-    .fl { padding: 7px 4px; border-bottom: 1px solid rgba(34,64,143,.6); color: inherit; text-decoration: none !important; } .fl:hover { background: rgba(255,119,188,.04); }
+    .fl { padding: 7px 4px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none !important; } .fl:hover { background: rgba(255,119,188,.04); }
   `],
 })
 export class IncidentDetailPage {

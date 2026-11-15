@@ -6,6 +6,8 @@ export const T = {
   app: {
     name: 'FileGrid',
     subtitle: 'Smart Grid Control Center',
+    logout: 'Deconectare',
+    signedInAs: 'Conectat ca',
     backToVillage: 'Înapoi în Village',
     search: 'Caută fișier, ID, stație… (Ctrl+K)',
     searchTitle: 'Căutare rapidă',
@@ -120,6 +122,7 @@ export const T = {
     MISMATCH: 'Verificarea a găsit o neconcordanță. Repet transferul.',
     dropHere: 'Lasă fișierul pe mine',
     dropOnAgent: 'Lasă fișierul chiar pe Agent 01.',
+    noUploadPermission: 'Rolul tău nu poate încărca fișiere.',
   } as Record<string, string>,
   control: {
     title: 'FileGrid Village',

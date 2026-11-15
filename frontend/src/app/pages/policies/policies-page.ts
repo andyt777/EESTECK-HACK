@@ -1,12 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Api, Loader, asList, errorText } from '../../core/api.service';
+import { CanDirective } from '../../core/auth';
 import { CATEGORIES } from '../../core/models';
 import { T } from '../../core/texts';
 import { SHARED } from '../../shared/ui';
 
 @Component({
   selector: 'fg-policies',
-  imports: [...SHARED],
+  imports: [CanDirective, ...SHARED],
   template: `
   <div class="page">
     <div class="page-head"><div><div class="kicker">Agent 01</div><h1>{{ t.policies.title }}</h1><div class="lead">{{ t.policies.lead }}</div></div></div>
@@ -32,7 +33,7 @@ import { SHARED } from '../../shared/ui';
         <div class="card">
           <div class="card-head"><h3>{{ t.policies.yaml }}</h3>
             <div class="row">@if (editing()) { <button class="btn ghost sm" (click)="editing.set(false)">{{ t.app.cancel }}</button><button class="btn sm" (click)="apply()">{{ t.policies.apply }}</button> }
-              @else { <button class="btn ghost sm" (click)="startEdit(a.yaml)"><span class="ms">edit</span>{{ t.policies.edit }}</button> }</div></div>
+              @else { <button *fgCan="'policy:write'" class="btn ghost sm" (click)="startEdit(a.yaml)"><span class="ms">edit</span>{{ t.policies.edit }}</button> }</div></div>
           @if (editing()) { <textarea class="input mono" style="min-height: 460px" [value]="draft()" (input)="draft.set($any($event.target).value)"></textarea> }
           @else { <pre class="code">{{ a.yaml }}</pre> }
           @if (msg()) { <div class="banner mt" [class.info]="!msgBad()" [class.bad]="msgBad()" style="margin-bottom:0"><span class="ms">{{ msgBad() ? 'error' : 'check_circle' }}</span><div class="small" style="white-space: pre-wrap">{{ msg() }}</div></div> }

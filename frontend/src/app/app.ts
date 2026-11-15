@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject, debounceTime, filter, switchMap, of, catchError } from 'rxjs';
 import { Api } from './core/api.service';
+import { AuthzService } from './core/auth';
 import { EventStream } from './core/events.service';
 import { FileSummary } from './core/models';
 import { T } from './core/texts';
@@ -11,7 +12,7 @@ import { AssistantChat } from './features/assistant-chat';
 import { SimPhone } from './features/sim-phone';
 import { SHARED } from './shared/ui';
 
-interface NavItem { path: string; label: string; icon: string; exact?: boolean; }
+interface NavItem { path: string; label: string; icon: string; exact?: boolean; perm?: string; }
 
 @Component({
   selector: 'app-root',
@@ -27,22 +28,31 @@ export class App {
   private readonly router = inject(Router);
   private readonly snack = inject(MatSnackBar);
 
-  readonly sections: { title: string; items: NavItem[] }[] = [
+  readonly authz = inject(AuthzService);
+
+  private readonly allSections: { title: string; items: NavItem[] }[] = [
     { title: T.nav.sectionOps, items: [
       { path: '/', label: T.nav.control, icon: 'hub', exact: true },
-      { path: '/incidents', label: T.nav.incidents, icon: 'shield' },
-      { path: '/field', label: T.nav.field, icon: 'support_agent' },
+      { path: '/incidents', label: T.nav.incidents, icon: 'shield', perm: 'incident:read' },
+      { path: '/field', label: T.nav.field, icon: 'support_agent', perm: 'voice:use' },
     ] },
     { title: T.nav.sectionIntel, items: [
-      { path: '/grid', label: T.nav.grid, icon: 'electric_bolt' },
-      { path: '/assistant', label: T.nav.assistant, icon: 'smart_toy' },
+      { path: '/grid', label: T.nav.grid, icon: 'electric_bolt', perm: 'intelligence:read' },
+      { path: '/assistant', label: T.nav.assistant, icon: 'smart_toy', perm: 'assistant:use' },
       { path: '/performance', label: T.nav.performance, icon: 'speed' },
     ] },
     { title: T.nav.sectionAdmin, items: [
-      { path: '/decisions', label: T.nav.decisions, icon: 'account_tree' },
-      { path: '/policies', label: T.nav.policies, icon: 'rule' },
+      { path: '/decisions', label: T.nav.decisions, icon: 'account_tree', perm: 'policy:read' },
+      { path: '/policies', label: T.nav.policies, icon: 'rule', perm: 'policy:read' },
     ] },
   ];
+  /** Only the pages the signed-in role may open. */
+  readonly sections = computed(() => {
+    const perms = this.authz.permissions();
+    return this.allSections
+      .map((s) => ({ ...s, items: s.items.filter((i) => !i.perm || perms.has(i.perm)) }))
+      .filter((s) => s.items.length);
+  });
 
   readonly url = signal('/');
   readonly onVillage = computed(() => this.url() === '/' || this.url().startsWith('/?'));

@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import * as tus from 'tus-js-client';
 import { Api } from './api.service';
+import { AuthzService } from './auth';
 import { EventStream } from './events.service';
 import { Category, LiveEvent, StorageType, TERMINAL } from './models';
 
@@ -34,6 +35,7 @@ const CHUNK = 8 * 1024 * 1024; // ≤ 16 MB (CLAUDE.md)
 export class UploadService {
   private readonly events = inject(EventStream);
   private readonly api = inject(Api);
+  private readonly authz = inject(AuthzService);
   private readonly uploads = new Map<string, tus.Upload>();
 
   readonly items = signal<UploadItem[]>([]);
@@ -79,6 +81,11 @@ export class UploadService {
       retryDelays: [0, 1000, 3000, 5000, 10000, 20000],
       metadata,
       removeFingerprintOnSuccess: true,
+      // Every chunk carries the current token: a long upload outlives a single access token.
+      onBeforeRequest: async (req) => {
+        const token = await this.authz.token();
+        if (token) req.setHeader('Authorization', 'Bearer ' + token);
+      },
       onProgress: (sent) => {
         this.patch(key, { uploadedBytes: sent, fileId: this.idOf(upload) ?? this.get(key)?.fileId ?? null });
         this.catchUp(key);

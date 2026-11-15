@@ -62,8 +62,13 @@ export class PassportPage {
     if (ct.includes('json') || ct.startsWith('text/')) return 'text';
     return 'none';
   });
-  readonly inlineUrl = computed(() => this.api.contentUrl(this.id(), true));
-  readonly safeInline = computed<SafeResourceUrl>(() => this.sanitizer.bypassSecurityTrustResourceUrl(this.inlineUrl()));
+  /** Signed inline link, requested when the preview opens (an img/video/iframe cannot send the token). */
+  readonly inlineUrl = signal<string | null>(null);
+  readonly previewError = signal<string | null>(null);
+  readonly safeInline = computed<SafeResourceUrl | null>(() => {
+    const url = this.inlineUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  });
   readonly auditTypes = computed(() => Array.from(new Set((this.p.data()?.audit.items ?? []).map((a) => a.type))));
 
   constructor() {
@@ -74,6 +79,7 @@ export class PassportPage {
         this.decision.set(null);
         this.verifyResult.set(null);
         this.showPreview.set(false);
+        this.inlineUrl.set(null);
         this.api.decision(id).subscribe({ next: (d) => this.decision.set(d), error: () => this.decision.set(null) });
       });
     });
@@ -105,17 +111,30 @@ export class PassportPage {
     });
   }
 
-  download(suspect = false): void { window.location.href = this.api.contentUrl(this.id(), false, suspect); }
+  download(suspect = false): void {
+    this.api.contentLink(this.id(), false, suspect).subscribe({
+      next: (link) => { window.location.href = link.url; },
+      error: (e) => this.snack.open(errorText(e), T.app.close, { duration: 6000 }),
+    });
+  }
 
   preview(): void {
     this.showPreview.set(!this.showPreview());
-    if (this.showPreview() && this.kind() === 'text') {
-      fetch(this.inlineUrl()).then((r) => r.text()).then((txt) => {
-        let out = txt.slice(0, 200_000);
-        try { out = JSON.stringify(JSON.parse(out), null, 2); } catch { /* not json */ }
-        this.jsonPreview.set(out);
-      }).catch((e) => this.jsonPreview.set(String(e)));
-    }
+    if (!this.showPreview()) return;
+    this.previewError.set(null);
+    this.api.contentLink(this.id(), true).subscribe({
+      next: (link) => {
+        this.inlineUrl.set(link.url);
+        if (this.kind() === 'text') {
+          fetch(link.url).then((r) => r.text()).then((txt) => {
+            let out = txt.slice(0, 200_000);
+            try { out = JSON.stringify(JSON.parse(out), null, 2); } catch { /* not json */ }
+            this.jsonPreview.set(out);
+          }).catch((e) => this.jsonPreview.set(String(e)));
+        }
+      },
+      error: (e) => this.previewError.set(errorText(e)),
+    });
   }
 
   askAssistant(): void {

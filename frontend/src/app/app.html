@@ -11,7 +11,7 @@
       </a>
       <button class="btn ghost sm icon" (click)="menuOpen.set(false)" [title]="t.nav.closeMenu" [attr.aria-label]="t.nav.closeMenu"><span class="ms">close</span></button>
     </div>
-    @for (s of sections; track s.title) {
+    @for (s of sections(); track s.title) {
       <div class="nav-sec">{{ s.title }}</div>
       @for (i of s.items; track i.path) {
         <a class="nav-item" [routerLink]="i.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: !!i.exact }">
@@ -20,6 +20,13 @@
       }
     }
     <div class="nav-foot">
+      @if (authz.me(); as me) {
+        <div class="user" [title]="t.app.signedInAs + ' ' + me.actor">
+          <span class="ms">account_circle</span>
+          <div class="grow ellipsis"><b>{{ me.name || me.actor }}</b><span class="muted tiny">{{ authz.roleLabel() }}</span></div>
+        </div>
+      }
+      <button class="nav-item" (click)="authz.logout()"><span class="ms">logout</span><span>{{ t.app.logout }}</span></button>
       <button class="nav-item" (click)="ui.toggleAnimations()" [attr.aria-pressed]="!ui.animations()">
         <span class="ms">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span><span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}</span>
       </button>
@@ -44,7 +51,12 @@
         <span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
       }
       <span class="live" [class.on]="events.connected()" [title]="events.connected() ? t.app.live : t.app.offline"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>{{ events.connected() ? t.app.live : t.app.offline }}</span>
-      <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
+      @if (authz.can('assistant:use')) {
+        <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
+      }
+      @if (authz.me(); as me) {
+        <span class="badge user-chip" [title]="t.app.signedInAs + ' ' + me.actor"><span class="ms">person</span>{{ authz.roleLabel() || me.actor }}</span>
+      }
     </header>
     <main class="content" [class.full]="onVillage()"><router-outlet /></main>
   </div>

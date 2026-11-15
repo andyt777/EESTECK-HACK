@@ -33,12 +33,15 @@
 
     @if (showPreview()) {
       <div class="card mb">
-        @switch (kind()) {
-          @case ('image') { <img class="preview" [src]="inlineUrl()" [alt]="d.identity.name" style="object-fit: contain" /> }
-          @case ('video') { <video class="preview" [src]="inlineUrl()" controls preload="metadata"></video> }
-          @case ('pdf') { <iframe class="preview" [src]="safeInline()"></iframe> }
-          @case ('text') { <pre class="code">{{ jsonPreview() ?? t.app.loading }}</pre> }
-        }
+        @if (previewError()) { <div class="err">{{ previewError() }}</div> }
+        @else if (inlineUrl(); as url) {
+          @switch (kind()) {
+            @case ('image') { <img class="preview" [src]="url" [alt]="d.identity.name" style="object-fit: contain" /> }
+            @case ('video') { <video class="preview" [src]="url" controls preload="metadata"></video> }
+            @case ('pdf') { <iframe class="preview" [src]="safeInline()"></iframe> }
+            @case ('text') { <pre class="code">{{ jsonPreview() ?? t.app.loading }}</pre> }
+          }
+        } @else { <div class="muted">{{ t.app.loading }}</div> }
       </div>
     }
 

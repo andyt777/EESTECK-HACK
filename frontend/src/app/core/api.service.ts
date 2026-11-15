@@ -76,8 +76,10 @@ export class Api {
   passport(id: string, p?: Params) { return this.http.get<Passport>(`/api/files/${id}/passport`, { params: params(p) }); }
   decision(id: string) { return this.http.get<DecisionView>(`/api/files/${id}/decision`); }
   verify(id: string) { return this.http.post<VerifyResult>(`/api/files/${id}/verify`, {}); }
-  contentUrl(id: string, inline = false, suspect = false) {
-    return `/api/files/${id}/content?disposition=${inline ? 'inline' : 'attachment'}${suspect ? '&acknowledgeSuspect=true' : ''}`;
+  /** Short-lived signed URL for places that cannot send the bearer token (img, video, iframe, a download). */
+  contentLink(id: string, inline = false, suspect = false) {
+    return this.http.post<{ url: string; expiresAt: string }>(`/api/files/${id}/content-link`,
+      { disposition: inline ? 'inline' : 'attachment', acknowledgeSuspect: suspect });
   }
   decisions(p: Params) { return this.http.get<Page<DecisionSummary>>('/api/decisions', { params: params(p) }); }
   policies() { return this.http.get<any>('/api/policies'); }

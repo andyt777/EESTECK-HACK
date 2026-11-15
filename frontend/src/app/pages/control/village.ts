@@ -1,6 +1,7 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
+import { AuthzService } from '../../core/auth';
 import { EventStream } from '../../core/events.service';
 import { CATEGORIES, Category, CategorySummary, LiveEvent, MeterStats, STORAGES, StorageHealth, StorageType, TERMINAL } from '../../core/models';
 import { T, fmt } from '../../core/texts';
@@ -58,6 +59,7 @@ export class Village {
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly events = inject(EventStream);
   private readonly uploads = inject(UploadService);
+  private readonly authz = inject(AuthzService);
   private readonly ui = inject(UiState);
   private readonly router = inject(Router);
 
@@ -205,6 +207,12 @@ export class Village {
       this.say('warning', 'dropOnAgent');
       clearTimeout(this.hintTimer);
       this.hintTimer = setTimeout(() => { if (!this.focus() && !this.activeUpload()) this.say('idle', 'idle'); }, 2600);
+      return;
+    }
+    if (!this.authz.can('file:write')) {
+      this.say('warning', 'noUploadPermission');
+      clearTimeout(this.hintTimer);
+      this.hintTimer = setTimeout(() => { if (!this.focus() && !this.activeUpload()) this.say('idle', 'idle'); }, 3200);
       return;
     }
     // No confirmation dialog: the drop itself starts the resumable upload; Agent 01 detects the category.

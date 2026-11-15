@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -48,8 +49,9 @@ import ro.filegrid.text.Texts;
 @Profile("api")
 public class FileQueryController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FileQueryController.class);
+
     private static final int MAX_PAGE_SIZE = 200;
-    private static final Duration SUMMARY_TTL = Duration.ofSeconds(5);
     private static final Duration ACCESS_AUDIT_WINDOW = Duration.ofMinutes(1);
 
     private static final String FILE_COLUMNS = """
@@ -69,7 +71,6 @@ public class FileQueryController {
     private final Texts texts;
 
     private volatile List<CategorySummary> cachedSummary;
-    private volatile Instant cachedSummaryAt = Instant.EPOCH;
 
     public FileQueryController(NamedParameterJdbcTemplate jdbc, FileContentService content,
                                FileContextRepository contexts, FileEventRepository events,
@@ -246,10 +247,23 @@ public class FileQueryController {
     @GetMapping("/categories/summary")
     public List<CategorySummary> categories() {
         require(FileContentController.PERMISSION_READ);
+        // Served from the background refresh below: the aggregate scans every file_record (over a million rows
+        // with the simulator running) and took longer than the UI waits. Computed inline only before the first refresh.
         List<CategorySummary> cached = cachedSummary;
-        if (cached != null && cachedSummaryAt.plus(SUMMARY_TTL).isAfter(Instant.now())) {
-            return cached;
+        return cached != null ? cached : computeSummary();
+    }
+
+    /** Keeps the Village counters fresh without making any request wait for the full-table aggregate. */
+    @Scheduled(initialDelayString = "2s", fixedDelayString = "${filegrid.summary.refresh-interval:10s}")
+    void refreshSummary() {
+        try {
+            computeSummary();
+        } catch (RuntimeException e) {
+            log.warn("Category summary refresh failed (the previous one stays served): {}", e.getMessage());
         }
+    }
+
+    private List<CategorySummary> computeSummary() {
         MapSqlParameterSource none = new MapSqlParameterSource();
         Map<String, long[]> totals = new LinkedHashMap<>();
         Map<String, Instant> last = new LinkedHashMap<>();
@@ -293,7 +307,6 @@ public class FileQueryController {
                     byStorage.getOrDefault(category.name(), Map.of()), recent));
         }
         cachedSummary = result;
-        cachedSummaryAt = Instant.now();
         return result;
     }
 

@@ -22,25 +22,84 @@
         </g>
         <circle cy="-78" r="4" class="hub"/>
       </g>
+      <!-- scenery only (no state): meadow, hills, sun, grass, flowers, poles, solar farm -->
+      <linearGradient id="meadow" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e6f5eb"/><stop offset=".4" stop-color="#f1faf4"/><stop offset="1" stop-color="#f6fbf8"/>
+      </linearGradient>
+      <linearGradient id="hill-far" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#d4efdd"/><stop offset="1" stop-color="#e6f6eb"/>
+      </linearGradient>
+      <linearGradient id="hill-near" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#bfe6cb"/><stop offset="1" stop-color="#dcf2e3"/>
+      </linearGradient>
+      <radialGradient id="sun-glow">
+        <stop offset="0" stop-color="#fff6c9" stop-opacity=".95"/><stop offset=".45" stop-color="#fff2b8" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+      </radialGradient>
+      <g id="tuft"><path d="M-6 0 Q-5 -7 -2 -9 M-1 0 Q0 -10 2 -12 M3 0 Q5 -6 7 -8" class="tuft"/></g>
+      <g id="flower"><circle cy="-6" r="2.6" class="petal"/><circle cy="-6" r="1" class="pistil"/><path d="M0 -3.4 V0" class="stem"/></g>
+      <g id="pole">
+        <path d="M0 0 V-46" class="pole"/><path d="M-9 -42 H9" class="pole-arm"/>
+        <circle cx="-8" cy="-43" r="1.6" class="insulator"/><circle cx="8" cy="-43" r="1.6" class="insulator"/>
+      </g>
+      <g id="panel">
+        <path d="M-12 0 L-8 -12 H12 L8 0 Z" class="panel"/><path d="M-10 -6 H10 M-1.5 -12 L-3.5 0 M5.5 -12 L3.5 0" class="panel-line"/>
+        <path d="M0 0 V5" class="panel-leg"/>
+      </g>
     </defs>
 
-    <!-- daylight sky, far hills with wind turbines, white ground -->
+    <!-- daylight sky with a soft sun, drifting clouds, a few birds -->
     <rect x="-1500" width="4200" height="680" fill="url(#sky)"/>
+    <circle cx="62" cy="52" r="70" fill="url(#sun-glow)"/>
+    <circle cx="62" cy="52" r="19" class="sun"/>
     <g class="clouds">
-      <path d="M250 62 a16 16 0 0 1 30 -8 a20 20 0 0 1 38 4 a13 13 0 0 1 4 26 h-66 a12 12 0 0 1 -6 -22 Z"/>
-      <path d="M812 86 a12 12 0 0 1 23 -6 a15 15 0 0 1 29 3 a10 10 0 0 1 3 20 h-51 a9 9 0 0 1 -4 -17 Z"/>
+      <path class="cloud c1" d="M250 62 a16 16 0 0 1 30 -8 a20 20 0 0 1 38 4 a13 13 0 0 1 4 26 h-66 a12 12 0 0 1 -6 -22 Z"/>
+      <path class="cloud c2" d="M812 86 a12 12 0 0 1 23 -6 a15 15 0 0 1 29 3 a10 10 0 0 1 3 20 h-51 a9 9 0 0 1 -4 -17 Z"/>
+      <path class="cloud c3" d="M520 48 a11 11 0 0 1 21 -5 a14 14 0 0 1 26 3 a9 9 0 0 1 3 18 h-46 a8 8 0 0 1 -4 -16 Z"/>
+      <path class="cloud c4" d="M1120 56 a10 10 0 0 1 19 -5 a13 13 0 0 1 24 3 a8 8 0 0 1 2 16 h-41 a7 7 0 0 1 -4 -14 Z"/>
     </g>
-    <path d="M-1500 150 H0 Q150 92 330 128 T700 118 T1010 108 T1200 136 H2700 V250 H-1500 Z" class="hill far"/>
+    <g class="birds"><path d="M392 92 q5 -5 10 0 q5 -5 10 0"/><path d="M418 80 q4 -4 8 0 q4 -4 8 0"/><path d="M880 52 q4 -4 8 0 q4 -4 8 0"/></g>
+
+    <!-- three layers of hills: distant blue range, far hill with turbines, near hill with the power line -->
+    <path d="M-1500 140 H0 Q90 104 190 120 Q300 86 420 112 Q560 80 700 104 Q840 78 980 98 Q1100 84 1200 110 H2700 V250 H-1500 Z" class="hill range"/>
+    <path d="M-1500 150 H0 Q150 92 330 128 T700 118 T1010 108 T1200 136 H2700 V250 H-1500 Z" fill="url(#hill-far)"/>
     <use href="#turbine" x="172" y="126" class="t1"/>
     <use href="#turbine" x="268" y="122" class="t2" transform="translate(268 122) scale(.78) translate(-268 -122)"/>
     <use href="#turbine" x="958" y="114" class="t3" transform="translate(958 114) scale(.88) translate(-958 -114)"/>
-    <path d="M-1500 196 H0 Q240 150 520 182 T1010 170 T1200 190 H2700 V330 H-1500 Z" class="hill near"/>
-    <rect x="-1500" y="250" width="4200" height="430" class="ground"/>
-    <path d="M-1500 250 H0 Q260 226 560 246 T1200 240 H2700 V300 H-1500 Z" class="ground"/>
+    <path d="M-1500 196 H0 Q240 150 520 182 T1010 170 T1200 190 H2700 V330 H-1500 Z" fill="url(#hill-near)"/>
+    <!-- power line along the near hill, from the turbines down towards the town -->
+    <g class="powerline">
+      <path d="M140 178 Q182 190 224 172 Q268 184 312 168 Q356 180 400 166 Q444 178 488 172" class="cable"/>
+      <use href="#pole" x="140" y="224"/><use href="#pole" x="224" y="218"/><use href="#pole" x="312" y="214"/>
+      <use href="#pole" x="400" y="212"/><use href="#pole" x="488" y="218"/>
+    </g>
+    <rect x="-1500" y="250" width="4200" height="430" fill="url(#meadow)"/>
+    <path d="M-1500 250 H0 Q260 226 560 246 T1200 240 H2700 V300 H-1500 Z" fill="#eaf7ee"/>
 
-    <!-- creek: PPCastor's lodge sits on it -->
+    <!-- creek: PPCastor's lodge sits on it; a darker bank under the water -->
+    <path d="M74 150 C30 240 118 310 66 404 S96 590 44 680" class="creek-bank"/>
     <path d="M74 150 C30 240 118 310 66 404 S96 590 44 680" class="creek"/>
     <path d="M74 150 C30 240 118 310 66 404 S96 590 44 680" class="ripple"/>
+    <g class="stones"><ellipse cx="116" cy="292" rx="7" ry="4"/><ellipse cx="128" cy="300" rx="4" ry="2.6"/><ellipse cx="22" cy="520" rx="6" ry="3.5"/></g>
+
+    <!-- meadow details: grass tufts and pink flowers in the open spaces -->
+    <g class="meadow-details">
+      <use href="#tuft" x="160" y="300"/><use href="#tuft" x="250" y="352"/><use href="#tuft" x="430" y="300"/>
+      <use href="#tuft" x="200" y="470"/><use href="#tuft" x="452" y="540"/><use href="#tuft" x="300" y="600"/>
+      <use href="#tuft" x="760" y="250"/><use href="#tuft" x="780" y="380"/><use href="#tuft" x="800" y="530"/>
+      <use href="#tuft" x="930" y="300"/><use href="#tuft" x="960" y="430"/><use href="#tuft" x="1150" y="400"/>
+      <use href="#tuft" x="1180" y="620"/><use href="#tuft" x="520" y="650"/>
+      <use href="#flower" x="182" y="318"/><use href="#flower" x="190" y="322"/><use href="#flower" x="440" y="470"/>
+      <use href="#flower" x="268" y="560"/><use href="#flower" x="276" y="566"/><use href="#flower" x="480" y="620"/>
+      <use href="#flower" x="790" y="300"/><use href="#flower" x="944" y="356"/><use href="#flower" x="952" y="360"/>
+      <use href="#flower" x="1150" y="520"/><use href="#flower" x="770" y="470"/><use href="#flower" x="1172" y="350"/>
+    </g>
+
+    <!-- a small solar farm between the houses and the storages -->
+    <g class="solar-farm">
+      <use href="#panel" x="920" y="580"/><use href="#panel" x="950" y="580"/><use href="#panel" x="980" y="580"/>
+      <use href="#panel" x="932" y="606"/><use href="#panel" x="962" y="606"/><use href="#panel" x="992" y="606"/>
+    </g>
 
     <text x="650" y="34" class="zone-label" text-anchor="middle">{{ t.control.housesTitle }}</text>
     <text x="1060" y="34" class="zone-label" text-anchor="middle">{{ t.control.serversTitle }}</text>

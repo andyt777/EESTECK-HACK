@@ -80,7 +80,7 @@ Document de continuare pe alt laptop. Citește-l împreună cu `CLAUDE.md`, `doc
 
 1. `git clone` / `git pull` (după ce modificările de mai jos au fost commit-uite și împinse).
 2. `bash scripts/init-env.sh` → generează `.env` cu secrete noi. **`.env` nu este în git**: completează din nou manual:
-   - `LLM_PROVIDER=gemini`, `LLM_API_KEY=<cheia Gemini>`, `LLM_MODEL=gemini-3.5-flash`
+   - `LLM_PROVIDER=gemini`, `LLM_API_KEY=<cheia Gemini>`, `LLM_MODEL=gemini-3.5-flash-lite`
    - opțional `NOTIFY_ESCALATION_OVERRIDE=2m` pentru demo-ul de escaladare.
    - Atenție: `FILEGRID_KEK` nou ⇒ documentele criptate de pe laptopul vechi nu se pot deschide (datele sunt oricum în volumele Docker locale, nu se mută).
 3. `./start.sh` (sau `.\start.ps1`) → toate serviciile `healthy`. Dacă Traefik nu vede rutele: `bash scripts/reload-config.sh`.
@@ -128,7 +128,7 @@ Extra verificate: criptare documente de racordare (`bash scripts/direct-access-d
 ## 6. Capcane cunoscute
 
 - **Windows:** `python3` e stub-ul Microsoft Store (se blochează) — scripturile folosesc `node` pentru JSON; curl-ul Windows nu scrie în `/tmp` din Git Bash (folosește `cygpath -w`). Fișierele Java au CRLF: editările cu `perl`/`sed` multi-linie pot să nu se aplice.
-- **Gemini:** `gemini-2.5-flash` nu mai e disponibil pentru conturi noi (404); `gemini-3.8-flash` dădea 503 (cerere mare). `gemini-3.5-flash` merge. Dacă LLM-ul cade, asistentul trece automat pe SIMULATED (cu notă în răspuns).
+- **Gemini:** `gemini-2.5-flash` nu mai e disponibil pentru conturi noi (404); `gemini-3.8-flash` dădea 503 (cerere mare). `gemini-3.5-flash` merge, dar pe o cheie gratuită dă 429 după 2–3 întrebări pe minut; `gemini-3.5-flash-lite` a trecut 8/8 cereri la rând (2026-11-15) și e implicit. Dacă LLM-ul cade, asistentul trece automat pe SIMULATED (cu notă în răspuns).
 - **Build frontend:** dacă `docker compose up -d --build frontend` eșuează când api-ul repornește, folosește `--no-deps`.
 - **Prima analiză Agent 02** după pornire: 45–70 s (încarcă 24 h de citiri).
 - `.playwright-mcp/` (capturi de test) este acum în `.gitignore`.

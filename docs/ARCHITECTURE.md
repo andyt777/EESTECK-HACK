@@ -6,7 +6,8 @@
 
 | Componentă | Tehnologie | Rol |
 | --- | --- | --- |
-| gateway | Traefik v3 | singurul punct expus în exterior; TLS, rutare `/`, `/api`, `/grafana` |
+| gateway | Traefik v3 | singurul punct expus în exterior; TLS, rutare `/`, `/api`, `/auth`, `/grafana` |
+| keycloak | Keycloak 26 (realm `filegrid`, baza `keycloak` în meta-db) | autentificare OIDC: login code + PKCE pentru UI, client credentials pentru simulator, intelligence și Alertmanager; 6 roluri (`docs/AUTH-DESIGN.md`, ADR-0007) |
 | api | Spring Boot 3, Java 21 (profil `api`) | upload reluabil (tus), căutare, File Passport, politici, incidente, SSE |
 | worker-meter / -fault / -document / -video | aceeași imagine, profil `worker` | Agent 01 execută transferul către storage; câte un pool per categorie (bulkhead) |
 | frontend | Angular + Angular Material + SVG/GSAP + ECharts | Village, categorii, Passport, Grid Intelligence, Assistant, Incidents, Performance |

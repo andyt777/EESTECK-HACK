@@ -116,7 +116,7 @@ class MetadataSchemaIT {
         assertThat(loaded.getIntegrityStatus()).isEqualTo(IntegrityStatus.UNVERIFIED);
         assertThat(loaded.getSensitivity()).isEqualTo(Sensitivity.NONE);
         assertThat(loaded.getDataOrigin()).isEqualTo(DataOrigin.SIMULATED);
-        assertThat(loaded.getUploadedBy()).isEqualTo("demo-user");
+        assertThat(loaded.getUploadedBy()).isEqualTo("system");
         assertThat(loaded.getReceivedAt()).isEqualTo(now);
         assertThat(contexts.findById(fileId).orElseThrow().getStation()).isEqualTo("Statia X");
 

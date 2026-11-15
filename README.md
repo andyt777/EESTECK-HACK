@@ -145,16 +145,47 @@ apoi rulează `wsl --shutdown` într-un terminal și repornește Docker Desktop.
 
 | Ce | Adresă | Autentificare |
 | --- | --- | --- |
+| Aplicația (Control Center) | https://localhost | login Keycloak (utilizatorii demo de mai jos) |
+| Keycloak (realm `filegrid`) | https://localhost/auth/realms/filegrid/account | utilizatorii demo; consola admin nu este rutată în exterior |
 | Grafana | https://localhost/grafana | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` din `.env` |
 | Starea API-ului | https://localhost/api/actuator/health | — (răspunde `{"status":"UP"}`) |
-| Politica activă (Agent 01) | https://localhost/api/policies | — (versiunea activă, YAML-ul și starea fișierului `policies.yaml`) |
-| Istoricul politicilor | https://localhost/api/policies/history | — (versiuni și diff-uri structurale) |
-| Upload reluabil (tus 1.0) | https://localhost/api/uploads | — (orice client tus; vezi mai jos) |
-| Upload simplu (multipart) | `POST` https://localhost/api/files | — (fișiere mici, câmpul `file`) |
-| Stări live (SSE) | https://localhost/api/events/stream | — (filtre opționale `?fileId=` și `?category=`) |
-| Decizia Agentului 01 | https://localhost/api/files/{id}/decision | — |
-| Citiri contoare | `POST` https://localhost/api/meters/readings | — (lot de cel mult 500, antet `Idempotency-Key`) |
-| Statistici contoare | https://localhost/api/meters/stats | — (citiri/min, gap-uri, duplicate respinse / scrise) |
+| Utilizatorul curent | https://localhost/api/me | bearer (actor, roluri, permisiuni) |
+| Politica activă (Agent 01) | https://localhost/api/policies | bearer, `policy:read` |
+| Istoricul politicilor | https://localhost/api/policies/history | bearer, `policy:read` |
+| Upload reluabil (tus 1.0) | https://localhost/api/uploads | bearer, `file:write` (orice client tus; vezi mai jos) |
+| Upload simplu (multipart) | `POST` https://localhost/api/files | bearer, `file:write` (fișiere mici, câmpul `file`) |
+| Stări live (SSE) | https://localhost/api/events/stream | bearer, `file:read` (filtre opționale `?fileId=` și `?category=`) |
+| Decizia Agentului 01 | https://localhost/api/files/{id}/decision | bearer, `file:read` |
+| Citiri contoare | `POST` https://localhost/api/meters/readings | bearer, `meters:write` (simulatorul; lot de cel mult 500, antet `Idempotency-Key`) |
+| Statistici contoare | https://localhost/api/meters/stats | bearer, `meters:read` (citiri/min, gap-uri, duplicate respinse / scrise) |
+
+## Autentificare
+
+Accesul la API este autentificat cu **Keycloak OIDC** (Etapa 11, design în `docs/AUTH-DESIGN.md`, ADR-0007). O cerere fără token valid primește `401` ca problem details (`application/problem+json`), iar o permisiune lipsă primește `403`.
+
+- **Browser:** aplicația te trimite la login (code + PKCE, clientul public `filegrid-web`); tokenul de acces trăiește 5 minute și este reînnoit automat cu refresh token. Fluxul SSE și upload-ul tus trimit și ele tokenul. Previzualizarea și descărcarea folosesc linkuri semnate HMAC, de scurtă durată (`POST /api/files/{id}/content-link`).
+- **Servicii:** simulatorul, intelligence și Alertmanager primesc tokenuri prin client credentials (`KC_*_SECRET` în `.env`).
+- **Utilizatori demo** (parolele sunt în `.env`, generate la `init-env`):
+
+| Utilizator | Rol | Parola în `.env` | Poate citi date personale (`pii:read`) |
+| --- | --- | --- | --- |
+| `field.demo` | echipă de teren | `KC_DEMO_FIELD_PASSWORD` | nu |
+| `dispatcher.demo` | dispecerat | `KC_DEMO_DISPATCHER_PASSWORD` | nu |
+| `connections.demo` | procesare racordări | `KC_DEMO_CONNECTIONS_PASSWORD` | **da** |
+| `analyst.demo` | analist | `KC_DEMO_ANALYST_PASSWORD` | nu |
+| `incident-manager.demo` | manager de incident | `KC_DEMO_INCIDENT_MANAGER_PASSWORD` | nu |
+| `admin.demo` | administrator | `KC_DEMO_ADMIN_PASSWORD` | **da** |
+
+Fără `pii:read`, numele documentelor cu date personale apare mascat („Document cu date personale (nume ascuns)”), iar conținutul lor nu poate fi descărcat. Meniul ascunde paginile pe care rolul nu le poate deschide.
+
+**Realm-ul se importă doar la prima pornire** (`infra/keycloak/realm-filegrid.json`). Ca să reimporți după o modificare a fișierului:
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env stop keycloak
+docker compose -f infra/docker-compose.yml --env-file .env exec meta-db \
+  sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE keycloak WITH (FORCE)"'
+./start.sh   # sau .\start.ps1 — keycloak-db-init recreează baza, Keycloak reimportă realm-ul
+```
 
 Gateway-ul (Traefik) este singurul serviciu care publică porturi. HTTP este redirecționat către HTTPS, iar TLS minim este 1.2. Din actuator este expusă în exterior doar starea; metricile (`/actuator/prometheus`) rulează pe un port separat, accesibil numai din rețeaua internă.
 

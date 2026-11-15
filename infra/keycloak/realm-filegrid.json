@@ -115,32 +115,32 @@
   ],
   "users": [
     {
-      "username": "field.demo", "firstName": "Echipa", "lastName": "Teren", "enabled": true,
+      "username": "field.demo", "firstName": "Echipa", "lastName": "Teren", "email": "field.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_FIELD_PASSWORD}", "temporary": false }],
       "realmRoles": ["field"]
     },
     {
-      "username": "dispatcher.demo", "firstName": "Dispecer", "lastName": "Demo", "enabled": true,
+      "username": "dispatcher.demo", "firstName": "Dispecer", "lastName": "Demo", "email": "dispatcher.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_DISPATCHER_PASSWORD}", "temporary": false }],
       "realmRoles": ["dispatcher"]
     },
     {
-      "username": "connections.demo", "firstName": "Racordari", "lastName": "Demo", "enabled": true,
+      "username": "connections.demo", "firstName": "Racordari", "lastName": "Demo", "email": "connections.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_CONNECTIONS_PASSWORD}", "temporary": false }],
       "realmRoles": ["connections"]
     },
     {
-      "username": "analyst.demo", "firstName": "Analist", "lastName": "Demo", "enabled": true,
+      "username": "analyst.demo", "firstName": "Analist", "lastName": "Demo", "email": "analyst.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_ANALYST_PASSWORD}", "temporary": false }],
       "realmRoles": ["analyst"]
     },
     {
-      "username": "incident-manager.demo", "firstName": "Manager", "lastName": "Incident", "enabled": true,
+      "username": "incident-manager.demo", "firstName": "Manager", "lastName": "Incident", "email": "incident-manager.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_INCIDENT_MANAGER_PASSWORD}", "temporary": false }],
       "realmRoles": ["incident-manager"]
     },
     {
-      "username": "admin.demo", "firstName": "Admin", "lastName": "Demo", "enabled": true,
+      "username": "admin.demo", "firstName": "Admin", "lastName": "Demo", "email": "admin.demo@filegrid.example", "emailVerified": true, "enabled": true,
       "credentials": [{ "type": "password", "value": "${KC_DEMO_ADMIN_PASSWORD}", "temporary": false }],
       "realmRoles": ["admin"]
     },

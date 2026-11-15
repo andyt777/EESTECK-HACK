@@ -1,5 +1,25 @@
 # Jurnalul etapelor
 
+## Etapa 11 — autentificare Keycloak OIDC: backend, frontend, verificare cap-coadă (2026-11-15)
+
+Contractul: `docs/AUTH-DESIGN.md` (aprobat), ADR-0007. Partea Python (intelligence, simulator) e descrisă mai jos, la 2026-11-14.
+
+### Ce s-a făcut
+- **Infra:** serviciile `keycloak-db-init` (rol + bază `keycloak` în meta-db) și `keycloak` 26; realm `filegrid` cu 6 roluri, conturi de serviciu (simulator, intelligence, Alertmanager), clientul public `filegrid-web` (code + PKCE); rutele Traefik `/auth/realms` și `/auth/resources` (consola admin nu e rutată); Alertmanager trimite webhook-ul cu OAuth2 client credentials. Utilizatorii demo au email verificat, altfel Keycloak 26 cere „Verifică profilul” la primul login.
+- **Backend:** resource server JWT (issuer public + intern, audience `filegrid-api`); `RolePermissions` (matricea §3) și `RolePermissionAccessPolicy`, cu metrica `filegrid_access_denied_total`; actorul din token (`preferred_username`) în audit; `GET /api/me`; 401/403 ca problem details; linkuri de conținut semnate HMAC (`POST /api/files/{id}/content-link`, 5 min pentru descărcare, 60 min pentru preview); SSE se închide la expirarea tokenului; numele documentelor PII mascate fără `pii:read` (`/files`, passport, `/decisions`, incidente).
+- **Frontend:** `angular-auth-oidc-client` 21.0.4. Loginul se face înainte de pornirea aplicației (app initializer), revenind la pagina cerută; interceptorul adaugă tokenul pe `/api/`; `AuthzService` din `/api/me`, `permissionGuard` pe rute, directiva `*fgCan`. Meniul arată doar paginile permise, iar editarea politicilor doar cu `policy:write`. Drop-ul pe Agent 01 fără `file:write` afișează un mesaj. Utilizatorul, rolul și logout-ul apar în sidebar, rolul și în bara de sus. SSE e citit cu `fetch` + header `Authorization` și reconectare cu token reînnoit. Fiecare cerere tus primește tokenul curent. Descărcarea și preview-ul din passport folosesc linkuri semnate.
+- **Teste noi:** `RolePermissionsTest` (12), `ContentLinkSignerTest` (7), `AuthenticationIT` (4: tokenuri invalide → 401, `/me`, actuator deschis pe portul de management, matricea pe un document PII + link semnat valid/alterat); primele teste frontend (`parseSse`, config OIDC). `MetadataSchemaIT`: fără autentificare, actorul e `system`.
+
+### Cum se verifică
+- `cd backend && ./mvnw -B clean verify`: 102 teste au rulat, unul a picat (`MetadataSchemaIT`, actor așteptat `demo-user`) și a fost reparat. Testele noi și `MetadataSchemaIT` trec: 19 unit + 10 IT.
+- `cd frontend && npx ng build && npx ng test --watch=false` → 4/4.
+- `.\start.ps1` → toate serviciile `healthy`. `curl -k https://localhost/api/files` → 401 `application/problem+json`. Simulatorul trimite cu token (`/api/meters/stats`: `duplicatesWritten = 0`, 2000 citiri/min). O alertă trimisă în Alertmanager devine incidentul `ALERTMANAGER`.
+- Login prin fluxul real code + PKCE (formularul Keycloak) cu toți cei 6 utilizatori demo: `/api/me` dă rolul corect și refresh token; doar `connections` și `admin` obțin linkul semnat la un document PII (ceilalți: 403); descărcarea prin link merge fără header; parola greșită e refuzată.
+
+### Limitări cunoscute
+- Fluxul UI (redirect la login, sidebar, SSE prin fetch, upload tus) n-a fost încă parcurs prin click-uri într-un browser real. Login-ul și API-ul au fost verificate cu un client HTTP care parcurge exact pașii browserului.
+- Realm-ul se importă doar la prima pornire. Modificările ulterioare din `realm-filegrid.json` cer reimport (README, „Autentificare”) sau aplicare cu `kcadm`.
+
 ## Redesign UI — Village pe tot ecranul, încărcare doar pe Agent 01, sidebar (2026-11-15)
 
 ### Ce s-a făcut

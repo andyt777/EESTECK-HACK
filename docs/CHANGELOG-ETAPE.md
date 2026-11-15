@@ -1,5 +1,58 @@
 # Jurnalul etapelor
 
+## PPCastor pe WhatsApp real + Grid Intelligence cu PPCastor (2026-11-15)
+
+Design: `docs/superpowers/specs/2026-11-15-ppcastor-whatsapp-design.md`; ADR-0008; plan: `docs/superpowers/plans/2026-11-15-ppcastor-whatsapp.md`.
+
+### Ce s-a făcut
+- **WhatsApp real (Twilio)**: `POST /api/whatsapp/inbound` (pachet `backend/.../whatsapp/`). Funcționează astfel:
+  - semnătura Twilio e verificată înainte de orice;
+  - doar numerele `NOTIFY_CONTACT_*` pot vorbi cu PPCastor;
+  - fiecare `MessageSid` e procesat o singură dată, iar textul mesajelor nu se stochează.
+  
+  Ce poate face echipa de teren:
+  - `OK [INC-…]` confirmă alerta;
+  - `raport …`, un mesaj vocal sau o poză devin o propunere de incident, deschisă doar după `DA`;
+  - orice altă întrebare primește răspunsul asistentului.
+- Identitate nouă `filegrid-whatsapp` / rolul `svc-whatsapp` (fără `pii:read`, fără scriere); `scripts/keycloak-whatsapp-client.sh` o adaugă într-un Keycloak deja pornit.
+- `intelligence`: `POST /api/intelligence/voice/transcribe` (audio în corpul cererii, maximum 16 MB, Gemini `generateContent`), fără dependențe noi.
+- `FileIntakeService` extras din `MultipartFileController`; pozele de pe WhatsApp trec prin același flux (streaming, SHA-256, Agent 01).
+- Gateway: entrypoint intern `whatsapp` (:8088) cu o singură rută și rate limit; profil compose `tunnel` (cloudflared 2025.4.0), care expune doar webhook-ul.
+- Șabloanele de alertă spun acum cum se confirmă: „răspundeți *OK INC-…*”.
+- **Grid Intelligence**:
+  - statisticile au titluri clare („Citiri verificate”, „Probleme găsite”, „Ce fel de probleme”, „Unde apar”, „Cât s-a verificat”) și bare, în loc de cheile JSON;
+  - Agent 02 devine **PPCastor cu lupă**, iar expresia urmează starea analizei;
+  - „Agent 01” / „Agent 02” nu mai apar nicăieri în interfață sau în răspunsurile asistentului.
+
+### Cum se verifică
+- `cd backend && ./mvnw -B verify`: `WhatsAppIT` are 8 teste (semnătură, număr necunoscut, MessageSid dublu, OK, raport → DA → incident REAL, vocal fără transcriere, poză → fișier REAL atașat, întrebare). Testele unitare: `TwilioSignatureTest` (vectorul din documentația Twilio), `WhatsAppIntentsTest`, `WhatsAppContactsTest`.
+- `cd intelligence && .venv/Scripts/python -m pytest -q` → 79 de teste; `cd frontend && npx ng test --watch=false` → 21 de teste.
+- Manual: pașii din README, „WhatsApp real”.
+
+### Limitări cunoscute
+- Nu a fost testat cu un telefon real: lipsesc încă contul Twilio și cheile.
+- Sandbox Twilio: numele și poza contului sunt ale Twilio; PPCastor apare ca semnătură. Regula de 24 de ore poate bloca alertele către numere tăcute.
+- Poza lui PPCastor nu este trimisă ca imagine în primul răspuns (canalul de trimitere nu suportă încă media).
+
+## PPCastor devine fața asistentului AI (2026-11-15)
+
+Design: `docs/superpowers/specs/2026-11-15-ppcastor-assistant-design.md`; plan: `docs/superpowers/plans/2026-11-15-ppcastor-assistant.md`.
+
+### Ce s-a făcut
+- Un **al doilea PPCastor**, separat de cel din Village: aceeași mascotă, altă meserie. Cel din Village rămâne Agent 01 (rutare deterministă); asistentul PPCastor poartă **căști cu microfon** și, în poza întreagă, ține o **tabletă** în loc de buștean.
+- Componentă nouă `frontend/src/app/shared/ppcastor.ts`: `fg-ppcastor-avatar` (SVG, `mood` / `size` / `full`) și `moodFor()`, care leagă expresia de starea reală a cererii: așteaptă, caută (cererea `/chat` e în curs), mulțumit (răspuns de la LLM), îngrijorat (eroare, serviciu indisponibil sau mod de rezervă fără AI).
+- Robotul `smart_toy` a dispărut: header, meniu, panoul lateral, pagina `/assistant`, butoanele „Întreabă-l pe PPCastor” din Passport, Incidente și Grid Intelligence. Chatul are salutul lui PPCastor și nota „Fișierele le rutează Agent 01 (reguli fixe). Eu doar răspund la întrebări.”
+- `intelligence`: `SYSTEM_PROMPT` începe cu „Ești PPCastor…” și are regula explicită că asistentul nu rutează fișiere. Răspunsurile din modul de rezervă și refuzurile au rămas neschimbate.
+- Badge-urile „Răspuns: Gemini / mod de rezervă” și „Date: simulate / reale” sunt neschimbate.
+
+### Cum se verifică
+- `cd frontend && npx ng build && npx ng test --watch=false` → 15 teste (7 noi pentru `moodFor`, inclusiv refuzul).
+- `cd intelligence && .venv/Scripts/python -m pytest -q` (sau `docker build --target test intelligence`) → 73 teste, plus `ruff check`.
+- https://localhost: butonul PPCastor din header → panoul cu PPCastor întreg și salutul; o întrebare → expresia „caută”, apoi avatarul lângă răspuns.
+
+### Limitări cunoscute
+- Nu a fost verificat în browser: Docker Desktop nu rula la implementare, deci containerele nu au fost reconstruite.
+
 ## Redesign — PPCastor, orașul cu energie verde, paleta luminoasă; asistent pe Gemini (2026-11-15)
 
 ### Ce s-a făcut

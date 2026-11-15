@@ -10,6 +10,6 @@ A fost detectat un eveniment de securitate care necesită verificare.
 
 Accesul sau operația asociată a fost semnalată pentru verificare.
 
-Vă rugăm să confirmați preluarea incidentului și să urmați procedura internă de răspuns.
+Vă rugăm să confirmați preluarea incidentului (răspundeți *OK {{incident_id}}*) și să urmați procedura internă de răspuns.
 
 *FileGrid — Security & Incident Center*

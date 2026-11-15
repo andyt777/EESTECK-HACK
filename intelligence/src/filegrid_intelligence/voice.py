@@ -8,11 +8,14 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import re
 import uuid
 from datetime import UTC, datetime
 from typing import Protocol
+
+import httpx
 
 from .docs_index import normalise
 
@@ -61,6 +64,60 @@ def make_provider(settings) -> VoiceProvider:
         return TwilioVoiceProvider(settings.twilio_account_sid, settings.twilio_auth_token,
                                    settings.twilio_from_number)
     return SimulatedVoiceProvider()
+
+
+class TranscriptionError(Exception):
+    """The voice note could not be transcribed (bad input, model error)."""
+
+
+class GeminiTranscriber:
+    """
+    Transcribes a WhatsApp voice note with Gemini (``generateContent`` with the audio inline, base64).
+    Used only for field reports; the transcript then goes through the deterministic ``parse_field_report``.
+    """
+
+    MAX_BYTES = 16 * 1024 * 1024
+    PROMPT = ("Transcrie exact, în limba română, ce spune vorbitorul în acest mesaj vocal. Scrie doar textul "
+              "rostit, fără comentarii, fără titluri și fără să adaugi informații.")
+
+    def __init__(self, api_key: str, model: str,
+                 base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+                 transport: httpx.BaseTransport | None = None):
+        self.model = model
+        self.url = f"{base_url.rstrip('/')}/models/{model}:generateContent"
+        self.http = httpx.Client(timeout=60.0, transport=transport, headers={"x-goog-api-key": api_key})
+
+    def __repr__(self) -> str:  # never print the key
+        return f"GeminiTranscriber(model={self.model!r})"
+
+    def transcribe(self, audio: bytes, content_type: str) -> str:
+        mime = (content_type or "").split(";")[0].strip().lower()
+        if not mime.startswith("audio/"):
+            raise TranscriptionError("Fișierul trimis nu este un mesaj audio.")
+        if not audio or len(audio) > self.MAX_BYTES:
+            raise TranscriptionError("Mesajul audio lipsește sau depășește 16 MB.")
+        body = {"contents": [{"parts": [{"text": self.PROMPT},
+                                        {"inline_data": {"mime_type": mime,
+                                                         "data": base64.b64encode(audio).decode("ascii")}}]}],
+                "generationConfig": {"temperature": 0}}
+        try:
+            response = self.http.post(self.url, json=body)
+            response.raise_for_status()
+            parts = response.json()["candidates"][0]["content"]["parts"]
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+            log.warning("transcription failed: %s", type(e).__name__)
+            raise TranscriptionError("Mesajul vocal nu a putut fi transcris.") from e
+        text = " ".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+        if not text:
+            raise TranscriptionError("Mesajul vocal nu conține vorbire recunoscută.")
+        return text
+
+
+def make_transcriber(settings) -> GeminiTranscriber | None:
+    """Only a Gemini key can transcribe audio here; otherwise WhatsApp asks for the report as text."""
+    if (settings.llm_provider or "").lower() != "gemini" or not settings.llm_api_key:
+        return None
+    return GeminiTranscriber(settings.llm_api_key, settings.voice_transcribe_model or settings.llm_model)
 
 
 def build_script(incident: dict | None, incident_id: str, role: str, message: str | None) -> str:

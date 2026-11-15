@@ -10,6 +10,6 @@ Un serviciu de stocare nu este disponibil.
 
 FileGrid urmărește operațiile afectate și starea recuperării. Verificați centrul de incidente pentru detalii.
 
-Confirmați primirea alertei.
+Confirmați primirea alertei: răspundeți *OK {{incident_id}}*.
 
 *FileGrid — Security & Incident Center*

@@ -225,7 +225,7 @@ def test_assistant_hides_findings_without_intelligence_read(app_env):
                        headers=bearer(tokens["field"]))
     assert resp.status_code == 200
     steps = {s["tool"]: s["outputSummary"] for s in resp.json()["steps"]}
-    assert steps.get("grid_findings") == "acces interzis la constatările Agent 02"
+    assert steps.get("grid_findings") == "acces interzis la constatările analizei rețelei"
     assert "Vârf la MTR-1" not in resp.text
 
 
@@ -333,3 +333,26 @@ def test_token_endpoint_down_means_unauthenticated_call_not_crash():
     source = ClientCredentialsToken("http://kc.test/token", "c", "s", transport=httpx.MockTransport(handler))
     assert source.get() is None
     assert ClientCredentialsToken("http://kc.test/token", "c", "").get() is None
+
+
+def test_transcribe_endpoint_permissions_and_states(app_env):
+    client, _, tokens = app_env
+
+    class FakeTranscriber:
+        def transcribe(self, audio, content_type):
+            assert audio == b"OggS" and content_type.startswith("audio/ogg")
+            return "avarie la postul PT-DOB-04-03"
+
+    url = "/api/intelligence/voice/transcribe"
+    ogg = {"Content-Type": "audio/ogg"}
+    main.state.transcriber = None
+    assert client.post(url, content=b"OggS", headers={**ogg, **bearer(tokens["read"])}).status_code == 403
+    assert client.post(url, content=b"OggS", headers={**ogg, **bearer(tokens["voice"])}).status_code == 503
+    main.state.transcriber = FakeTranscriber()
+    try:
+        bad = client.post(url, content=b"x", headers={"Content-Type": "image/jpeg", **bearer(tokens["voice"])})
+        assert bad.status_code == 415
+        ok = client.post(url, content=b"OggS", headers={**ogg, **bearer(tokens["voice"])})
+        assert ok.status_code == 200 and ok.json() == {"transcript": "avarie la postul PT-DOB-04-03"}
+    finally:
+        main.state.transcriber = None

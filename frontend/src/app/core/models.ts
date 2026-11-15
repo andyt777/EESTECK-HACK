@@ -128,6 +128,8 @@ export interface Finding {
 export interface ChatResponse {
   answer: string; steps: { tool: string; input: any; outputSummary: string }[];
   citations: { label: string; href: string }[]; dataOrigin: DataOrigin | null; provider: string | null;
+  /** True when the guard refused the request (personal data or a write operation). */
+  refused?: boolean;
 }
 
 export interface ChatContext { fileId?: string; incidentId?: string; findingId?: string; }

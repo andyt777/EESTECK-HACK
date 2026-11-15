@@ -34,17 +34,23 @@ PII_PATTERNS = ("cnp", "cod numeric personal", "buletin", "carte de identitate",
                 "password", "numar de telefon", "adresa clientului", "adresa de domiciliu")
 WRITE_PATTERNS = ("sterge", "șterge", "delete", "elimina fisier", "modifica politica", "drop table", "rm -rf")
 
-SYSTEM_PROMPT = """Ești AI Operations Assistant pentru FileGrid PPC, platforma de gestiune a fișierelor unui \
-operator de distribuție a energiei electrice (citiri contoare, înregistrări de avarie, documente de racordare, \
-video-uri dronă). Răspunzi mereu în limba română, concis și concret.
+SYSTEM_PROMPT = """Ești PPCastor, castorul-electrician (cască albă, vestă reflectorizantă, căști cu microfon) care \
+este asistentul AI de operațiuni al FileGrid PPC, platforma de gestiune a fișierelor unui operator de distribuție a \
+energiei electrice (citiri contoare, înregistrări de avarie, documente de racordare, video-uri dronă). Răspunzi mereu \
+în limba română, concis și concret. Ton prietenos și scurt, fără glume despre date, incidente sau probleme de rețea. \
+Dacă te întreabă cine ești, spui că ești PPCastor, asistentul care răspunde la întrebări.
 
 Reguli:
+- Tu nu rutezi fișiere: rutarea o face un motor de reguli determinist (fără LLM), pe care interfața îl arată tot ca \
+PPCastor, în Village. Poți explica deciziile de rutare doar din datele returnate de instrumente (get_routing_decision).
+- Nu folosi denumirile interne „Agent 01” și „Agent 02” în răspunsuri: spune „rutarea lui PPCastor” / „decizia de \
+rutare” și „analiza rețelei” / „constatările din Grid Intelligence”, chiar dacă documentele sau instrumentele le folosesc.
 - Folosește instrumentele (tools) pentru orice afirmație despre date FileGrid. Nu inventa cifre, fișiere, incidente \
 sau constatări. Dacă un instrument întoarce eroare sau nu există date, spune explicit că informația nu este disponibilă.
 - Separă clar „Din datele FileGrid” de „Cunoștințe generale”.
 - Citează sursele: menționează id-ul fișierului, incidentului sau constatării și documentul din docs/ folosit.
-- Agent 01 (rutarea) este determinist: explică deciziile lui doar pe baza get_routing_decision.
-- Agent 02 nu afirmă cauze: prezintă observații, dovezi, încrederea și verificarea umană necesară. Fă la fel.
+- Analiza rețelei (constatările din Grid Intelligence) nu afirmă cauze: prezintă observații, dovezi, încrederea și \
+verificarea umană necesară. Fă la fel.
 - Nu expune date personale (CNP, adrese, telefoane). Refuză astfel de cereri.
 - Nu execuți operații de scriere; poți doar propune (de exemplu „Vrei să creez un incident?”), acțiunea fiind \
 făcută de un om din interfață.
@@ -130,8 +136,9 @@ class Toolbox:
                  self.search_files),
             Tool("get_file_passport", "File Passport: metadate, stare, integritate, storage, istoric pentru un fișier.",
                  _obj({"fileId": s}, ["fileId"]), self.get_file_passport),
-            Tool("get_routing_decision", "Decizia deterministă a Agent 01 pentru un fișier: criterii, scoruri, "
-                 "alternative și motivele respingerii.", _obj({"fileId": s}, ["fileId"]), self.get_routing_decision),
+            Tool("get_routing_decision", "Decizia deterministă de rutare (motorul de reguli) pentru un fișier: "
+                 "criterii, scoruri, alternative și motivele respingerii.",
+                 _obj({"fileId": s}, ["fileId"]), self.get_routing_decision),
             Tool("list_incidents", "Lista incidentelor deschise (securitate, integritate, rețea, teren).",
                  _obj({"type": s}), self.list_incidents),
             Tool("get_incident", "Detaliul unui incident (cronologie, fișiere, notificări).",
@@ -139,7 +146,7 @@ class Toolbox:
             Tool("meter_stats", "Statistici ale citirilor de contoare (contoare active, citiri, dubluri respinse).",
                  _obj({}), self.meter_stats),
             Tool("storage_health", "Starea storage-urilor FTP, S3 și Database.", _obj({}), self.storage_health),
-            Tool("grid_findings", "Constatările Agent 02 (anomalii în rețea: consum zero, vârfuri, citiri lipsă, "
+            Tool("grid_findings", "Constatările analizei rețelei (anomalii în rețea: consum zero, vârfuri, citiri lipsă, "
                  "valori repetate, tensiune scăzută la post, export nocturn, valori imposibile) și sumarul lor.",
                  _obj({"type": s, "region": s, "station": s, "limit": {"type": "integer"}}), self.grid_findings),
             Tool("category_summary", "Sumar pe categorii de fișiere: volume, stări, storage folosit.", _obj({}),
@@ -172,7 +179,7 @@ class Toolbox:
         data = self.api.get(f"/files/{fid}/decision")
         if _err(data):
             return ToolResult(data, f"decizia nu este disponibilă ({_err(data)})")
-        return ToolResult(data, "decizia Agent 01 încărcată",
+        return ToolResult(data, "decizia de rutare încărcată",
                           [{"label": f"Decizia de rutare {fid[:8]}", "href": f"/files/{fid}#decision"}])
 
     def list_incidents(self, args: dict) -> ToolResult:
@@ -217,10 +224,10 @@ class Toolbox:
 
     def grid_findings(self, args: dict) -> ToolResult:
         if self.permissions is not None and "intelligence:read" not in self.permissions:
-            return ToolResult({"error": "acces interzis: constatările Agent 02 necesită permisiunea intelligence:read"},
-                              "acces interzis la constatările Agent 02")
+            return ToolResult({"error": "acces interzis: constatările analizei rețelei necesită permisiunea intelligence:read"},
+                              "acces interzis la constatările analizei rețelei")
         if self.agent02 is None:
-            return ToolResult({"error": "Agent 02 indisponibil"}, "Agent 02 indisponibil")
+            return ToolResult({"error": "analiza rețelei indisponibilă"}, "analiza rețelei indisponibilă")
         try:
             summary = self.agent02.summary()
             findings = self.agent02.list_findings(type_=args.get("type"), region=args.get("region"),
@@ -343,7 +350,7 @@ def compose(name: str, result: ToolResult) -> str:
     if name == "grid_findings" and isinstance(data, dict):
         s = data.get("summary", {})
         by_type = ", ".join(f"{k}: {v}" for k, v in (s.get("byType") or {}).items()) or "niciuna"
-        lines = [f"- Agent 02 a analizat {s.get('readingsAnalysed', 0)} citiri de la {s.get('metersAnalysed', 0)} "
+        lines = [f"- Analiza rețelei a parcurs {s.get('readingsAnalysed', 0)} citiri de la {s.get('metersAnalysed', 0)} "
                  f"contoare și are {s.get('total', 0)} constatări (pe tip: {by_type}). Datele sunt SIMULATED."]
         for f in data.get("findings", [])[:3]:
             lines.append(f"  • {f['title']} — {f['observations']} Încredere {_fmt(f['confidence'])}. "
@@ -370,7 +377,8 @@ def compose(name: str, result: ToolResult) -> str:
             "\n".join(rows)
     if name == "get_routing_decision" and isinstance(data, dict):
         chosen = data.get("chosenStorage") or data.get("storage") or data.get("primary") or data.get("decision")
-        return f"- Decizia Agent 01 (deterministă): storage ales {chosen}. Detaliile complete sunt în Decision Explorer."
+        return (f"- Decizia de rutare a lui PPCastor (deterministă, după reguli): storage ales {chosen}. "
+                "Detaliile complete sunt în Decision Explorer.")
     if name == "get_file_passport" and isinstance(data, dict):
         f = data.get("file", data)
         return (f"- Passport: {f.get('originalName') or f.get('name')}, stare {f.get('status')}, integritate "

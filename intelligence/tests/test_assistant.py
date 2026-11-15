@@ -232,3 +232,21 @@ def test_llm_rate_limit_gives_up_within_the_wait_budget():
     with pytest.raises(RuntimeError, match="429"):
         provider._post({}, sleep=waits.append)
     assert waits == []
+
+
+def test_system_prompt_ppcastor_persona():
+    from filegrid_intelligence.assistant import SYSTEM_PROMPT
+
+    assert SYSTEM_PROMPT.startswith("Ești PPCastor")
+    # the assistant PPCastor is not the router: routing stays a deterministic rule engine
+    assert "nu rutezi" in SYSTEM_PROMPT
+    # users only ever see "PPCastor", never the internal name "Agent 01"
+    assert "Nu folosi denumirile interne" in SYSTEM_PROMPT
+
+
+def test_fallback_routing_answer_never_says_agent_01():
+    from filegrid_intelligence.assistant import ToolResult, compose
+
+    text = compose("get_routing_decision", ToolResult({"chosenStorage": "S3"}, "ok"))
+    assert "Agent 01" not in text
+    assert "PPCastor" in text

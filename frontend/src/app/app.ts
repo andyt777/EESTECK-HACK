@@ -38,7 +38,7 @@ export class App {
     ] },
     { title: T.nav.sectionIntel, items: [
       { path: '/grid', label: T.nav.grid, icon: 'electric_bolt', perm: 'intelligence:read' },
-      { path: '/assistant', label: T.nav.assistant, icon: 'smart_toy', perm: 'assistant:use' },
+      { path: '/assistant', label: T.nav.assistant, icon: 'ppcastor', perm: 'assistant:use' },
       { path: '/performance', label: T.nav.performance, icon: 'speed' },
     ] },
     { title: T.nav.sectionAdmin, items: [

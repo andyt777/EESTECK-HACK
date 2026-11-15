@@ -262,6 +262,30 @@ curl -sk -H 'Content-Type: application/json' -d '{"message":"Câte contoare sunt
 
 Testele (ruff + pytest): `docker build --target test intelligence`.
 
+## WhatsApp real: PPCastor în buzunarul echipei de teren
+
+În modul implicit (`NOTIFY_MODE=SIMULATED`), mesajele WhatsApp apar doar pe telefonul simulat din aplicație. Cu Twilio, PPCastor vorbește pe WhatsApp-ul real (ADR-0008):
+
+| Scrii pe WhatsApp | PPCastor face |
+| --- | --- |
+| `OK` sau `OK INC-2026-000002` | confirmă alerta primită (ca butonul „OK” din aplicație) |
+| `raport fum la PT-DOB-04-03` | îți arată propunerea de incident; o deschide doar după `DA` (`NU` = renunță) |
+| un mesaj vocal | îl transcrie (Gemini), apoi îl tratează ca pe un raport |
+| o poză (cu text opțional) | o salvează ca fișier FileGrid (REAL), apoi propune incidentul; după `DA`, poza e atașată |
+| orice altă întrebare | răspunde ca asistentul din aplicație, fără date personale |
+
+Doar numerele din `NOTIFY_CONTACT_*` pot vorbi cu PPCastor. Textul mesajelor nu se salvează.
+
+**Configurare (o singură dată):**
+
+1. Cont Twilio → Console → Messaging → Try it out → *Send a WhatsApp message*. Trimite de pe telefon codul `join …` afișat acolo.
+2. În `.env`: `NOTIFY_MODE=REAL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (numărul sandbox-ului, de exemplu `+14155238886`) și numărul tău la `NOTIFY_CONTACT_FIELD_TEAM` (format E.164, de exemplu `+40722…`). Pentru mesaje vocale: `LLM_PROVIDER=gemini` și `LLM_API_KEY`.
+3. Clientul Keycloak al canalului, doar pe instalările existente: `bash scripts/keycloak-whatsapp-client.sh`.
+4. Tunelul public (expune **doar** webhook-ul): `docker compose --profile tunnel up -d tunnel`, apoi `docker compose logs tunnel | grep trycloudflare`.
+5. Pune URL-ul + `/api/whatsapp/inbound` în `.env` (`WHATSAPP_WEBHOOK_URL`) **și** în sandbox-ul Twilio, la „When a message comes in” (metoda POST). Apoi `docker compose up -d api`.
+
+**De știut:** regula WhatsApp de 24 de ore (scrie-i ceva lui PPCastor înainte de demo, ca alertele să poată ajunge); URL-ul tunelului se schimbă la fiecare pornire (repetă pasul 5); în sandbox, numele și poza contului sunt ale Twilio.
+
 ## Teste și CI
 
 | Componentă | Comandă locală | Ce rulează |
@@ -360,6 +384,7 @@ https://localhost (certificat self-signed). Angular 21 servit de nginx (`fronten
 
 - **Control Center** (`/`) este doar harta FileGrid Village, pe tot ecranul: un oraș cu energie verde, mascota **PPCastor** (Agent 01), cele 4 case (categorii) și cele 3 storage-uri.
 - **Încărcarea** se face exclusiv prin drag & drop al fișierelor **pe PPCastor** (fără formular sau confirmare; upload tus reluabil, categoria detectată automat). Robotul merge la casa categoriei și trage un fir către storage-ul ales; după decizie apare mesajul „Decizia Agentului 01”.
+- **Asistentul AI** are și el fața lui PPCastor, dar e un personaj separat (căști cu microfon și tabletă): răspunde la întrebări, nu rutează fișiere. Expresia lui urmează starea reală a cererii (caută / răspuns / eroare sau mod de rezervă).
 - **Click pe o casă** deschide fișierele categoriei (`/categories/:category`, căutare + filtre); căutarea globală este Ctrl+K în bara de sus. File Passport: `/files/:id`.
 - **Meniul** este un sidebar ascuns (butonul ☰): Security & Incidents (`/incidents`), Comunicare teren (`/field`), Grid Intelligence (`/grid`), AI Assistant (`/assistant`), Performance (`/performance`), Decision Explorer (`/decisions`), Politici (`/policies`, editabile din UI).
 - Paleta: deep blue, alb, roz bubblegum; titlurile sunt italice.

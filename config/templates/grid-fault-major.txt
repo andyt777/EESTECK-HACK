@@ -11,6 +11,6 @@
 
 Este necesară verificarea și preluarea incidentului de către echipa responsabilă.
 
-Confirmați primirea mesajului și preluarea situației.
+Confirmați primirea mesajului și preluarea situației: răspundeți *OK {{incident_id}}*.
 
 *FileGrid — Security & Incident Center*

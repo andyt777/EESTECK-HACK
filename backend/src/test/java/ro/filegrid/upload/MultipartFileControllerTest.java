@@ -93,17 +93,7 @@ class MultipartFileControllerTest {
             }
         };
 
-        controller = new MultipartFileController(
-                stagingProperties,
-                fileRecordRepository,
-                fileContextRepository,
-                fileEventRepository,
-                classificationService,
-                actorProvider,
-                accessPolicy,
-                eventPublisher,
-                new ObjectMapper()
-        );
+        controller = new MultipartFileController(new FileIntakeService(stagingProperties, fileRecordRepository, fileContextRepository, fileEventRepository, classificationService, eventPublisher, new ObjectMapper()), actorProvider, accessPolicy);
     }
 
     @Test
@@ -168,17 +158,7 @@ class MultipartFileControllerTest {
     @Test
     void rejectsOversizedUpload() {
         StagingProperties strictProps = new StagingProperties(tempDir.toString(), 20L, Duration.ofHours(24), Duration.ofHours(1));
-        MultipartFileController strictController = new MultipartFileController(
-                strictProps,
-                fileRecordRepository,
-                fileContextRepository,
-                fileEventRepository,
-                classificationService,
-                actorProvider,
-                accessPolicy,
-                mock(ApplicationEventPublisher.class),
-                new ObjectMapper()
-        );
+        MultipartFileController strictController = new MultipartFileController(new FileIntakeService(strictProps, fileRecordRepository, fileContextRepository, fileEventRepository, classificationService, mock(ApplicationEventPublisher.class), new ObjectMapper()), actorProvider, accessPolicy);
 
         byte[] largeContent = new byte[100];
         MockMultipartFile file = new MockMultipartFile("file", "oversized.bin", "application/octet-stream", largeContent);

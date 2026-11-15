@@ -10,6 +10,8 @@ import { GridMap, normalizeGrid } from '../../features/grid-map';
 import { ReportIncident } from '../../features/report-incident';
 import { SHARED } from '../../shared/ui';
 import { evidenceFacts, evidenceOption } from './evidence';
+import { statsView } from './grid-stats';
+import { PpcastorMood } from '../../shared/ppcastor';
 
 type A2 = 'idle' | 'analyzing' | 'found' | 'none' | 'insufficient';
 
@@ -66,16 +68,9 @@ export class GridPage {
   });
   readonly chart = computed(() => evidenceOption(this.sel()?.evidence));
   readonly facts = computed(() => evidenceFacts(this.sel()?.evidence));
-  readonly summaryFacts = computed(() => {
-    const s = this.summary.data();
-    if (!s || typeof s !== 'object') return [] as [string, any][];
-    return Object.entries(s).filter(([, v]) => typeof v === 'number' || typeof v === 'string').slice(0, 8) as [string, any][];
-  });
-  readonly summaryBreakdown = computed(() => {
-    const s = this.summary.data();
-    if (!s || typeof s !== 'object') return [] as [string, [string, any][]][];
-    return Object.entries(s).filter(([k, v]) => v && typeof v === 'object' && !Array.isArray(v) && k !== 'lastRun' && !(k === 'byType' && s.byTypeLabel)).map(([k, v]) => [k, Object.entries(v as object).slice(0, 8)] as [string, [string, any][]]).slice(0, 4);
-  });
+  readonly stats = computed(() => statsView(this.summary.data()));
+  /** PPCastor's face follows the real analysis state: scanning, worried when it found problems, pleased when all is clear. */
+  readonly agentMood = computed<PpcastorMood>(() => ({ analyzing: 'thinking', found: 'error', none: 'happy' } as Record<string, PpcastorMood>)[this.agent()] ?? 'idle');
 
   constructor() {
     [this.grid, this.summary, this.findings, this.evaluation].forEach((l) => l.load());
@@ -110,7 +105,7 @@ export class GridPage {
     if (!f) return;
     this.dialog.open(ReportIncident, { maxWidth: '96vw', data: { preset: {
       type: 'GRID_ANOMALY', severity: 'MEDIUM', certainty: 'SUSPECTED', zone: f.region ?? f.zone ?? '', station: f.station ?? '', asset: f.post ?? f.meterId ?? '',
-      title: this.title(f), description: `${this.obs(f)}\n\nConstatare Agent 02: ${f.id}. ${T.grid.disclaimer}`, dataOrigin: f.dataOrigin ?? 'SIMULATED',
+      title: this.title(f), description: `${this.obs(f)}\n\nConstatare PPCastor (analiza rețelei): ${f.id}. ${T.grid.disclaimer}`, dataOrigin: f.dataOrigin ?? 'SIMULATED',
     } } });
   }
 

@@ -17,7 +17,7 @@ class RolePermissionsTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"field", "dispatcher", "analyst", "incident-manager",
-            "svc-meter-ingest", "svc-alert-ingest", "svc-intelligence"})
+            "svc-meter-ingest", "svc-alert-ingest", "svc-intelligence", "svc-whatsapp"})
     void otherRolesDoNotReadPersonalData(String role) {
         assertThat(RolePermissions.of(List.of(role))).doesNotContain(RolePermissions.PII_READ);
     }
@@ -37,6 +37,14 @@ class RolePermissionsTest {
         assertThat(RolePermissions.of(List.of("field", "analyst")))
                 .contains(RolePermissions.FILE_WRITE, RolePermissions.INTELLIGENCE_WRITE)
                 .doesNotContain(RolePermissions.PII_READ);
+    }
+
+    @Test
+    void whatsappChannelOnlyReadsAndAsksNeverWrites() {
+        assertThat(RolePermissions.of(List.of("svc-whatsapp")))
+                .contains(RolePermissions.ASSISTANT_USE, RolePermissions.VOICE_USE)
+                .doesNotContain(RolePermissions.PII_READ, RolePermissions.FILE_WRITE, RolePermissions.INCIDENT_WRITE,
+                        RolePermissions.INCIDENT_CREATE, RolePermissions.POLICY_WRITE);
     }
 
     @Test

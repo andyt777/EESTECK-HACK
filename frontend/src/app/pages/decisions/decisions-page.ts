@@ -11,7 +11,7 @@ import { SHARED } from '../../shared/ui';
   imports: [RouterLink, DecisionPanel, ...SHARED],
   template: `
   <div class="page">
-    <div class="page-head"><div><div class="kicker">Agent 01</div><h1>{{ t.decision.title }}</h1><div class="lead">{{ t.decision.lead }}</div></div>
+    <div class="page-head"><div><div class="kicker">PPCastor · rutare</div><h1>{{ t.decision.title }}</h1><div class="lead">{{ t.decision.lead }}</div></div>
       <a class="btn ghost" routerLink="/policies"><span class="ms" aria-hidden="true">rule</span>{{ t.nav.policies }}</a></div>
     <div class="card mb"><div class="filters">
       <label class="field"><span>{{ t.files.category }}</span><select class="input" (change)="setF('category', $any($event.target).value)">

@@ -10,6 +10,6 @@
 
 *Acțiune:* verificați alerta și urmați procedurile oficiale de intervenție. Nu vă deplasați către obiectiv decât în condițiile stabilite de procedurile de siguranță.
 
-Confirmați primirea mesajului.
+Confirmați primirea mesajului: răspundeți *OK {{incident_id}}*.
 
 *FileGrid — Security & Incident Center*

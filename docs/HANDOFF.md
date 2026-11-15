@@ -24,6 +24,11 @@ Totul este commit-uit și împins pe `main`. Pe alt laptop: `git pull`, apoi pa�
   paleta întregii aplicații: baby blue + alb, text bleumarin, rozul bubblegum păstrat (`--pink` pentru suprafețe, `--pink-ink` pentru text pe alb).
   Fișiere: `frontend/src/app/pages/control/village.*`, tokenii din `frontend/src/styles.scss`.
 - **Accesibilitate**: contur de focus la tastatură, butoane cu iconiță etichetate, meniul lateral preia focusul.
+- **PPCastor peste tot (2026-11-15, după-amiaza)**: asistentul AI e un PPCastor separat (căști + tabletă), Grid Intelligence are PPCastor cu lupă,
+  „Agent 01/02” nu mai apar în UI; statisticile din Grid au titluri clare.
+- **WhatsApp real (ADR-0008)**: `POST /api/whatsapp/inbound`, client Keycloak `filegrid-whatsapp`, profil compose `tunnel`.
+  Pe un laptop cu realm-ul deja importat: `bash scripts/keycloak-whatsapp-client.sh` (o singură dată). Pașii Twilio: README „WhatsApp real”.
+  **Netestat încă cu un telefon real** (lipsesc contul Twilio și cheile).
 
 ### Design: skill-ul impeccable
 - `PRODUCT.md` (rădăcină) = adevărul despre produs și angajamentele de brand (PPCastor, orașul verde, paleta).
@@ -33,7 +38,7 @@ Totul este commit-uit și împins pe `main`. Pe alt laptop: `git pull`, apoi pa�
 
 ### Rămas de făcut (în ordine)
 1. Decizii de design deschise: fontul (Inter e semnalat ca generic), poziția mesajului „Decizia Agentului 01” (acoperă barajul castorului),
-   verificare pe ecran de telefon; pagini nevăzute încă în tema nouă: Performance, Politici, Decision Explorer, Comunicare teren, panoul asistentului.
+   verificare pe ecran de telefon; pagini nevăzute încă în tema nouă: Performance, Politici, Decision Explorer, Comunicare teren; panoul asistentului are acum PPCastor, încă neverificat în browser.
 2. Parcurgere în browser cu fiecare rol (nu doar `admin.demo`): meniul filtrat, drop refuzat pentru rolurile fără `file:write`.
 3. Etapa 17 — benchmark storage + pagina /performance cu date măsurate; apoi integrarea finală din secțiunea 0.2 de mai jos.
 
@@ -43,7 +48,10 @@ Totul este commit-uit și împins pe `main`. Pe alt laptop: `git pull`, apoi pa�
 - **Realm-ul Keycloak se importă doar la prima pornire**; după modificări în `realm-filegrid.json` vezi README „Autentificare” (reset) sau aplică cu `kcadm`.
 - Fișierele Java/TS au CRLF: înlocuirile cu `\n` din scripturi nu se potrivesc; folosește editări exacte.
 - Dacă gateway-ul nu vede rute noi: `bash scripts/reload-config.sh`. După schimbări în frontend: `docker compose … up -d --build --no-deps frontend`.
-- `uv` nu e instalat local: testele Python se rulează cu `docker build --target test intelligence`.
+- `uv` nu e instalat local: testele Python se rulează cu `docker build --target test intelligence`
+  (sau `intelligence/.venv/Scripts/python -m pytest -q`, dacă `.venv` există).
+- Git Bash pe Windows: `docker compose exec … /opt/...` are nevoie de `MSYS_NO_PATHCONV=1`, altfel calea devine o cale Windows (exit 127).
+- Heredoc-urile din Git Bash au înjumătățit backslash-urile în fișierele Java: scrie codul cu editorul, nu cu `cat <<EOF`.
 
 ---
 

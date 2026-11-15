@@ -223,6 +223,13 @@ services:
       NOTIFY_CONTACT_FIELD_TEAM: ${NOTIFY_CONTACT_FIELD_TEAM:-}
       NOTIFY_CONTACT_IT_SECURITY: ${NOTIFY_CONTACT_IT_SECURITY:-}
       NOTIFY_CONTACT_PLATFORM_ADMIN: ${NOTIFY_CONTACT_PLATFORM_ADMIN:-}
+      # PPCastor on real WhatsApp (ADR-0008): the public URL configured in Twilio, and the
+      # client-credentials identity used to ask the assistant / transcribe voice notes.
+      WHATSAPP_WEBHOOK_URL: ${WHATSAPP_WEBHOOK_URL:-}
+      KC_WHATSAPP_CLIENT_ID: ${KC_WHATSAPP_CLIENT_ID:-filegrid-whatsapp}
+      KC_WHATSAPP_SECRET: ${KC_WHATSAPP_SECRET:?run scripts/init-env.sh first}
+      KC_TOKEN_URL: ${KC_TOKEN_URL:-http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/token}
+      INTELLIGENCE_URL: http://intelligence:8000/api/intelligence
       # Stage 11: JWT resource server. Browser tokens carry the public issuer; service
       # tokens fetched over the internal network carry the backchannel one. Both are accepted.
       FILEGRID_OIDC_ISSUER: ${FILEGRID_OIDC_ISSUER:-https://localhost/auth/realms/filegrid}
@@ -358,6 +365,8 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-gemini-3.5-flash}
       VOICE_PROVIDER: ${VOICE_PROVIDER:-simulated}
+      # WhatsApp voice notes are transcribed with Gemini (empty = LLM_MODEL).
+      VOICE_TRANSCRIBE_MODEL: ${VOICE_TRANSCRIBE_MODEL:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
@@ -438,6 +447,20 @@ services:
   # /auth/resources; the admin console is not routed. The realm (clients, roles, demo
   # users) is imported from infra/keycloak/realm-filegrid.json on the first start;
   # secrets are ${ENV} placeholders resolved by Keycloak at import time.
+  # ---------------------------------------------------------------- tunnel
+  # Optional (profile "tunnel"): a Cloudflare quick tunnel with a temporary public https URL, so Twilio
+  # can deliver WhatsApp messages to PPCastor (ADR-0008). It reaches ONLY the gateway's internal
+  # "whatsapp" entry point, whose single route is POST /api/whatsapp/inbound. Start it with
+  #   docker compose --profile tunnel up -d tunnel && docker compose logs tunnel | grep trycloudflare
+  # then set WHATSAPP_WEBHOOK_URL=<url>/api/whatsapp/inbound and the same URL in the Twilio sandbox.
+  tunnel:
+    image: cloudflare/cloudflared:2025.4.0
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--url", "http://gateway:8088"]
+    networks: [edge]
+    depends_on: [gateway]
+
   keycloak:
     <<: *defaults
     image: quay.io/keycloak/keycloak:26.8.2
@@ -468,6 +491,7 @@ services:
       KC_SIMULATOR_SECRET: ${KC_SIMULATOR_SECRET:?run scripts/init-env.sh first}
       KC_ALERTMANAGER_SECRET: ${KC_ALERTMANAGER_SECRET:?run scripts/init-env.sh first}
       KC_INTELLIGENCE_SECRET: ${KC_INTELLIGENCE_SECRET:?run scripts/init-env.sh first}
+      KC_WHATSAPP_SECRET: ${KC_WHATSAPP_SECRET:?run scripts/init-env.sh first}
       KC_DEMO_FIELD_PASSWORD: ${KC_DEMO_FIELD_PASSWORD:?run scripts/init-env.sh first}
       KC_DEMO_DISPATCHER_PASSWORD: ${KC_DEMO_DISPATCHER_PASSWORD:?run scripts/init-env.sh first}
       KC_DEMO_CONNECTIONS_PASSWORD: ${KC_DEMO_CONNECTIONS_PASSWORD:?run scripts/init-env.sh first}

@@ -29,6 +29,7 @@ Routing is explained, not hidden: every decision shows its criteria and alternat
 
 ## Brand Commitments
 - Mascot: **PPCastor**, a beaver dressed as an energy line-worker (hard hat, high-visibility vest), replacing the former robot. In the Village it carries each file like a log to the category building. (User, 2026-11-15.)
+- The AI assistant is a **second, separate PPCastor**: same mascot, different job and abilities. It wears a headset with a microphone and holds a tablet instead of a log; it answers questions and never routes files (Agent 01 does, deterministically). The robot icon is gone everywhere. (User, 2026-11-15.)
 - Setting of the upload space: a town running on green energy, with trees. (User, 2026-11-15.)
 - Palette direction for the whole app: baby blue instead of the former deep blue, much more white, and the existing bubblegum pink kept. (User, 2026-11-15.)
 - Avoid generic AI-generated looks. (User, 2026-11-15.)

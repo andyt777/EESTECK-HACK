@@ -20,6 +20,7 @@
 | rabbitmq | RabbitMQ | cozi separate per categorie, plus DLQ |
 | observabilitate | Prometheus, Alertmanager, Grafana, Loki, Tempo, Grafana Alloy, OpenTelemetry | metrici p50/p95/p99, loguri, trace end-to-end, alerte de business |
 | toxiproxy | Toxiproxy | simulează o rețea degradată |
+| tunnel (opțional) | Cloudflare quick tunnel, profil `tunnel` | URL public temporar doar pentru webhook-ul Twilio `POST /api/whatsapp/inbound` (PPCastor pe WhatsApp, ADR-0008) |
 
 ### A.2 Fluxul unui fișier
 
@@ -39,7 +40,15 @@ Browser ──tus (chunk-uri reluabile)──▶ gateway (TLS) ──▶ api
                      evenimente (fanout) → api → SSE → Village / Passport
 
 Simulator ──POST batch──▶ api ──(publisher confirms)──▶ coada meter ──▶ worker-meter ──▶ store-db (ON CONFLICT DO NOTHING)
+
+WhatsApp (echipa de teren) ──Twilio──▶ tunnel ──▶ gateway :8088 (doar POST /api/whatsapp/inbound) ──▶ api
+                                             │ semnătura Twilio verificată, expeditor ∈ NOTIFY_CONTACT_*, MessageSid o singură dată
+                                             │ OK → confirmă alerta · întrebare → asistent (intelligence, token svc-whatsapp)
+                                             │ raport text/vocal/poză → propunere → „DA” → incident (poza = fișier FileGrid REAL)
+                                             ▼
+                                   răspunsul lui PPCastor ──Twilio API──▶ WhatsApp
 ```
+(ADR-0008, aprobat de arhitect pe 2026-11-15.)
 
 ### A.3 Principii care nu se negociază
 
@@ -51,7 +60,7 @@ Simulator ──POST batch──▶ api ──(publisher confirms)──▶ coad
 6. **Bulkhead**: coadă și workeri separați pe fiecare categorie. O furtună de avarii nu încetinește contoarele.
 7. **Staging + outbox**: un fișier primit nu se pierde niciodată. Dacă storage-ul e căzut, fișierul trece în PENDING și este reluat automat.
 8. **Date personale**: documentele de racordare sunt criptate la nivel de aplicație (envelope encryption cu AES-256-GCM, Google Tink streaming AEAD) înainte de a ajunge în storage. Un acces direct la storage vede doar ciphertext.
-9. **Storage-urile nu publică porturi**: stau doar în rețeaua internă, iar singura cale de acces este FileGrid.
+9. **Storage-urile nu publică porturi**: stau doar în rețeaua internă, iar singura cale de acces este FileGrid. Tunelul opțional pentru WhatsApp expune doar webhook-ul Twilio, nimic altceva (ADR-0008).
 10. **Real vs. simulat**: câmpul `dataOrigin` (REAL/SIMULATED) există peste tot, iar UI-ul afișează un badge vizibil.
 11. **Agent 02 nu afirmă cauze**: prezintă observații, dovezi, încredere și verificarea umană necesară.
 12. **Niciun secret în repo**: totul vine din `.env` (generat local), iar `.env.example` conține doar placeholdere.

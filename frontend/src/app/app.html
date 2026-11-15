@@ -15,7 +15,7 @@
       <div class="nav-sec">{{ s.title }}</div>
       @for (i of s.items; track i.path) {
         <a class="nav-item" [routerLink]="i.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: !!i.exact }">
-          <span class="ms" aria-hidden="true">{{ i.icon }}</span><span>{{ i.label }}</span>
+          @if (i.icon === 'ppcastor') { <fg-ppcastor-avatar [size]="22" /> } @else { <span class="ms" aria-hidden="true">{{ i.icon }}</span> }<span>{{ i.label }}</span>
         </a>
       }
     }
@@ -52,7 +52,7 @@
       }
       <span class="live" [class.on]="events.connected()" [title]="events.connected() ? t.app.live : t.app.offline"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>{{ events.connected() ? t.app.live : t.app.offline }}</span>
       @if (authz.can('assistant:use')) {
-        <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.app.assistant }}</button>
+        <button class="btn sm" (click)="ui.openAssistant(null)"><fg-ppcastor-avatar [size]="20" />{{ t.app.assistant }}</button>
       }
       @if (authz.me(); as me) {
         <span class="badge user-chip" [title]="t.app.signedInAs + ' ' + me.actor"><span class="ms" aria-hidden="true">person</span>{{ authz.roleLabel() || me.actor }}</span>
@@ -64,7 +64,7 @@
   @if (ui.assistantOpen()) {
     <aside class="drawer">
       <div class="drawer-head">
-        <b><span class="ms" aria-hidden="true">smart_toy</span> {{ t.assistant.title }}</b>
+        <b class="drawer-title"><fg-ppcastor-avatar [size]="26" /> {{ t.assistant.title }}</b>
         <div class="row">
           <a class="btn ghost sm" routerLink="/assistant" (click)="ui.assistantOpen.set(false)">{{ t.assistant.openFull }}</a>
           <button class="btn ghost sm icon" (click)="ui.assistantOpen.set(false)" [title]="t.app.close" [attr.aria-label]="t.app.close"><span class="ms" aria-hidden="true">close</span></button>

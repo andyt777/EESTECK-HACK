@@ -6,11 +6,12 @@ import { Api, errorText, isUnavailable } from '../core/api.service';
 import { ChatContext, ChatResponse } from '../core/models';
 import { T } from '../core/texts';
 import { Dictation, canSpeak, speak, stopSpeaking } from '../core/voice';
+import { PpcastorAvatar, PpcastorMood, moodFor } from '../shared/ppcastor';
 
 
 interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse; error?: string; unavailable?: boolean; open?: boolean; }@Component({
   selector: 'fg-assistant-chat',
-  imports: [RouterLink, NgTemplateOutlet],
+  imports: [RouterLink, NgTemplateOutlet, PpcastorAvatar],
   template: `
   <ng-template #spans let-spans>@for (s of spans; track $index) {@switch (s.kind) {@case ('bold') {<b>{{ s.text }}</b>} @case ('code') {<code>{{ s.text }}</code>} @default {{{ s.text }}}}}</ng-template>
   <div class="chat" [class.compact]="compact()">
@@ -25,8 +26,9 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
     <div class="msgs" #scroller>
       @if (!msgs().length) {
         <div class="hello">
-          <span class="ms big" aria-hidden="true">smart_toy</span>
-          <p class="muted">{{ t.assistant.lead }}</p>
+          <fg-ppcastor-avatar [full]="true" [size]="compact() ? 84 : 120" />
+          <p class="greet">{{ t.assistant.hello }}</p>
+          <p class="muted tiny">{{ t.assistant.notRouter }}</p>
           <div class="ex">
             @for (q of t.assistant.examples; track q) { <button class="btn ghost sm" (click)="send(q)">{{ q }}</button> }
           </div>
@@ -34,6 +36,7 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
       }
       @for (m of msgs(); track $index) {
         <div class="msg" [class.me]="m.role === 'user'">
+          @if (m.role !== 'user') { <fg-ppcastor-avatar [mood]="mood(m)" [size]="compact() ? 28 : 36" /> }
           @if (m.role === 'user') {
             <div class="bubble me">{{ m.content }}</div>
           } @else if (m.unavailable) {
@@ -88,7 +91,7 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
           }
         </div>
       }
-      @if (busy()) { <div class="msg"><div class="bubble"><span class="spinner sm"></span> {{ t.assistant.thinking }}</div></div> }
+      @if (busy()) { <div class="msg" aria-live="polite"><fg-ppcastor-avatar mood="thinking" [size]="compact() ? 28 : 36" /><div class="bubble"><span class="spinner sm"></span> {{ t.assistant.thinking }}</div></div> }
     </div>
     <div class="composer">
       <textarea class="input" rows="2" [placeholder]="t.assistant.placeholder" [value]="draft() + (dict.interim() ? ' ' + dict.interim() : '')"
@@ -111,7 +114,9 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
     .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 240px; }
     .hello { text-align: center; padding: 20px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
     .ex { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; } .ex .btn { height: auto; padding: 6px 10px; white-space: normal; text-align: left; }
-    .msg { display: flex; } .msg.me { justify-content: flex-end; }
+    .msg { display: flex; gap: 8px; align-items: flex-start; } .msg.me { justify-content: flex-end; }
+    .msg .bubble { min-width: 0; }
+    .greet { margin: 4px 0 0; max-width: 46ch; line-height: 1.5; }
     .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-width: 92%; }
     .bubble.me { background: rgba(255,119,188,.14); border-color: rgba(255,119,188,.35); white-space: pre-wrap; }
     .bubble.warn { border-color: rgba(251,191,36,.5); color: #7a4a00; } .bubble.bad { border-color: rgba(244,63,94,.5); color: #9f1239; }
@@ -139,6 +144,7 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
 export class AssistantChat {
   readonly t = T;
   readonly canSpeak = canSpeak;
+  mood(m: Msg): PpcastorMood { return moodFor(m, false); }
   private readonly mdCache = new Map<string, MdBlock[]>();
   md(text: string): MdBlock[] {
     let blocks = this.mdCache.get(text);

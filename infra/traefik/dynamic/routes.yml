@@ -46,6 +46,14 @@ http:
       middlewares: [auth-ratelimit]
       priority: 700
 
+    # Twilio webhook for PPCastor on WhatsApp: the ONLY route of the "whatsapp" entry point that
+    # the tunnel reaches. The api checks the Twilio signature before doing anything.
+    whatsapp-inbound:
+      rule: "Path(`/api/whatsapp/inbound`) && Method(`POST`)"
+      entryPoints: [whatsapp]
+      service: api
+      middlewares: [whatsapp-ratelimit]
+
     # Frontend (Angular SPA). Lowest priority: /api and /grafana always win.
     frontend:
       rule: "PathPrefix(`/`)"
@@ -62,6 +70,15 @@ http:
         average: 10
         period: 1s
         burst: 30
+    # Every request arrives from the cloudflared container: limit per real client (CF-Connecting-IP, set by
+    # Cloudflare and trusted only on this internal entry point), so one sender cannot starve Twilio.
+    whatsapp-ratelimit:
+      rateLimit:
+        average: 5
+        period: 1s
+        burst: 20
+        sourceCriterion:
+          requestHeaderName: CF-Connecting-IP
 
   services:
     grafana:

@@ -1,6 +1,6 @@
 <div class="page">
   <div class="page-head">
-    <div><div class="kicker">Agent 02</div><h1>{{ t.grid.title }}</h1><div class="lead">{{ t.grid.lead }}</div></div>
+    <div><div class="kicker">{{ t.grid.kicker }}</div><h1>{{ t.grid.title }}</h1><div class="lead">{{ t.grid.lead }}</div></div>
     <div class="row">
       <span class="badge sim"><span class="ms" aria-hidden="true">science</span>{{ t.app.simulatedData }}</span>
       <button class="btn" (click)="analyze()" [disabled]="analyzing()"><span class="ms" aria-hidden="true">radar</span>{{ t.grid.analyze }}</button>
@@ -15,26 +15,9 @@
       @else { <fg-state [loading]="grid.loading()" [unavailable]="grid.unavailable()" [error]="grid.error()" (retry)="grid.load()" /> }
     </div>
     <div class="col">
-      <!-- Agent 02 -->
+      <!-- PPCastor, grid analyst -->
       <div class="card agent2 st-{{ agent() }}">
-        <svg viewBox="0 0 120 140" class="tech" aria-hidden="true">
-          <ellipse cx="60" cy="132" rx="30" ry="6" fill="rgba(18, 48, 94, .16)"/>
-          <rect x="40" y="76" width="40" height="46" rx="10" fill="#264a9e" stroke="#fbbf24" stroke-width="1.5"/>
-          <rect x="44" y="84" width="32" height="5" fill="#fbbf24" opacity=".8"/>
-          <circle cx="60" cy="56" r="20" fill="#f1c9a5"/>
-          <path d="M38 52 Q38 30 60 30 Q82 30 82 52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
-          <rect x="34" y="50" width="52" height="5" rx="2.5" fill="#f59e0b"/>
-          <rect x="56" y="33" width="8" height="10" rx="2" fill="#7a4a00"/>
-          <circle cx="53" cy="60" r="2.4" fill="#0c1f5a"/><circle cx="67" cy="60" r="2.4" fill="#0c1f5a"/>
-          <path [attr.d]="agent() === 'found' ? 'M53 68 q7 -3 14 0' : agent() === 'insufficient' ? 'M53 69 h14' : 'M53 67 q7 5 14 0'" stroke="#0c1f5a" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <g class="tablet">
-            <rect x="66" y="84" width="34" height="26" rx="4" fill="#0c1f5a" stroke="#ff77bc" stroke-width="1.5" transform="rotate(-12 83 97)"/>
-            <polyline points="71,100 77,94 82,98 88,89 94,93" fill="none" stroke="#ff77bc" stroke-width="1.6" transform="rotate(-12 83 97)" class="spark"/>
-          </g>
-          <path d="M42 86 q-10 10 -4 24" stroke="#264a9e" stroke-width="7" fill="none" stroke-linecap="round"/>
-          @if (agent() === 'found') { <path d="M24 26 l10 6 l-10 6" fill="none" stroke="#f43f5e" stroke-width="3" class="point"/> }
-          @if (agent() === 'analyzing') { <circle cx="22" cy="34" r="10" fill="none" stroke="#ff77bc" stroke-width="2" class="radar"/> }
-        </svg>
+        <fg-ppcastor-avatar class="tech" kit="magnifier" [full]="true" [size]="104" [mood]="agentMood()" />
         <div class="col grow">
           <b class="who">{{ t.grid.agent02 }}</b>
           <div class="bubble">{{ agentMsg() }}</div>
@@ -46,11 +29,14 @@
       <div class="card">
         <div class="card-head"><h3>{{ t.grid.stats }}</h3></div>
         @if (summary.data()) {
-          <div class="sgrid">@for (s of summaryFacts(); track s[0]) { <div class="sf"><span class="tiny muted">{{ s[0] }}</span><b class="mono">{{ s[1] }}</b></div> }</div>
-          @for (b of summaryBreakdown(); track b[0]) {
-            <div class="tiny muted mt">{{ b[0] }}</div>
-            <div class="row wrap">@for (e of b[1]; track e[0]) { <span class="chip">{{ e[0] }}: <b>&nbsp;{{ e[1] }}</b></span> }</div>
+          <div class="sgrid">@for (f of stats().facts; track f.label) { <div class="sf"><b class="mono">{{ f.value | num }}</b><span class="tiny muted">{{ f.label }}</span></div> }</div>
+          @for (g of stats().groups; track g.title) {
+            <h4 class="gtitle">{{ g.title }}</h4>
+            <ul class="bars">@for (r of g.rows; track r.label) {
+              <li><span class="bl">{{ r.label }}</span><span class="bt"><span class="bf" [style.width.%]="r.pct"></span></span><b class="mono bv">{{ r.value | num }}</b></li>
+            }</ul>
           }
+          @if (stats().lastRun; as at) { <div class="tiny muted mt">{{ t.grid.statsText.lastRun }}: {{ at | dt }}</div> }
         } @else { <fg-state [loading]="summary.loading()" [unavailable]="summary.unavailable()" [error]="summary.error()" (retry)="summary.load()" /> }
       </div>
     </div>
@@ -108,7 +94,7 @@
             <button class="btn ok sm" (click)="setStatus('CONFIRMED')"><span class="ms" aria-hidden="true">check</span>{{ t.grid.confirm }}</button>
             <button class="btn ghost sm" (click)="setStatus('DISMISSED')"><span class="ms" aria-hidden="true">block</span>{{ t.grid.dismiss }}</button>
             <button class="btn danger sm" (click)="promote()"><span class="ms" aria-hidden="true">campaign</span>{{ t.grid.promote }}</button>
-            <button class="btn ghost sm" (click)="ask()"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.passport.askAssistant }}</button>
+            <button class="btn ghost sm" (click)="ask()"><fg-ppcastor-avatar [size]="20" />{{ t.passport.askAssistant }}</button>
           </div>
         </div>
       } @else {

@@ -10,7 +10,7 @@ import { SHARED } from '../../shared/ui';
   imports: [CanDirective, ...SHARED],
   template: `
   <div class="page">
-    <div class="page-head"><div><div class="kicker">Agent 01</div><h1>{{ t.policies.title }}</h1><div class="lead">{{ t.policies.lead }}</div></div></div>
+    <div class="page-head"><div><div class="kicker">PPCastor · rutare</div><h1>{{ t.policies.title }}</h1><div class="lead">{{ t.policies.lead }}</div></div></div>
     @if (active.data(); as a) {
       <div class="grid g4 mb">
         <div class="card kpi info"><span class="label">{{ t.policies.version }}</span><span class="value">{{ a.label }}</span><span class="sub mono">{{ a.contentSha256?.slice(0, 16) }}…</span></div>

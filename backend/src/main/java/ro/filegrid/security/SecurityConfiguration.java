@@ -1,6 +1,7 @@
 package ro.filegrid.security;
 
 import jakarta.servlet.DispatcherType;
+import org.springframework.http.HttpMethod;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
@@ -71,6 +72,8 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(a -> a
                         // Async (SSE, streamed downloads) and error dispatches of an already authorized request.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
+                        // Twilio cannot send a bearer token: the controller verifies the Twilio signature first.
+                        .requestMatchers(HttpMethod.POST, "/whatsapp/inbound").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new SignedContentLinkFilter(signer, Clock.systemUTC(), problems),
                         BearerTokenAuthenticationFilter.class)

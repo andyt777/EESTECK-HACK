@@ -106,6 +106,13 @@ filegrid:
     templates-dir: ${NOTIFY_TEMPLATES_DIR:../config/templates}
     # For example 2m: one escalation delay for every severity (demo).
     escalation-override: ${NOTIFY_ESCALATION_OVERRIDE:}
+  # PPCastor on real WhatsApp (docs/ADR/0008-whatsapp-inbound.md); active only with NOTIFY_MODE=REAL + TWILIO_*.
+  whatsapp:
+    webhook-url: ${WHATSAPP_WEBHOOK_URL:}
+    token-url: ${KC_TOKEN_URL:http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/token}
+    client-id: ${KC_WHATSAPP_CLIENT_ID:filegrid-whatsapp}
+    client-secret: ${KC_WHATSAPP_SECRET:}
+    intelligence-url: ${INTELLIGENCE_URL:http://intelligence:8000/api/intelligence}
   # store-db: the "Database" storage, a separate PostgreSQL instance
   store-db:
     url: ${STORE_DB_URL:jdbc:postgresql://localhost:5433/filegrid_store}

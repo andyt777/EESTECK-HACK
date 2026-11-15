@@ -30,7 +30,7 @@ import { SHARED } from '../../shared/ui';
         </div>
         <div class="row">
           <button class="btn ghost" (click)="ui.phoneOpen.set(true)"><span class="ms" aria-hidden="true">smartphone</span>{{ t.incidents.phone }}</button>
-          <button class="btn ghost" (click)="ask()"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.incidents.askAssistant }}</button>
+          <button class="btn ghost" (click)="ask()"><fg-ppcastor-avatar [size]="20" />{{ t.incidents.askAssistant }}</button>
         </div>
       </div>
 

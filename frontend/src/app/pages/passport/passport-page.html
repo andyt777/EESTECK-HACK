@@ -27,7 +27,7 @@
         @if (can('DOWNLOAD')) { <button class="btn ghost" (click)="download()"><span class="ms" aria-hidden="true">download</span>{{ t.passport.download }}</button> }
         @if (can('DOWNLOAD_SUSPECT')) { <button class="btn danger" (click)="download(true)"><span class="ms" aria-hidden="true">download</span>{{ t.passport.downloadSuspect }}</button> }
         @if (can('VERIFY')) { <button class="btn" (click)="verify()" [disabled]="verifying()"><span class="ms" aria-hidden="true">verified_user</span>{{ verifying() ? t.passport.verifying : t.passport.verify }}</button> }
-        <button class="btn ghost" (click)="askAssistant()"><span class="ms" aria-hidden="true">smart_toy</span>{{ t.passport.askAssistant }}</button>
+        <button class="btn ghost" (click)="askAssistant()"><fg-ppcastor-avatar [size]="20" />{{ t.passport.askAssistant }}</button>
       </div>
     </div>
 

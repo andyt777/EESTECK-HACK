@@ -29,7 +29,8 @@
       { "name": "admin", "description": "Administrator platformă" },
       { "name": "svc-meter-ingest", "description": "Serviciu: simulatorul de contoare" },
       { "name": "svc-alert-ingest", "description": "Serviciu: Alertmanager" },
-      { "name": "svc-intelligence", "description": "Serviciu: Agent 02 / intelligence" }
+      { "name": "svc-intelligence", "description": "Serviciu: Agent 02 / intelligence" },
+      { "name": "svc-whatsapp", "description": "Serviciu: PPCastor pe WhatsApp (asistent, rapoarte vocale)" }
     ]
   },
   "clients": [
@@ -82,6 +83,24 @@
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "${KC_ALERTMANAGER_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-filegrid-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "filegrid-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "filegrid-whatsapp",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_WHATSAPP_SECRET}",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
@@ -155,6 +174,10 @@
     {
       "username": "service-account-filegrid-intelligence", "enabled": true,
       "serviceAccountClientId": "filegrid-intelligence", "realmRoles": ["svc-intelligence"]
+    },
+    {
+      "username": "service-account-filegrid-whatsapp", "enabled": true,
+      "serviceAccountClientId": "filegrid-whatsapp", "realmRoles": ["svc-whatsapp"]
     }
   ]
 }

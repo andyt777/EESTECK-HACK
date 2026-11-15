@@ -12,6 +12,6 @@
 
 Verificați centrul de incidente pentru detalii.
 
-Confirmați primirea alertei.
+Confirmați primirea alertei: răspundeți *OK {{incident_id}}*.
 
 *FileGrid — Security & Incident Center*

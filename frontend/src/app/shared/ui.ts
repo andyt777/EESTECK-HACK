@@ -1,3 +1,4 @@
+import { PpcastorAvatar } from './ppcastor';
 import { Component, Pipe, PipeTransform, computed, input, output } from '@angular/core';
 import { T } from '../core/texts';
 
@@ -161,4 +162,4 @@ export class WaText {
   readonly parts = computed(() => (this.text() ?? '').split(/(\*[^*\n]+\*)/g).filter((x) => x).map((x) => (/^\*[^*]+\*$/.test(x) ? { b: true, t: x.slice(1, -1) } : { b: false, t: x })));
 }
 
-export const SHARED = [WaText, JoinPipe, SizePipe, DatePipe, TimePipe, NumPipe, CategoryPipe, StatusBadge, IntegrityBadge, StorageChip, OriginBadge, SeverityBadge, StateView];
+export const SHARED = [WaText, JoinPipe, SizePipe, DatePipe, TimePipe, NumPipe, CategoryPipe, StatusBadge, IntegrityBadge, StorageChip, OriginBadge, SeverityBadge, StateView, PpcastorAvatar];

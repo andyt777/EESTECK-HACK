@@ -31,6 +31,7 @@ class Settings:
     llm_api_key: str = ""
     llm_model: str = ""
     voice_provider: str = "simulated"
+    voice_transcribe_model: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
@@ -64,6 +65,7 @@ class Settings:
             llm_api_key=_env("LLM_API_KEY"),
             llm_model=_env("LLM_MODEL", "gemini-3.5-flash"),
             voice_provider=_env("VOICE_PROVIDER", "simulated").lower(),
+            voice_transcribe_model=_env("VOICE_TRANSCRIBE_MODEL"),
             twilio_account_sid=_env("TWILIO_ACCOUNT_SID"),
             twilio_auth_token=_env("TWILIO_AUTH_TOKEN"),
             twilio_from_number=_env("TWILIO_FROM_NUMBER"),

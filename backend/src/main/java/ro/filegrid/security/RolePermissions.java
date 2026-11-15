@@ -47,7 +47,9 @@ public final class RolePermissions {
                     INTELLIGENCE_READ, INTELLIGENCE_WRITE, ASSISTANT_USE, VOICE_USE, STORAGE_READ),
             "svc-meter-ingest", Set.of(METERS_WRITE),
             "svc-alert-ingest", Set.of(ALERTS_INGEST),
-            "svc-intelligence", Set.of(METERS_READ, INCIDENT_READ, INCIDENT_CREATE));
+            "svc-intelligence", Set.of(METERS_READ, INCIDENT_READ, INCIDENT_CREATE),
+            // PPCastor on WhatsApp: ask the assistant and process voice reports; never personal data.
+            "svc-whatsapp", Set.of(FILE_READ, INCIDENT_READ, ASSISTANT_USE, VOICE_USE, STORAGE_READ));
 
     private RolePermissions() {
     }

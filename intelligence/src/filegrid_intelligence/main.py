@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Annotated
 
 import uvicorn
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from prometheus_client import Counter, Gauge, make_asgi_app
 from pydantic import BaseModel, Field
 
@@ -25,7 +26,7 @@ from .config import Settings
 from .db import Database
 from .docs_index import DocsIndex
 from .topology import load_topology
-from .voice import VoiceService, make_provider, parse_field_report
+from .voice import GeminiTranscriber, TranscriptionError, VoiceService, make_provider, make_transcriber, parse_field_report
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("filegrid_intelligence")
@@ -41,6 +42,7 @@ class State:
     agent02: GridIntelligence
     assistant: Assistant
     voice: VoiceService
+    transcriber: GeminiTranscriber | None = None
     api: FileGridApi
     topology = None
     stop = threading.Event()
@@ -81,6 +83,7 @@ async def lifespan(_app: FastAPI):
                                 settings.assistant_model, settings.llm_provider, settings.llm_base_url,
                                 settings.llm_api_key, settings.llm_model)
     state.voice = VoiceService(state.db, api, make_provider(settings))
+    state.transcriber = make_transcriber(settings)
     state.stop.clear()
     thread = threading.Thread(target=_analysis_loop, name="agent02", daemon=True)
     thread.start()
@@ -220,6 +223,27 @@ def voice_calls(incidentId: str | None = None):  # noqa: N803
     _db_or_503()
     items = state.voice.list(incidentId)
     return {"items": items, "count": len(items)}
+
+
+@router.post("/voice/transcribe")
+async def transcribe(request: Request, principal: VoiceUser):
+    """Voice note (raw audio body, e.g. audio/ogg from WhatsApp) -> transcript. Read with a 16 MB cap."""
+    transcriber = state.transcriber
+    if transcriber is None:
+        raise HTTPException(503, "Transcrierea vocală nu este configurată (necesită o cheie Gemini).")
+    content_type = request.headers.get("content-type", "")
+    if not content_type.lower().startswith("audio/"):
+        raise HTTPException(415, "Trimiteți un mesaj audio (Content-Type audio/*).")
+    audio = bytearray()
+    async for chunk in request.stream():
+        audio.extend(chunk)
+        if len(audio) > GeminiTranscriber.MAX_BYTES:
+            raise HTTPException(413, "Mesajul audio depășește 16 MB.")
+    try:
+        transcript = await run_in_threadpool(transcriber.transcribe, bytes(audio), content_type)
+    except TranscriptionError as e:
+        raise HTTPException(422, str(e)) from e
+    return {"transcript": transcript}
 
 
 class FieldReportBody(BaseModel):

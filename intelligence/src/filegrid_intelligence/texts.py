@@ -34,7 +34,7 @@ HUMAN_CHECK = {
     "ZERO_CONSUMPTION": "Verificați dacă locul de consum este alimentat și dacă contorul comunică corect. Posibile "
                         "explicații (deconectare, defect de contor, locuință nelocuită) trebuie confirmate de un om.",
     "SPIKE": "Comparați cu istoricul clientului și verificați dacă există un consumator nou sau o eroare de măsurare. "
-             "Agent 02 nu poate stabili cauza din aceste date.",
+             "PPCastor nu poate stabili cauza din aceste date.",
     "MISSING_READINGS": "Verificați comunicația contorului (concentrator, GSM/PLC) și dacă citirile au ajuns cu "
                         "întârziere. Lipsa datelor nu indică singură o întrerupere.",
     "REPEATED_VALUES": "Verificați dacă contorul este blocat sau dacă transmite valori memorate. Necesită citire la "
@@ -97,5 +97,5 @@ def incident_title(kind: str, post: str, station: str) -> str:
 
 
 def incident_description(observations: str, human_check: str, confidence: float) -> str:
-    return (f"Constatare Agent 02 (date simulate). Observație: {observations} Încredere: {num(confidence)}. "
+    return (f"Constatare PPCastor, analiza rețelei (date simulate). Observație: {observations} Încredere: {num(confidence)}. "
             f"Verificare umană necesară: {human_check}")

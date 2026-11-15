@@ -10,6 +10,6 @@ Verificarea unui fișier a identificat o neconcordanță între conținutul prim
 
 Fișierul a fost marcat ca suspect și nu trebuie tratat ca o copie validă până la verificarea situației.
 
-Confirmați preluarea incidentului.
+Confirmați preluarea incidentului: răspundeți *OK {{incident_id}}*.
 
 *FileGrid — Security & Incident Center*

@@ -23,6 +23,10 @@ entryPoints:
       tls: {}
       middlewares:
         - security-headers@file
+  # Internal only (not published): the Cloudflare tunnel (profile "tunnel") points here, and the
+  # only router on it is the Twilio webhook (ADR-0008). The rest of FileGrid never becomes public.
+  whatsapp:
+    address: ":8088"
   # Internal only (not published): health and metrics.
   ping:
     address: ":8082"

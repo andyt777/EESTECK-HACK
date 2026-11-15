@@ -172,7 +172,7 @@ public class FileIntakeService {
         record.setContentType(contentType);
         record.setSha256Plain(sha256Hex);
         record.setIdempotencyKey(idempotencyKey);
-        record.setTraceId(UUID.randomUUID().toString());
+        record.setTraceId(ro.filegrid.observability.Tracing.currentTraceIdOrRandom());
         fileRecordRepository.save(record);
 
         FileContext fc = new FileContext(fileId);

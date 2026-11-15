@@ -19,7 +19,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import ro.filegrid.file.DataOrigin;
+import ro.filegrid.file.FileCategory;
+import ro.filegrid.observability.FileGridMetrics;
 import ro.filegrid.storage.StorageException;
+import ro.filegrid.storage.StorageType;
 import ro.filegrid.storage.database.StoreDbConfig;
 
 /**
@@ -47,9 +50,11 @@ public class MeterReadingWriter {
     private final DataSource storeDb;
     private final JdbcTemplate metaDb;
     private final MeterCounters counters;
+    private final FileGridMetrics metrics;
 
     public MeterReadingWriter(@Qualifier(StoreDbConfig.QUALIFIER) DataSource storeDb, JdbcTemplate metaDb,
-                              MeterCounters counters) {
+                              MeterCounters counters, FileGridMetrics metrics) {
+        this.metrics = metrics;
         this.storeDb = storeDb;
         this.metaDb = metaDb;
         this.counters = counters;
@@ -63,7 +68,18 @@ public class MeterReadingWriter {
         if (readings.isEmpty()) {
             return new BatchOutcome(0, 0);
         }
-        Set<String> inserted = insertIntoStore(readings);
+        long started = System.nanoTime();
+        Set<String> inserted;
+        try {
+            inserted = insertIntoStore(readings);
+        } catch (RuntimeException e) {
+            metrics.recordStore(FileCategory.METER_READING, StorageType.DATABASE, FileGridMetrics.ERROR,
+                    System.nanoTime() - started, 0);
+            throw e;
+        }
+        // One observation per batch (~200 readings) written and verified in one transaction.
+        metrics.recordStore(FileCategory.METER_READING, StorageType.DATABASE, FileGridMetrics.VERIFIED,
+                System.nanoTime() - started, readings.stream().mapToLong(r -> r.content().length).sum());
         recordInMetaDb(readings, inserted);
         int duplicates = readings.size() - inserted.size();
         counters.add(MeterCounters.READINGS_STORED, inserted.size());

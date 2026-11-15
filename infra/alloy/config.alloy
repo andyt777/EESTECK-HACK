@@ -50,8 +50,24 @@ otelcol.receiver.otlp "default" {
   }
 
   output {
-    traces  = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.filter.noise.input]
     metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Stage 8: Prometheus scrapes and health checks hit the backend every 10-15 s;
+// their spans would bury the upload traces in Tempo, so they are dropped here.
+otelcol.processor.filter "noise" {
+  error_mode = "ignore"
+
+  traces {
+    span = [
+      `IsMatch(attributes["url.path"], "^/(api/)?actuator/.*")`,
+    ]
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
   }
 }
 

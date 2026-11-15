@@ -10,6 +10,7 @@ import org.slf4j.MDC;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.listener.api.ChannelAwareMessageListener;
 import ro.filegrid.messaging.TransferJob;
+import ro.filegrid.observability.Tracing;
 
 /**
  * Consumes transfer jobs with manual acknowledgement: a job is acknowledged
@@ -46,10 +47,16 @@ class TransferJobListener implements ChannelAwareMessageListener {
             channel.basicReject(tag, false);
             return;
         }
-        if (job.traceId() != null) {
+        // With the OpenTelemetry agent the real traceId (continued from the message's
+        // traceparent header) is already in the log MDC; the job's id is only a fallback.
+        boolean ownTraceId = job.traceId() != null && Tracing.currentTraceId() == null;
+        if (ownTraceId) {
             MDC.put("traceId", job.traceId());
         }
         MDC.put("fileId", job.fileId().toString());
+        if (job.category() != null) {
+            MDC.put("category", job.category().name());
+        }
         try {
             TransferWorker.Result result = worker.process(job);
             log.debug("Job for file {} finished: {}", job.fileId(), result);
@@ -64,8 +71,12 @@ class TransferJobListener implements ChannelAwareMessageListener {
             pause();
             channel.basicNack(tag, false, true);
         } finally {
-            MDC.remove("traceId");
+            if (ownTraceId) {
+                MDC.remove("traceId");
+            }
             MDC.remove("fileId");
+            MDC.remove("category");
+            MDC.remove("storage");
         }
     }
 

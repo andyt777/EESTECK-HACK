@@ -90,6 +90,14 @@ x-backend-env: &backend-env
   FILEGRID_KEK: ${FILEGRID_KEK:?run scripts/init-env.sh first}
   FILEGRID_KEK_ID: ${FILEGRID_KEK_ID:-kek-1}
   FILEGRID_KEK_PREVIOUS: ${FILEGRID_KEK_PREVIOUS:-}
+  # Stage 8 observability: JSON logs (Logstash layout, MDC traceId/spanId/fileId/...)
+  # -> Alloy -> Loki; traces from the OpenTelemetry Java agent -> Alloy -> Tempo.
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-logstash}
+  OTEL_JAVAAGENT_ENABLED: ${OTEL_JAVAAGENT_ENABLED:-true}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_always_on}
+  OTEL_INSTRUMENTATION_SPRING_SCHEDULING_ENABLED: "false"
 
 # JVM memory is set explicitly (heap, direct, metaspace, code cache) instead of
 # as a percentage, so every part of the process fits the container limit.
@@ -210,6 +218,7 @@ services:
     environment:
       <<: *backend-env
       SPRING_PROFILES_ACTIVE: api
+      OTEL_SERVICE_NAME: api
       FILEGRID_POLICY_FILE: /config/policies.yaml
       NOTIFY_ROUTING_FILE: /config/notification-routing.yaml
       NOTIFY_TEMPLATES_DIR: /config/templates
@@ -250,6 +259,7 @@ services:
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: METER_READING
+      OTEL_SERVICE_NAME: worker-meter
 
   worker-fault:
     <<: *worker
@@ -259,6 +269,7 @@ services:
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: FAULT_RECORD
+      OTEL_SERVICE_NAME: worker-fault
 
   worker-document:
     <<: *worker
@@ -268,6 +279,7 @@ services:
     environment:
       <<: *worker-env
       WORKER_CATEGORIES: CONNECTION_DOCUMENT
+      OTEL_SERVICE_NAME: worker-document
 
   worker-video:
     <<: *worker-large
@@ -277,6 +289,7 @@ services:
     environment:
       <<: *worker-large-env
       WORKER_CATEGORIES: DRONE_VIDEO
+      OTEL_SERVICE_NAME: worker-video
 
   # lite profile: a single worker for every category (low-memory machines).
   # It also moves videos, so it gets the video worker's memory settings.
@@ -288,6 +301,7 @@ services:
     environment:
       <<: *worker-large-env
       WORKER_CATEGORIES: METER_READING,FAULT_RECORD,CONNECTION_DOCUMENT,DRONE_VIDEO
+      OTEL_SERVICE_NAME: worker-all
 
   # --------------------------------------------------------------- simulator
   # Simulated smart meters (dataOrigin=SIMULATED). Normal mode by default;

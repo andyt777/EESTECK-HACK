@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -31,6 +32,7 @@ import ro.filegrid.file.FileStatus;
 import ro.filegrid.file.RoutingDecision;
 import ro.filegrid.messaging.JobPublisher;
 import ro.filegrid.messaging.TransferJob;
+import ro.filegrid.observability.Tracing;
 import ro.filegrid.routing.RoutingService;
 import ro.filegrid.security.CurrentActorProvider;
 import ro.filegrid.storage.Sha256;
@@ -74,7 +76,7 @@ public class IngestionService {
     @Async(IngestionConfiguration.EXECUTOR)
     @EventListener
     public void onUploadCompleted(UploadCompletedEvent event) {
-        try {
+        try (MDC.MDCCloseable ignored = MDC.putCloseable("fileId", String.valueOf(event.fileId()))) {
             ingest(event);
         } catch (Exception e) {
             // The file stays in staging in its last saved state; the recovery job resumes it.
@@ -134,7 +136,9 @@ public class IngestionService {
     }
 
     private void routeAndQueue(UUID fileId, ClassificationResult classification) {
-        RoutingDecision decision = routing.route(fileId, classification);
+        RoutingDecision decision = Tracing.inSpan("route", Map.of("filegrid.file_id", fileId.toString(),
+                        "filegrid.category", String.valueOf(classification.category())),
+                () -> routing.route(fileId, classification));
         FileRecord file = files.findById(fileId).orElseThrow();
         if (decision.getSelectedStorage() == null) {
             lifecycle.broadcast(file, FileStatus.PENDING.name(), null, lifecycle.message("PENDING"), null);
@@ -166,7 +170,7 @@ public class IngestionService {
                 event.completedAt() == null ? Instant.now() : event.completedAt());
         file.setContentType(event.contentType());
         file.setSha256Plain(event.sha256Plain());
-        file.setTraceId(UUID.randomUUID().toString().replace("-", ""));
+        file.setTraceId(Tracing.currentTraceIdOrRandom());
         file = files.save(file);
 
         FileContext context = new FileContext(file.getId());
@@ -209,8 +213,10 @@ public class IngestionService {
         FileCategory declaredCategory = declared != null ? declared
                 : file.getStatus() == FileStatus.PENDING || file.getStatus() == FileStatus.CATEGORIZED
                 ? file.getCategory() : null;
-        return classifier.classify(new ClassificationRequest(declaredCategory, file.getOriginalName(),
-                file.getContentType(), head, context));
+        ClassificationRequest request = new ClassificationRequest(declaredCategory, file.getOriginalName(),
+                file.getContentType(), head, context);
+        return Tracing.inSpan("classify", Map.of("filegrid.file_id", file.getId().toString()),
+                () -> classifier.classify(request));
     }
 
     Path stagingFile(UUID fileId) {

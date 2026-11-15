@@ -33,6 +33,8 @@ public interface NotificationChannel {
 
         private static final Logger log = LoggerFactory.getLogger(TwilioWhatsAppChannel.class);
         private static final Pattern SID = Pattern.compile("\"sid\"\\s*:\\s*\"([A-Za-z0-9]+)\"");
+        private static final Pattern ERROR_CODE = Pattern.compile("\"code\"\\s*:\\s*(\\d+)");
+        private static final Pattern ERROR_MESSAGE = Pattern.compile("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
 
         private final Environment env;
         private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -73,7 +75,8 @@ public interface NotificationChannel {
                         .header("Content-Type", "application/x-www-form-urlencoded")
                         .POST(HttpRequest.BodyPublishers.ofString(form)).build(), HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() / 100 != 2) {
-                    throw new IllegalStateException("Twilio answered HTTP " + response.statusCode());
+                    throw new IllegalStateException("Twilio answered HTTP " + response.statusCode()
+                            + twilioError(response.body()));
                 }
                 Matcher m = SID.matcher(response.body());
                 return m.find() ? m.group(1) : null;
@@ -84,6 +87,24 @@ public interface NotificationChannel {
                 log.warn("WhatsApp message could not be sent: {}", e.getMessage());
                 throw new IllegalStateException("Twilio is unreachable", e);
             }
+        }
+
+        /**
+         * Twilio's error code and message (e.g. 63015, "Channel Sandbox can only send messages to phone numbers
+         * that have joined the Sandbox"). The error body carries no credentials; the message is capped.
+         */
+        static String twilioError(String body) {
+            if (body == null) {
+                return "";
+            }
+            Matcher code = ERROR_CODE.matcher(body);
+            Matcher message = ERROR_MESSAGE.matcher(body);
+            String c = code.find() ? code.group(1) : "?";
+            String m = message.find() ? message.group(1) : "";
+            if (m.length() > 200) {
+                m = m.substring(0, 200) + "…";
+            }
+            return " (Twilio error " + c + (m.isEmpty() ? "" : ": " + m) + ")";
         }
 
         private static String enc(String value) {

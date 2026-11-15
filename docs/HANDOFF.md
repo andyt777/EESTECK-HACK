@@ -28,7 +28,8 @@ Totul este commit-uit și împins pe `main`. Pe alt laptop: `git pull`, apoi pa�
   „Agent 01/02” nu mai apar în UI; statisticile din Grid au titluri clare.
 - **WhatsApp real (ADR-0008)**: `POST /api/whatsapp/inbound`, client Keycloak `filegrid-whatsapp`, profil compose `tunnel`.
   Pe un laptop cu realm-ul deja importat: `bash scripts/keycloak-whatsapp-client.sh` (o singură dată). Pașii Twilio: README „WhatsApp real”.
-  **Netestat încă cu un telefon real** (lipsesc contul Twilio și cheile).
+  **Testat cu telefon real pe cont Twilio trial**: mesajele primite merg; răspunsurile sunt refuzate de Twilio (eroare 21654,
+  trial = doar template-uri). La demo se arată telefon → FileGrid real + răspunsul pe telefonul simulat. Detalii în CHANGELOG.
 
 ### Design: skill-ul impeccable
 - `PRODUCT.md` (rădăcină) = adevărul despre produs și angajamentele de brand (PPCastor, orașul verde, paleta).

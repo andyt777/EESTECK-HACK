@@ -30,7 +30,14 @@ Design: `docs/superpowers/specs/2026-11-15-ppcastor-whatsapp-design.md`; ADR-000
 - Manual: pașii din README, „WhatsApp real”.
 
 ### Limitări cunoscute
-- Nu a fost testat cu un telefon real: lipsesc încă contul Twilio și cheile.
+- Testat cu un telefon real (2026-11-15) pe un cont Twilio **trial**: mesajele primite trec cap-coadă (tunel → gateway →
+  semnătură validă → 200). Răspunsurile lui PPCastor sunt refuzate de Twilio cu eroarea 21654 „ContentSid Required”: pe
+  trial, WhatsApp acceptă doar template-urile predefinite Twilio, nu text liber (`Body`). Pentru răspunsuri reale e nevoie
+  de upgrade-ul contului (neverificat încă). La demo: telefonul → FileGrid e real, răspunsul se arată pe telefonul simulat.
+- Logul arată acum codul și mesajul de eroare Twilio când un mesaj e refuzat (`NotificationChannel.twilioError`).
+- Atenție la numărul sandbox-ului: consola nouă Twilio („Try out WhatsApp”) arată un alt mediu de test (ex. `+49…`,
+  `join twilio-trial`) fără câmp de webhook. Webhook-ul se setează în consola clasică: Messaging → Try it out →
+  Send a WhatsApp message → Sandbox settings, iar numărul de acolo (`+14155238886`) merge în `TWILIO_WHATSAPP_FROM`.
 - Sandbox Twilio: numele și poza contului sunt ale Twilio; PPCastor apare ca semnătură. Regula de 24 de ore poate bloca alertele către numere tăcute.
 - Poza lui PPCastor nu este trimisă ca imagine în primul răspuns (canalul de trimitere nu suportă încă media).
 

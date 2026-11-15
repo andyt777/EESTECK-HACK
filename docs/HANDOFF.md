@@ -1,31 +1,49 @@
 # Predare — FileGrid PPC
 
-## ⏩ STARE CURENTĂ (2026-11-15) — citește întâi asta
+## ⏩ STARE CURENTĂ (2026-11-15, dimineața) — citește întâi asta
 
-Nimic din ce urmează NU e commit-uit încă. Pe laptopul vechi: `git add -A && git commit` (mesajele propuse sunt mai jos), apoi push.
+Totul este commit-uit și împins pe `main`. Pe alt laptop: `git pull`, apoi pașii de la „Pornire pe laptopul nou” de mai jos.
 
-### A. Redesign UI — GATA și verificat în browser
-Village pe tot ecranul, paletă deep blue/alb/roz bubblegum, titluri italice, case reale, robotul merge la casă și trage firul spre storage,
-încărcare DOAR prin drag & drop pe Agent 01 (fără formular), mesaj „Decizia Agentului 01” după upload, File Explorer șters
-(click pe casă → `/categories/:category`, Ctrl+K rămâne), sidebar ascuns (☰) cu Decision Explorer și Politici (editabile din UI).
-Detalii: `docs/CHANGELOG-ETAPE.md` (prima secțiune), `docs/experienta-utilizator.md` actualizat.
-Commit propus: `feat(frontend): full-screen village, drop-on-agent upload, hidden sidebar`.
+### Pornire pe laptopul nou (5 pași)
+1. `git pull` și `.\start.ps1` (sau `./start.sh`). La prima rulare creează `.env` cu secrete noi; `.env` NU e în git.
+2. Completează în `.env`: `LLM_PROVIDER=gemini`, `LLM_API_KEY=<cheia Gemini>` (https://aistudio.google.com/apikey).
+   `LLM_MODEL=gemini-3.5-flash-lite` e deja implicit. Apoi: `docker compose -f infra/docker-compose.yml --env-file .env up -d --force-recreate --no-deps intelligence`.
+   Fără cheie, asistentul merge în „mod de rezervă, fără AI” (nu e eroare).
+3. Deschide **https://localhost** (scrie `https://`; certificat self-signed). Te trimite la login Keycloak.
+4. Utilizatori demo: `field.demo`, `dispatcher.demo`, `connections.demo`, `analyst.demo`, `incident-manager.demo`, `admin.demo`.
+   Parolele sunt în `.env`: `KC_DEMO_*_PASSWORD` (se generează pe fiecare laptop, deci diferă). Grafana: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`.
+5. Verificare rapidă: `curl -k https://localhost/api/files` → 401; în aplicație punctul „Live” e verde; trage un fișier pe PPCastor.
 
-### B. Etapa 11 — autentificare — GATA (backend, frontend, verificat cap-coadă prin gateway)
-Detalii și cum se verifică: `docs/CHANGELOG-ETAPE.md` (prima secțiune), README „Autentificare” (utilizatori demo, reset realm).
-- Suita backend completă: 102 teste au rulat, iar singurul eșec (`MetadataSchemaIT`) a fost reparat. Teste noi: `RolePermissionsTest`, `ContentLinkSignerTest`, `AuthenticationIT`. Frontend: build + 4 teste vitest.
-- Live: 401 fără token, simulatorul cu token (`duplicatesWritten = 0`), alertă Alertmanager → incident, login code + PKCE cu toți cei 6 utilizatori demo, PII doar pentru connections/admin.
-- Reparat pe parcurs: utilizatorii demo n-aveau email → Keycloak 26 cerea VERIFY_PROFILE la login (realm actualizat + aplicat live cu kcadm);
-  cache-ul BuildKit era corupt după ce discul C: s-a umplut (binarul `uv` avea 0 octeți) → `docker builder prune -af`.
+### Ce e gata
+- **Etapa 11 — autentificare Keycloak OIDC** (backend, frontend, intelligence, simulator, Alertmanager). Detalii: README „Autentificare”,
+  `docs/AUTH-DESIGN.md`, `docs/CHANGELOG-ETAPE.md`. Doar `connections` și `admin` văd date personale.
+- **Asistentul AI pe Gemini**: eticheta răspunsului separă „Răspuns: Gemini / mod de rezervă” de „Date: simulate / reale”
+  (`dataOrigin` se deduce din datele citite); reîncercări la 429/503; răspunsurile randate ca Markdown fără innerHTML.
+- **Redesign (2026-11-15)**: mascota **PPCastor** (castor cu cască și vestă reflectorizantă) a înlocuit robotul și cară fișierul ca pe un buștean
+  la casa categoriei; Village e un oraș cu energie verde (dealuri, turbine eoliene, copaci, pârâu, barajul castorului ca intrare, panouri solare);
+  paleta întregii aplicații: baby blue + alb, text bleumarin, rozul bubblegum păstrat (`--pink` pentru suprafețe, `--pink-ink` pentru text pe alb).
+  Fișiere: `frontend/src/app/pages/control/village.*`, tokenii din `frontend/src/styles.scss`.
+- **Accesibilitate**: contur de focus la tastatură, butoane cu iconiță etichetate, meniul lateral preia focusul.
 
-Rămas:
-1. Parcurgere în browser real cu fiecare rol: redirect la login, sidebar (utilizator, rol, logout), meniul filtrat, SSE live (punctul verde),
-   drop pe Agent 01 (connections/admin/field), preview + descărcare în passport.
-2. Commit: `feat(auth): keycloak oidc, jwt resource server, role permissions, signed content links` și `feat(frontend): oidc login, authz service, sse over fetch`.
-3. Apoi următorul punct din 0.2 (Etapa 17 — benchmark storage).
+### Design: skill-ul impeccable
+- `PRODUCT.md` (rădăcină) = adevărul despre produs și angajamentele de brand (PPCastor, orașul verde, paleta).
+- `.impeccable/surfaces/…village-html.md` = direcția pentru Village; `.impeccable/audit/` = raportul de audit.
+- Hook-ul de design e activat (`.impeccable/config.json`); pe alt laptop rulează o dată `/impeccable hooks on` (consimțământul e local).
+- **Nefăcut:** recenzia finală de design și `DESIGN.md` (rulează `/impeccable document` după ce designul e aprobat).
 
-Capcane: fișierele Java/TS au CRLF — înlocuirile PowerShell cu `` `n `` nu se aplică, folosește editări exacte; dacă gateway-ul nu vede
-rutele noi: `bash scripts/reload-config.sh`; `.env` existent primește variabilele noi automat la `.\start.ps1` (doar cele lipsă).
+### Rămas de făcut (în ordine)
+1. Decizii de design deschise: fontul (Inter e semnalat ca generic), poziția mesajului „Decizia Agentului 01” (acoperă barajul castorului),
+   verificare pe ecran de telefon; pagini nevăzute încă în tema nouă: Performance, Politici, Decision Explorer, Comunicare teren, panoul asistentului.
+2. Parcurgere în browser cu fiecare rol (nu doar `admin.demo`): meniul filtrat, drop refuzat pentru rolurile fără `file:write`.
+3. Etapa 17 — benchmark storage + pagina /performance cu date măsurate; apoi integrarea finală din secțiunea 0.2 de mai jos.
+
+### Capcane
+- **Disc C: plin** strică build-urile Docker: dacă `intelligence`/`simulator` pică la `COPY --from=base /app/.venv`, cache-ul BuildKit e corupt → `docker builder prune -af`.
+- **Gemini 429** = limita pe minut a cheii gratuite. `gemini-3.5-flash-lite` are limite mai mari decât `gemini-3.5-flash`.
+- **Realm-ul Keycloak se importă doar la prima pornire**; după modificări în `realm-filegrid.json` vezi README „Autentificare” (reset) sau aplică cu `kcadm`.
+- Fișierele Java/TS au CRLF: înlocuirile cu `\n` din scripturi nu se potrivesc; folosește editări exacte.
+- Dacă gateway-ul nu vede rute noi: `bash scripts/reload-config.sh`. După schimbări în frontend: `docker compose … up -d --build --no-deps frontend`.
+- `uv` nu e instalat local: testele Python se rulează cu `docker build --target test intelligence`.
 
 ---
 

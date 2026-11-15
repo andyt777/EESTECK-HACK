@@ -5,7 +5,7 @@ Standalone components, signals, zoneless, strict TS, Angular Material (dark them
 - `src/app/core/texts.ts` — all Romanian UI texts (single i18n-ready catalogue).
 - `src/app/core/` — API client (`api.service.ts`), SSE streams with reconnect/backoff (`events.service.ts`),
   resumable tus uploads + per-file live timeline (`upload.service.ts`), Web Speech wrapper (`voice.ts`).
-- `src/app/pages/` — Control Center (`/`, full-screen FileGrid Village: drag & drop files onto Agent 01 is the only
+- `src/app/pages/` — Control Center (`/`, full-screen FileGrid Village: drag & drop files onto PPCastor, the beaver mascot standing for Agent 01, is the only
   upload path; the routing decision pops up as a message), category houses (`/categories/:category`), File Passport,
   Decision Explorer, policies, incidents (+ detail), Grid Intelligence, AI Assistant, field communication, performance.
 - `src/app/app.html` — top bar + off-canvas sidebar (menu button, closes on navigation/Esc/scrim).

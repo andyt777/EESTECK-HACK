@@ -358,8 +358,8 @@ Niciun secret nu se află în repository. `.env` și `infra/certs/` sunt ignorat
 https://localhost (certificat self-signed). Angular 21 servit de nginx (`frontend`, intern :8080) în spatele Traefik
 (ruta `/`, prioritate 1 — `/api` și `/grafana` au prioritate).
 
-- **Control Center** (`/`) este doar harta FileGrid Village, pe tot ecranul: Agent 01, cele 4 case (categorii) și cele 3 storage-uri.
-- **Încărcarea** se face exclusiv prin drag & drop al fișierelor **pe Agent 01** (fără formular sau confirmare; upload tus reluabil, categoria detectată automat). Robotul merge la casa categoriei și trage un fir către storage-ul ales; după decizie apare mesajul „Decizia Agentului 01”.
+- **Control Center** (`/`) este doar harta FileGrid Village, pe tot ecranul: un oraș cu energie verde, mascota **PPCastor** (Agent 01), cele 4 case (categorii) și cele 3 storage-uri.
+- **Încărcarea** se face exclusiv prin drag & drop al fișierelor **pe PPCastor** (fără formular sau confirmare; upload tus reluabil, categoria detectată automat). Robotul merge la casa categoriei și trage un fir către storage-ul ales; după decizie apare mesajul „Decizia Agentului 01”.
 - **Click pe o casă** deschide fișierele categoriei (`/categories/:category`, căutare + filtre); căutarea globală este Ctrl+K în bara de sus. File Passport: `/files/:id`.
 - **Meniul** este un sidebar ascuns (butonul ☰): Security & Incidents (`/incidents`), Comunicare teren (`/field`), Grid Intelligence (`/grid`), AI Assistant (`/assistant`), Performance (`/performance`), Decision Explorer (`/decisions`), Politici (`/policies`, editabile din UI).
 - Paleta: deep blue, alb, roz bubblegum; titlurile sunt italice.

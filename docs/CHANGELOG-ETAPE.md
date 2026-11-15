@@ -1,5 +1,24 @@
 # Jurnalul etapelor
 
+## Redesign — PPCastor, orașul cu energie verde, paleta luminoasă; asistent pe Gemini (2026-11-15)
+
+### Ce s-a făcut
+- **PPCastor** (castor lucrător în energie: cască albă, vestă reflectorizantă roz) înlocuiește robotul din Village. La drop ridică fișierul ca pe un buștean cu etichetă de document, merge legănat până la casa categoriei, apoi linia roz de energie pornește spre storage. Dunga căștii arată starea (roz / verde / galben / roșu). Aceeași mașină de stări, condusă doar de evenimentele SSE reale.
+- **Village**: cer baby blue, dealuri verzi, trei turbine eoliene, copaci, pârâu cu barajul castorului ca intrare, panouri solare pe acoperișuri (fără coșuri de fum). Scena se încadrează întreagă pe orice ecran.
+- **Paleta întregii aplicații**: tokeni noi în `frontend/src/styles.scss` (`--bg`, `--panel`, `--text` bleumarin, `--pink` + `--pink-ink`), temă Material luminoasă, culorile fixe din componente convertite.
+- **Asistentul**: `dataOrigin` dedus din datele citite (înainte era mereu SIMULATED), reîncercări la 429/503, model implicit `gemini-3.5-flash-lite`; în UI „Răspuns: Gemini / mod de rezervă” și „Date: simulate / reale”; Markdown randat fără innerHTML.
+- **Accesibilitate**: `:focus-visible` global, `aria-label` pe butoanele cu iconiță, iconițele ascunse pentru cititorul de ecran, meniul lateral preia și redă focusul.
+- `PRODUCT.md`, brief-ul Village și raportul de audit (`.impeccable/`).
+
+### Cum se verifică
+- `cd frontend && npx ng build && npx ng test --watch=false` → 8 teste; `docker build --target test intelligence` → 72 teste.
+- https://localhost ca `admin.demo`: trage un PDF pe PPCastor → merge la „Documente de racordare”, linia spre S3, mesajul cu decizia. Verificat în Chrome cu două fișiere (S3 și FTP).
+
+### Limitări cunoscute
+- Nu există încă `DESIGN.md` și nu s-a rulat recenzia finală de design. Fontul a rămas Inter.
+- Nevăzute în tema nouă: Performance, Politici, Decision Explorer, Comunicare teren, panoul asistentului; telefonul simulat a rămas intenționat întunecat. Fără verificare pe telefon.
+- Mesajul „Decizia Agentului 01” acoperă barajul castorului cât e deschis.
+
 ## Etapa 11 — autentificare Keycloak OIDC: backend, frontend, verificare cap-coadă (2026-11-15)
 
 Contractul: `docs/AUTH-DESIGN.md` (aprobat), ADR-0007. Partea Python (intelligence, simulator) e descrisă mai jos, la 2026-11-14.

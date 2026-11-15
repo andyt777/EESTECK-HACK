@@ -1,13 +1,16 @@
 <div class="shell">
-  <aside class="nav">
-    <a class="brand" routerLink="/">
-      <svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true">
-        <defs><linearGradient id="lg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
-        <polygon points="20,2 37,11 37,29 20,38 3,29 3,11" fill="none" stroke="url(#lg)" stroke-width="2.4"/>
-        <path d="M22 8 L13 22 H20 L17 32 L28 17 H21 Z" fill="#fbbf24"/>
-      </svg>
-      <div><b>{{ t.app.name }}</b><span>{{ t.app.subtitle }}</span></div>
-    </a>
+  @if (menuOpen()) { <div class="scrim" (click)="menuOpen.set(false)"></div> }
+  <aside class="nav" [class.open]="menuOpen()" [attr.aria-hidden]="!menuOpen()" [attr.inert]="menuOpen() ? null : ''">
+    <div class="nav-head">
+      <a class="brand" routerLink="/">
+        <svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true">
+          <polygon points="20,2 37,11 37,29 20,38 3,29 3,11" fill="none" stroke="#ff77bc" stroke-width="2.4"/>
+          <path d="M22 8 L13 22 H20 L17 32 L28 17 H21 Z" fill="#ffffff"/>
+        </svg>
+        <div><b>{{ t.app.name }}</b><span>{{ t.app.subtitle }}</span></div>
+      </a>
+      <button class="btn ghost sm icon" (click)="menuOpen.set(false)" [title]="t.nav.closeMenu" [attr.aria-label]="t.nav.closeMenu"><span class="ms">close</span></button>
+    </div>
     @for (s of sections; track s.title) {
       <div class="nav-sec">{{ s.title }}</div>
       @for (i of s.items; track i.path) {
@@ -17,29 +20,33 @@
       }
     }
     <div class="nav-foot">
-      <div class="row small"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>
+      <button class="nav-item" (click)="ui.toggleAnimations()" [attr.aria-pressed]="!ui.animations()">
+        <span class="ms">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span><span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}</span>
+      </button>
+      <button class="nav-item" (click)="ui.phoneOpen.set(!ui.phoneOpen()); menuOpen.set(false)">
+        <span class="ms">smartphone</span><span>{{ t.nav.phone }}</span>
+      </button>
+      <div class="row small conn"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>
         <span>{{ events.connected() ? t.app.live : t.app.offline }}</span><span class="muted tiny">SSE</span></div>
     </div>
   </aside>
 
   <div class="main">
     <header class="top">
+      <button class="btn ghost sm icon" (click)="menuOpen.set(true)" [title]="t.nav.menu" [attr.aria-label]="t.nav.menu" [attr.aria-expanded]="menuOpen()"><span class="ms">menu</span></button>
+      <a class="wordmark" routerLink="/">{{ t.app.name }}</a>
       @if (!onVillage()) {
         <a class="btn ghost sm" routerLink="/"><span class="ms">arrow_back</span>{{ t.app.backToVillage }}</a>
       }
-      <button class="search" (click)="openSearch()"><span class="ms">search</span><span>{{ t.app.search }}</span><kbd>Ctrl K</kbd></button>
       <div class="grow"></div>
+      <button class="search" (click)="openSearch()"><span class="ms">search</span><span>{{ t.app.search }}</span><kbd>Ctrl K</kbd></button>
       @if (ui.simulatedOnPage()) {
         <span class="badge sim" title="dataOrigin=SIMULATED"><span class="ms">science</span>{{ t.app.simulatedData }}</span>
       }
-      <span class="live" [class.on]="events.connected()"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>{{ events.connected() ? t.app.live : t.app.offline }}</span>
-      <button class="btn ghost sm" (click)="ui.toggleAnimations()" [attr.aria-pressed]="!ui.animations()">
-        <span class="ms">{{ ui.animations() ? 'motion_photos_paused' : 'play_circle' }}</span>{{ ui.animations() ? t.app.stopAnimations : t.app.startAnimations }}
-      </button>
-      <button class="btn ghost sm icon" (click)="ui.phoneOpen.set(!ui.phoneOpen())" [title]="t.incidents.phone"><span class="ms">smartphone</span></button>
+      <span class="live" [class.on]="events.connected()" [title]="events.connected() ? t.app.live : t.app.offline"><span class="dot" [class.ok]="events.connected()" [class.bad]="!events.connected()"></span>{{ events.connected() ? t.app.live : t.app.offline }}</span>
       <button class="btn sm" (click)="ui.openAssistant(null)"><span class="ms">smart_toy</span>{{ t.app.assistant }}</button>
     </header>
-    <main class="content"><router-outlet /></main>
+    <main class="content" [class.full]="onVillage()"><router-outlet /></main>
   </div>
 
   @if (ui.assistantOpen()) {

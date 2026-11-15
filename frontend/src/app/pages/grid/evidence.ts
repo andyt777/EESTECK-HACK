@@ -51,21 +51,21 @@ export function evidenceOption(ev: any): any | null {
   const maxOf = (d: [any, number][]) => Math.max(...d.map((p) => Math.abs(p[1])), 0);
   const big = Math.max(...series.map((s) => maxOf(s.data)));
   const secondary = new Set(series.map((s, i) => (big > 0 && maxOf(s.data) < big / 20 ? i : -1)).filter((i) => i >= 0));
-  const colors = ['#22d3ee', '#fbbf24', '#a78bfa', '#34d399', '#f43f5e', '#60a5fa'];
+  const colors = ['#ff77bc', '#fbbf24', '#a78bfa', '#34d399', '#f43f5e', '#60a5fa'];
   return {
     backgroundColor: 'transparent',
     color: colors,
     grid: { left: 48, right: 18, top: 30, bottom: 36 },
-    tooltip: { trigger: 'axis', backgroundColor: '#0b1730', borderColor: '#27426f', textStyle: { color: '#dbe7ff' } },
-    legend: { textStyle: { color: '#7f93b8' }, top: 0 },
-    xAxis: { type: timeAxis ? 'time' : 'category', axisLine: { lineStyle: { color: '#27426f' } }, axisLabel: { color: '#7f93b8' }, splitLine: { show: false } },
-    yAxis: [{ type: 'value', axisLine: { lineStyle: { color: '#27426f' } }, axisLabel: { color: '#7f93b8' }, splitLine: { lineStyle: { color: '#12244a' } } },
-      { type: 'value', axisLine: { lineStyle: { color: '#27426f' } }, axisLabel: { color: '#7f93b8' }, splitLine: { show: false } }],
+    tooltip: { trigger: 'axis', backgroundColor: '#0c1f5a', borderColor: '#3355b0', textStyle: { color: '#ffffff' } },
+    legend: { textStyle: { color: '#b4c3ee' }, top: 0 },
+    xAxis: { type: timeAxis ? 'time' : 'category', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { show: false } },
+    yAxis: [{ type: 'value', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { lineStyle: { color: '#132b74' } } },
+      { type: 'value', axisLine: { lineStyle: { color: '#3355b0' } }, axisLabel: { color: '#b4c3ee' }, splitLine: { show: false } }],
     series: series.map((s, i) => ({
       yAxisIndex: secondary.has(i) ? 1 : 0,
       name: s.name, type: 'line', showSymbol: s.data.length < 40, smooth: true, data: s.data, lineStyle: { width: 2 },
       areaStyle: i === 0 ? { opacity: 0.08 } : undefined,
-      markLine: i === 0 && baseline !== null ? { symbol: 'none', lineStyle: { color: '#7f93b8', type: 'dashed' }, label: { color: '#7f93b8', formatter: 'referință' }, data: [{ yAxis: baseline }] } : undefined,
+      markLine: i === 0 && baseline !== null ? { symbol: 'none', lineStyle: { color: '#b4c3ee', type: 'dashed' }, label: { color: '#b4c3ee', formatter: 'referință' }, data: [{ yAxis: baseline }] } : undefined,
     })),
   };
 }

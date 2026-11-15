@@ -96,7 +96,7 @@ export function normalizeGrid(raw: any): GridModel | null {
   @if (model(); as m) {
     <svg [attr.viewBox]="'0 0 ' + m.width + ' ' + m.height" class="map" [class.mini]="mini()">
       <defs>
-        <pattern id="gm-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#12244a" stroke-width="1"/></pattern>
+        <pattern id="gm-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#132b74" stroke-width="1"/></pattern>
         <filter id="gm-glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
       <rect [attr.width]="m.width" [attr.height]="m.height" fill="url(#gm-grid)" opacity=".6"/>
@@ -118,7 +118,7 @@ export function normalizeGrid(raw: any): GridModel | null {
         <g (click)="pick.emit(n.id)" class="node" [class.dim]="dimmed(n)">
           @if (n.health === 'bad') { <circle [attr.cx]="n.x" [attr.cy]="n.y" r="20" class="ping"/> }
           <circle [attr.cx]="n.x" [attr.cy]="n.y" r="11" class="st h-{{ n.health }}" [class.sel]="selected() === n.id" filter="url(#gm-glow)"><title>{{ n.name }}</title></circle>
-          <path [attr.d]="bolt(n)" fill="#050b18"/>
+          <path [attr.d]="bolt(n)" fill="#06123a"/>
           @if (!mini()) { <text [attr.x]="n.x" [attr.y]="n.y + 26" text-anchor="middle" class="slabel">{{ n.name }}</text> }
           @if (n.anomalies > 0) {
             <g><circle [attr.cx]="n.x + 11" [attr.cy]="n.y - 11" r="8" fill="#f43f5e"/><text [attr.x]="n.x + 11" [attr.y]="n.y - 7.5" text-anchor="middle" class="cnt">{{ n.anomalies }}</text></g>
@@ -134,16 +134,16 @@ export function normalizeGrid(raw: any): GridModel | null {
   styles: [`
     :host { display: block; position: relative; }
     .map { width: 100%; height: auto; display: block; }
-    .halo { fill: rgba(34,211,238,.03); stroke: rgba(34,211,238,.18); stroke-dasharray: 4 6; cursor: pointer; }
-    .region.sel .halo { fill: rgba(34,211,238,.08); stroke: var(--cyan); }
+    .halo { fill: rgba(255,119,188,.03); stroke: rgba(255,119,188,.18); stroke-dasharray: 4 6; cursor: pointer; }
+    .region.sel .halo { fill: rgba(255,119,188,.08); stroke: var(--cyan); }
     .halo.h-bad { stroke: rgba(244,63,94,.45); fill: rgba(244,63,94,.05); } .halo.h-warn { stroke: rgba(251,191,36,.45); fill: rgba(251,191,36,.04); }
-    .rlabel { fill: #7f93b8; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
-    .slabel { fill: #b7c6e4; font-size: 11px; pointer-events: none; }
-    .ln { stroke: #27426f; stroke-width: 1; } .ln.hv { stroke: #3b6aa8; stroke-width: 2.4; } .ln.dim, .node.dim { opacity: .25; }
+    .rlabel { fill: #b4c3ee; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
+    .slabel { fill: #e6ecff; font-size: 11px; pointer-events: none; }
+    .ln { stroke: #3355b0; stroke-width: 1; } .ln.hv { stroke: #3b6aa8; stroke-width: 2.4; } .ln.dim, .node.dim { opacity: .25; }
     .node { cursor: pointer; }
-    .st { stroke: #050b18; stroke-width: 2; } .st.sel, .pt.sel { stroke: #fff; stroke-width: 3; }
-    .h-ok { fill: #34d399; } .h-warn { fill: #fbbf24; } .h-bad { fill: #f43f5e; } .h-unknown { fill: #4b5d80; }
-    .halo.h-ok, .halo.h-unknown { fill: rgba(34,211,238,.03); }
+    .st { stroke: #06123a; stroke-width: 2; } .st.sel, .pt.sel { stroke: #fff; stroke-width: 3; }
+    .h-ok { fill: #34d399; } .h-warn { fill: #fbbf24; } .h-bad { fill: #f43f5e; } .h-unknown { fill: #7f93cf; }
+    .halo.h-ok, .halo.h-unknown { fill: rgba(255,119,188,.03); }
     .ping { fill: none; stroke: #f43f5e; stroke-width: 2; animation: ping 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
     @keyframes ping { from { opacity: .9; transform: scale(.6); } to { opacity: 0; transform: scale(1.6); } }
     .cnt { fill: #fff; font-size: 10px; font-weight: 700; }

@@ -89,13 +89,13 @@ interface Msg { role: 'user' | 'assistant'; content: string; res?: ChatResponse;
   styles: [`
     :host { display: flex; flex-direction: column; min-height: 0; flex: 1; }
     .chat { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
-    .ctx { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(34,211,238,.07); border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
+    .ctx { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(255,119,188,.07); border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
     .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 240px; }
     .hello { text-align: center; padding: 20px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
     .ex { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; } .ex .btn { height: auto; padding: 6px 10px; white-space: normal; text-align: left; }
     .msg { display: flex; } .msg.me { justify-content: flex-end; }
     .bubble { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-width: 92%; }
-    .bubble.me { background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.35); white-space: pre-wrap; }
+    .bubble.me { background: rgba(255,119,188,.14); border-color: rgba(255,119,188,.35); white-space: pre-wrap; }
     .bubble.warn { border-color: rgba(251,191,36,.5); color: #fef3c7; } .bubble.bad { border-color: rgba(244,63,94,.5); color: #ffe4e6; }
     .meta { margin-bottom: 6px; gap: 6px; }
     .answer { white-space: pre-wrap; line-height: 1.55; }

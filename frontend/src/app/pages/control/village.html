@@ -1,163 +1,145 @@
-<div class="village" [class.over]="dragOver()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
-  <svg viewBox="0 0 1200 640" class="scene" role="img" [attr.aria-label]="t.control.title">
+<div class="village" [class.dragging]="dragging()" [class.over]="overAgent()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+  <svg viewBox="0 0 1200 680" preserveAspectRatio="xMidYMid meet" class="scene" role="img" [attr.aria-label]="t.control.title">
     <defs>
-      <pattern id="iso" width="56" height="32" patternUnits="userSpaceOnUse">
-        <path d="M0 16 L28 0 L56 16 L28 32 Z" fill="none" stroke="#0f2147" stroke-width="1"/>
-      </pattern>
-      <radialGradient id="vg" cx="50%" cy="45%" r="65%"><stop offset="0" stop-color="#0c1d3d"/><stop offset="1" stop-color="#050b18"/></radialGradient>
+      <radialGradient id="vg" cx="45%" cy="40%" r="75%"><stop offset="0" stop-color="#14317f"/><stop offset="1" stop-color="#06123a"/></radialGradient>
+      <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#ffffff" opacity=".08"/></pattern>
       <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
-      <linearGradient id="plate" x1="0" x2="1"><stop offset="0" stop-color="#0b1b3a" stop-opacity=".0"/><stop offset=".5" stop-color="#0e2450" stop-opacity=".55"/><stop offset="1" stop-color="#0b1b3a" stop-opacity=".0"/></linearGradient>
+      <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
     </defs>
 
-    <rect width="1200" height="640" fill="url(#vg)"/>
-    <rect width="1200" height="640" fill="url(#iso)" opacity=".75"/>
+    <rect width="1200" height="680" fill="url(#vg)"/>
+    <rect width="1200" height="680" fill="url(#dots)"/>
 
-    <!-- zone plates -->
-    <rect x="455" y="22" width="215" height="600" rx="18" fill="url(#plate)" stroke="#16305e" stroke-dasharray="3 6"/>
-    <text x="562" y="16" class="zone-label" text-anchor="middle">{{ t.control.housesTitle }}</text>
-    <rect x="975" y="40" width="170" height="560" rx="18" fill="rgba(14,36,80,.35)" stroke="#16305e" stroke-dasharray="3 6"/>
-    <text x="1060" y="32" class="zone-label" text-anchor="middle">{{ t.control.serversTitle }}</text>
+    <text x="650" y="34" class="zone-label" text-anchor="middle">{{ t.control.housesTitle }}</text>
+    <text x="1060" y="34" class="zone-label" text-anchor="middle">{{ t.control.serversTitle }}</text>
 
-    <!-- cables house -> storage -->
-    <g class="cables">
-      @for (c of cables(); track c.key) {
-        <path [attr.id]="'cab-' + c.key" [attr.d]="c.d" class="cable"
-          [class.used]="c.used"
-          [class.hot]="hotCable() === c.key"
-          [class.broken]="status(c.st) === 'DOWN'"
-          [class.flow]="c.cat === 'METER_READING' && c.st === meterTarget() && meterFlowing() && status(c.st) !== 'DOWN'"
-          [style.--cc]="H[c.cat].color"/>
+    <!-- footpaths: gate -> plaza -> every house door -->
+    <g class="paths">
+      <path [attr.d]="'M' + (entry.x + 40) + ' ' + (entry.y + 8) + ' L' + (home.x - 40) + ' ' + (home.y + 8)" />
+      @for (c of cats; track c) {
+        <path [attr.d]="'M' + (home.x + 30) + ' ' + (home.y + 8) + ' C' + (home.x + 120) + ' ' + (home.y + 8) + ' ' + (H[c].x - 190) + ' ' + (H[c].y + 8) + ' ' + (H[c].x - 70) + ' ' + (H[c].y + 8)"
+          [class.hot]="hotHouse() === c" />
       }
     </g>
+
+    <!-- meter readings: a permanent, aggregated wire (the simulator streams continuously) -->
     @if (meterFlowing()) {
-      <g class="meter-flow" [attr.transform]="'translate(' + meterMid().x + ' ' + meterMid().y + ')'">
-        <rect x="-46" y="-12" width="92" height="20" rx="10" class="pill"/>
-        <text y="2" text-anchor="middle" class="pill-text">{{ meterRate() }}</text>
+      <path [attr.d]="meterWire()" class="wire meter" />
+      <g class="meter-pill" [attr.transform]="'translate(' + meterLabelAt().x + ' ' + meterLabelAt().y + ')'">
+        <rect x="-58" y="-12" width="116" height="22" rx="11"/>
+        <text y="3" text-anchor="middle">{{ meterLabel() }}</text>
       </g>
+    }
+
+    <!-- the wire Agent 01 plugs in for the file it carries -->
+    @if (wireD(); as d) {
+      <path id="wire-hot" [attr.d]="d" class="wire hot" [class.broken]="status(wire()!.st) === 'DOWN'" />
     }
 
     <!-- entry gate -->
     <g class="entry" [attr.transform]="'translate(' + entry.x + ' ' + entry.y + ')'">
-      <ellipse rx="54" ry="20" cy="18" class="pad"/>
-      <path d="M-34 18 V-40 Q0 -70 34 -40 V18" class="arch"/>
-      <path d="M-24 18 V-34 Q0 -56 24 -34 V18" class="arch inner"/>
-      <text y="52" text-anchor="middle" class="lbl">{{ t.control.entry }}</text>
+      <ellipse rx="50" ry="14" cy="10" class="pad"/>
+      <path d="M-30 10 V-46 Q0 -78 30 -46 V10" class="arch"/>
+      <text y="40" text-anchor="middle" class="lbl">{{ t.control.entry }}</text>
       @if (entryFile()) {
-        <g class="incoming" filter="url(#glow)"><path d="M-9 -30 h12 l6 6 v20 h-18 z" fill="#e0f2fe"/><path d="M3 -30 v6 h6" fill="#7dd3fc"/></g>
+        <g class="incoming" filter="url(#glow)"><path d="M-9 -34 h12 l6 6 v20 h-18 z" class="doc"/><path d="M3 -34 v6 h6" class="fold"/></g>
       }
     </g>
 
-    <!-- houses (categories) -->
+    <!-- plaza where Agent 01 waits for files -->
+    <ellipse [attr.cx]="home.x" [attr.cy]="home.y + 6" rx="86" ry="22" class="plaza"/>
+
+    <!-- houses (categories): click opens the house -->
     @for (c of cats; track c) {
-      <g class="house" [class.hot]="hotHouse() === c" [attr.transform]="'translate(' + H[c].x + ' ' + H[c].y + ')'" (click)="openHouse(c)" [style.--hc]="H[c].color">
+      <g class="house" [class.hot]="hotHouse() === c" [attr.transform]="'translate(' + H[c].x + ' ' + H[c].y + ')'"
+         (click)="openHouse(c)" (keydown)="houseKey($event, c)" tabindex="0" role="link" [attr.aria-label]="t.categoryHouse[c] + ' — ' + t.category[c]">
         <title>{{ t.categoryHouse[c] }}</title>
-        <ellipse cy="40" rx="78" ry="26" class="glowpad" filter="url(#glow2)"/>
-        <polygon points="-58,0 0,-30 58,0 0,30" class="top"/>
-        <polygon points="-58,0 0,30 0,64 -58,34" class="left"/>
-        <polygon points="0,30 58,0 58,34 0,64" class="right"/>
-        <!-- windows -->
-        <polygon points="10,36 22,30 22,40 10,46" class="win"/><polygon points="30,26 42,20 42,30 30,36" class="win"/>
-        <polygon points="-22,30 -10,36 -10,46 -22,40" class="win dim"/><polygon points="-42,20 -30,26 -30,36 -42,30" class="win dim"/>
-        <circle cy="-2" r="17" class="emblem"/>
-        <text y="6" text-anchor="middle" class="ms icon">{{ H[c].icon }}</text>
-        <text y="83" text-anchor="middle" class="hlabel">{{ t.category[c] }}</text>
-        <text y="99" text-anchor="middle" class="hsub">{{ houseCount(c) }}@if (inProgress(c) > 0) {<tspan class="act"> · {{ inProgress(c) }} {{ t.control.inProgress }}</tspan>}</text>
+        <ellipse cy="4" rx="78" ry="12" class="halo" filter="url(#soft)"/>
+        <ellipse cy="3" rx="66" ry="8" class="ground"/>
+        <rect x="22" y="-98" width="13" height="26" class="chimney"/>
+        <rect x="-48" y="-58" width="96" height="58" rx="3" class="wall"/>
+        <polygon points="-60,-55 0,-102 60,-55" class="roof"/>
+        <circle cy="-72" r="13" class="emblem"/>
+        <text y="-65" text-anchor="middle" class="ms icon">{{ H[c].icon }}</text>
+        <rect x="-38" y="-46" width="18" height="15" rx="2" class="win"/>
+        <rect x="20" y="-46" width="18" height="15" rx="2" class="win"/>
+        <path d="M-11 0 V-24 Q0 -34 11 -24 V0 Z" class="door"/>
+        <rect x="48" y="-28" width="14" height="12" rx="3" class="socket"/>
+        <text y="24" text-anchor="middle" class="hlabel">{{ t.category[c] }}</text>
+        <text y="40" text-anchor="middle" class="hsub">{{ houseCount(c) }}@if (inProgress(c) > 0) {<tspan class="act"> · {{ inProgress(c) }} {{ t.control.inProgress }}</tspan>}</text>
         @if (warnings(c) > 0) {
-          <g transform="translate(52 -26)"><circle r="11" class="warn-dot"/><text y="4" text-anchor="middle" class="warn-txt">{{ warnings(c) }}</text></g>
+          <g transform="translate(54 -86)"><circle r="11" class="warn-dot"/><text y="4" text-anchor="middle" class="warn-txt">{{ warnings(c) }}</text>
+            <title>{{ warnings(c) }} {{ t.control.warnings }}</title></g>
         }
       </g>
     }
 
     <!-- storage servers -->
     @for (s of storages; track s) {
-      <g class="server" [class.hot]="hotServer() === s" [class.down]="status(s) === 'DOWN'" [class.pulse-in]="pulseServer() === s"
-         [attr.transform]="'translate(' + S[s].x + ' ' + S[s].y + ')'" (click)="openServer(s)" [style.--sc]="S[s].color">
-        <title>{{ t.storage[s] }}</title>
-        <ellipse cy="62" rx="62" ry="20" class="glowpad" filter="url(#glow2)"/>
-        <polygon points="0,-62 42,-41 0,-20 -42,-41" class="top"/>
-        <polygon points="-42,-41 0,-20 0,62 -42,41" class="left"/>
-        <polygon points="0,-20 42,-41 42,41 0,62" class="right"/>
+      <g class="server" [class.hot]="wire()?.st === s" [class.down]="status(s) === 'DOWN'" [class.pulse-in]="pulseServer() === s"
+         [attr.transform]="'translate(' + S[s].x + ' ' + S[s].y + ')'">
+        <title>{{ t.storage[s] }} — {{ t.storage[status(s)] }}</title>
+        <ellipse cy="64" rx="64" ry="12" class="halo" filter="url(#soft)"/>
+        <rect x="-44" y="-60" width="88" height="122" rx="12" class="rack"/>
         @for (i of [0, 1, 2, 3]; track i) {
-          <line x1="-38" [attr.y1]="-28 + i * 18" x2="-4" [attr.y2]="-11 + i * 18" class="rack"/>
-          <circle [attr.cx]="10" [attr.cy]="-12 + i * 18 - 0" r="2.6" class="led" [style.animation-delay]="i * 0.3 + 's'"/>
-          <circle [attr.cx]="20" [attr.cy]="-17 + i * 18" r="2.6" class="led b" [style.animation-delay]="i * 0.5 + 's'"/>
+          <rect x="-32" [attr.y]="-34 + i * 22" width="64" height="14" rx="4" class="slot"/>
+          <circle cx="20" [attr.cy]="-27 + i * 22" r="3" class="led" [style.animation-delay]="i * 0.35 + 's'"/>
         }
-        <text y="-34" text-anchor="middle" class="ms sicon">{{ S[s].icon }}</text>
-        <text y="88" text-anchor="middle" class="slabel">{{ t.storage[s] }}</text>
-        <g transform="translate(0 104)">
-          <circle cx="-34" cy="-4" r="4" class="sdot s-{{ status(s) }}"/>
-          <text x="-26" y="0" class="sstatus s-{{ status(s) }}">{{ t.storage[status(s)] }} {{ latency(s) }}</text>
-        </g>
-        @if (status(s) === 'DOWN') {
-          <g transform="translate(-58 14)"><path d="M0 -12 L8 0 L-2 2 L6 14" class="spark"/></g>
-        }
+        <text y="-42" text-anchor="middle" class="ms sicon">{{ S[s].icon }}</text>
+        <text y="86" text-anchor="middle" class="slabel">{{ t.storage[s] }}</text>
+        <text y="104" text-anchor="middle" class="sstatus s-{{ status(s) }}">{{ t.storage[status(s)] }} {{ latency(s) }}</text>
       </g>
     }
 
-    <!-- data packet -->
+    <!-- data packet travelling on the wire -->
     <g id="packet" class="packet">
-      <circle r="13" class="halo" filter="url(#glow2)"/>
-      <circle r="6.5" class="core" filter="url(#glow)"/>
+      <circle r="14" class="phalo" filter="url(#soft)"/>
+      <circle r="6.5" class="pcore"/>
       @if (packetLabel()) { <text y="-14" text-anchor="middle" class="plabel">{{ packetLabel() }}</text> }
     </g>
 
-    <!-- Agent 01 -->
+    <!-- Agent 01: the only drop target for new files -->
     <g id="agent01" class="agent st-{{ agentState() }}">
-      <foreignObject x="-130" y="-178" width="260" height="78">
-        <div class="bubble" xmlns="http://www.w3.org/1999/xhtml"><b>{{ t.control.agent01 }}</b><span>{{ agentMsg() }}</span></div>
+      <circle id="agent-hit" cy="-58" r="64" class="hit"/>
+      <foreignObject [attr.x]="bubbleSide() === 'left' ? -330 : -140" [attr.y]="bubbleSide() === 'left' ? -150 : -214" width="280" height="86">
+        <div class="bwrap" [class.left]="bubbleSide() === 'left'" xmlns="http://www.w3.org/1999/xhtml">
+          <div class="bubble" aria-live="polite"><b>{{ t.control.agent01 }}</b><span>{{ agentMsg() }}</span></div>
+        </div>
       </foreignObject>
-      <ellipse cy="4" rx="26" ry="7" class="shadow"/>
-      <g class="bot">
-        <!-- wheels -->
-        <rect x="-18" y="-10" width="12" height="12" rx="6" class="wheel"/><rect x="6" y="-10" width="12" height="12" rx="6" class="wheel"/>
-        <!-- body -->
-        <rect x="-20" y="-40" width="40" height="32" rx="9" class="body"/>
-        <rect x="-8" y="-32" width="16" height="10" rx="3" class="chest"/>
-        <!-- arms -->
-        <path d="M-20 -32 q-12 6 -10 18" class="arm"/>
-        <path d="M20 -32 q12 6 10 18" class="arm"/>
-        <!-- head -->
-        <line x1="0" y1="-78" x2="0" y2="-90" class="antenna"/><circle cy="-92" r="4" class="bulb"/>
-        <rect x="-26" y="-78" width="52" height="38" rx="12" class="head"/>
-        <rect x="-20" y="-72" width="40" height="26" rx="7" class="screen"/>
-        @switch (agentState()) {
-          @case ('success') {
-            <path d="M-12 -57 q4 -6 8 0 M4 -57 q4 -6 8 0" class="eye-l"/>
-            <path d="M-6 -52 q6 4 12 0" class="eye-l"/>
+      <ellipse cy="4" rx="32" ry="8" class="shadow"/>
+      <g transform="scale(1.3)">
+        <g class="bot">
+          <rect x="-18" y="-10" width="12" height="12" rx="6" class="wheel"/><rect x="6" y="-10" width="12" height="12" rx="6" class="wheel"/>
+          <rect x="-20" y="-40" width="40" height="32" rx="9" class="body"/>
+          <rect x="-8" y="-32" width="16" height="10" rx="3" class="chest"/>
+          <path d="M-20 -32 q-12 6 -10 18" class="arm"/>
+          <path d="M20 -32 q12 6 10 18" class="arm"/>
+          <line x1="0" y1="-78" x2="0" y2="-90" class="antenna"/><circle cy="-92" r="4" class="bulb"/>
+          <rect x="-26" y="-78" width="52" height="38" rx="12" class="head"/>
+          <rect x="-20" y="-72" width="40" height="26" rx="7" class="screen"/>
+          @switch (agentState()) {
+            @case ('success') {
+              <path d="M-12 -57 q4 -6 8 0 M4 -57 q4 -6 8 0" class="eye-l"/>
+              <path d="M-6 -52 q6 4 12 0" class="eye-l"/>
+            }
+            @case ('warning') { <text x="0" y="-51" text-anchor="middle" class="eye-t">! !</text> }
+            @case ('error') { <path d="M-13 -64 l7 7 m0 -7 l-7 7 M6 -64 l7 7 m0 -7 l-7 7" class="eye-l"/> }
+            @case ('scanning') { <rect x="-17" y="-61" width="34" height="3" rx="1.5" class="scanline"/> }
+            @case ('drop') {
+              <circle cx="-8" cy="-59" r="5" class="eye"/><circle cx="8" cy="-59" r="5" class="eye"/>
+              <path d="M-5 -51 q5 3 10 0" class="eye-l"/>
+            }
+            @default { <circle cx="-8" cy="-59" r="3.6" class="eye"/><circle cx="8" cy="-59" r="3.6" class="eye"/> }
           }
-          @case ('warning') {
-            <text x="0" y="-51" text-anchor="middle" class="eye-t">! !</text>
+          @if (agentState() === 'scanning') { <polygon points="20,-62 80,-86 80,-36" class="beam"/> }
+          @if (agentState() === 'carrying' || agentState() === 'walking' || agentState() === 'success') {
+            <g class="parcel" transform="translate(30 -20)">
+              <path d="M-9 -12 h12 l6 6 v18 h-18 z" class="doc"/><path d="M3 -12 v6 h6" class="fold"/>
+            </g>
           }
-          @case ('error') {
-            <path d="M-13 -64 l7 7 m0 -7 l-7 7 M6 -64 l7 7 m0 -7 l-7 7" class="eye-l"/>
-          }
-          @case ('scanning') {
-            <rect x="-17" y="-61" width="34" height="3" rx="1.5" class="scanline"/>
-          }
-          @default {
-            <circle cx="-8" cy="-59" r="3.6" class="eye"/><circle cx="8" cy="-59" r="3.6" class="eye"/>
-          }
-        }
-        @if (agentState() === 'scanning') {
-          <polygon points="20,-62 90,-90 90,-30" class="beam"/>
-        }
-        @if (agentState() === 'carrying' || agentState() === 'walking' || agentState() === 'success') {
-          <g class="parcel" transform="translate(0 -112)">
-            <path d="M-9 -12 h12 l6 6 v18 h-18 z" class="doc"/><path d="M3 -12 v6 h6" class="fold"/>
-          </g>
-        }
+        </g>
       </g>
-      <text y="26" text-anchor="middle" class="alabel">{{ t.control.agent01 }}</text>
+      <text y="30" text-anchor="middle" class="alabel">{{ t.control.agent01 }}</text>
     </g>
   </svg>
-
-  @if (success(); as s) {
-    <div class="toast ok">
-      <span class="ms fill">verified</span>
-      <div class="grow"><b>{{ t.status['STORED_VERIFIED'] }}</b><div class="small ellipsis">{{ s.name || s.fileId }}</div></div>
-      <button class="btn ok sm" (click)="openPassport()"><span class="ms">badge</span>{{ t.control.openPassport }}</button>
-    </div>
-  }
-  @if (dragOver()) { <div class="dropmask"><span class="ms big">move_to_inbox</span>{{ t.agent01.dropHere }}</div> }
 </div>

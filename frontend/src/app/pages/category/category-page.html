@@ -1,0 +1,101 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <div class="kicker">{{ t.categoryHouse[category()] }}</div>
+      <h1>{{ t.category[category()] }}</h1>
+      <div class="lead">{{ t.categoryDescription[category()] }}</div>
+    </div>
+    @if (hasSim()) { <span class="badge sim"><span class="ms">science</span>{{ t.app.simulatedData }}</span> }
+  </div>
+
+  @if (catSummary(); as s) {
+    <div class="house-facts mb">
+      <span><b>{{ s.fileCount | num }}</b> {{ t.control.files }} · {{ s.totalBytes | size }}</span>
+      @if (s.inProgress > 0) { <span class="tone-active badge">{{ s.inProgress }} {{ t.control.inProgress }}</span> }
+      @if (s.pending > 0) { <span class="tone-warn badge">{{ s.pending }} {{ t.status['PENDING'] }}</span> }
+      @if (s.mismatch + s.transferFailed > 0) { <span class="tone-bad badge">{{ s.mismatch + s.transferFailed }} {{ t.control.warnings }}</span> }
+      <span class="row wrap">@for (e of s.byStorage | keyvalue; track e.key) { <fg-storage [storage]="e.key" /> <span class="mono small">{{ e.value | num }}</span> }</span>
+      <span class="muted small">{{ t.control.recent }}: {{ s.lastReceivedAt | dt }}</span>
+    </div>
+  }
+
+  <div class="card mb">
+    <div class="row">
+      <span class="ms">search</span>
+      <input class="input grow" [placeholder]="t.files.q" [value]="f()['q'] ?? ''" (input)="set('q', $any($event.target).value, true)" />
+      <button class="btn ghost sm" (click)="showFilters.set(!showFilters())" [attr.aria-expanded]="showFilters()">
+        <span class="ms">tune</span>{{ t.files.filters }}@if (activeFilters() > 0) { ({{ activeFilters() }}) }
+      </button>
+    </div>
+    @if (showFilters()) {
+      <div class="filters mt">
+        <label class="field"><span>{{ t.files.storage }}</span>
+          <select class="input" [value]="f()['storage'] ?? ''" (change)="set('storage', $any($event.target).value)">
+            <option value="">{{ t.app.all }}</option>@for (s of storages; track s) { <option [value]="s">{{ t.storage[s] }}</option> }
+          </select></label>
+        <label class="field"><span>{{ t.files.status }}</span>
+          <select class="input" [value]="f()['status'] ?? ''" (change)="set('status', $any($event.target).value)">
+            <option value="">{{ t.app.all }}</option>@for (s of statuses; track s) { <option [value]="s">{{ t.status[s] }}</option> }
+          </select></label>
+        <label class="field"><span>{{ t.files.integrity }}</span>
+          <select class="input" [value]="f()['integrity'] ?? ''" (change)="set('integrity', $any($event.target).value)">
+            <option value="">{{ t.app.all }}</option>@for (s of integrities; track s) { <option [value]="s">{{ t.integrity[s] }}</option> }
+          </select></label>
+        <label class="field"><span>{{ t.files.zone }}</span><input class="input" [value]="f()['zone'] ?? ''" (input)="set('zone', $any($event.target).value, true)" /></label>
+        <label class="field"><span>{{ t.files.station }}</span><input class="input" [value]="f()['station'] ?? ''" (input)="set('station', $any($event.target).value, true)" /></label>
+        <label class="field"><span>{{ t.files.contentType }}</span><input class="input" [value]="f()['contentType'] ?? ''" placeholder="video/, application/pdf" (input)="set('contentType', $any($event.target).value, true)" /></label>
+        <label class="field"><span>{{ t.files.from }}</span><input class="input" type="datetime-local" [value]="f()['from'] ?? ''" (change)="set('from', $any($event.target).value)" /></label>
+        <label class="field"><span>{{ t.files.to }}</span><input class="input" type="datetime-local" [value]="f()['to'] ?? ''" (change)="set('to', $any($event.target).value)" /></label>
+        <label class="field"><span>{{ t.files.size }} min (MB)</span><input class="input" type="number" min="0" [value]="f()['sizeMin'] ?? ''" (input)="set('sizeMin', $any($event.target).value, true)" /></label>
+        <label class="field"><span>{{ t.files.size }} max (MB)</span><input class="input" type="number" min="0" [value]="f()['sizeMax'] ?? ''" (input)="set('sizeMax', $any($event.target).value, true)" /></label>
+        <label class="field"><span>{{ t.files.origin }}</span>
+          <select class="input" [value]="f()['dataOrigin'] ?? ''" (change)="set('dataOrigin', $any($event.target).value)">
+            <option value="">{{ t.app.all }}</option><option value="REAL">{{ t.app.real }}</option><option value="SIMULATED">{{ t.app.simulated }}</option>
+          </select></label>
+        <button class="btn ghost sm" (click)="reset()"><span class="ms">filter_alt_off</span>{{ t.files.reset }}</button>
+      </div>
+    }
+  </div>
+
+  <div class="card flush">
+    @if (list.data(); as p) {
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th (click)="sortBy('name')" style="cursor:pointer">{{ t.files.name }} {{ arrow('name') }}</th>
+            <th (click)="sortBy('receivedAt')" style="cursor:pointer">{{ t.files.received }} {{ arrow('receivedAt') }}</th>
+            <th (click)="sortBy('size')" style="cursor:pointer" class="right">{{ t.files.size }} {{ arrow('size') }}</th>
+            <th>{{ t.files.location }}</th>
+            <th>{{ t.files.storage }}</th>
+            <th>{{ t.files.status }}</th>
+            <th>{{ t.files.integrity }}</th>
+          </tr></thead>
+          <tbody>
+            @for (i of p.items; track i.id) {
+              <tr class="click" (click)="open(i.id)">
+                <td><a [routerLink]="['/files', i.id]" (click)="$event.stopPropagation()"><b>{{ i.name }}</b></a>
+                  <div class="row tiny muted">@if (i.encrypted) { <span class="ms" style="font-size:13px">lock</span> } {{ i.contentType }} <fg-origin [origin]="i.dataOrigin" /></div></td>
+                <td class="small nowrap">{{ i.receivedAt | dt }}</td>
+                <td class="right mono small nowrap">{{ i.sizeBytes | size }}</td>
+                <td class="small">{{ [i.station, i.zone, i.equipment, i.meterId] | join }}</td>
+                <td><fg-storage [storage]="i.storage" /></td>
+                <td><fg-status [status]="i.status" /></td>
+                <td><fg-integrity [status]="i.integrityStatus" /></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="7"><fg-state [empty]="true" /></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span>{{ p.total | num }} {{ t.app.results }}</span>
+        <button class="btn ghost sm" [disabled]="curPage() === 0" (click)="page(curPage() - 1)">{{ t.app.prev }}</button>
+        <span>{{ t.app.page }} {{ curPage() + 1 }} {{ t.app.of }} {{ pages() }}</span>
+        <button class="btn ghost sm" [disabled]="curPage() + 1 >= pages()" (click)="page(curPage() + 1)">{{ t.app.next }}</button>
+      </div>
+    } @else {
+      <fg-state [loading]="list.loading()" [unavailable]="list.unavailable()" [error]="list.error()" (retry)="list.load()" />
+    }
+  </div>
+</div>

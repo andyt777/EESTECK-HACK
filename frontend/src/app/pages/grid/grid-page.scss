@@ -16,7 +16,7 @@
 .pad { padding: 14px 16px 0; }
 .flist { display: flex; flex-direction: column; max-height: 620px; overflow-y: auto; padding: 8px; gap: 4px; }
 .fi { display: flex; gap: 10px; align-items: flex-start; text-align: left; background: none; border: 1px solid transparent; border-radius: 10px; padding: 10px; color: inherit; font: inherit; cursor: pointer; min-width: 0;
-  &:hover { background: rgba(34, 211, 238, .04); } &.sel { border-color: rgba(34, 211, 238, .4); background: rgba(34, 211, 238, .07); }
+  &:hover { background: rgba(255, 119, 188, .04); } &.sel { border-color: rgba(255, 119, 188, .4); background: rgba(255, 119, 188, .07); }
   .ic { color: var(--amber); margin-top: 2px; } .ic.ins { color: var(--muted); } }
 .conf-HIGH { color: var(--red); background: rgba(244, 63, 94, .1); border-color: rgba(244, 63, 94, .35); }
 .conf-MEDIUM { color: var(--amber); background: rgba(251, 191, 36, .1); border-color: rgba(251, 191, 36, .35); }

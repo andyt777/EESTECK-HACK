@@ -1,134 +1,35 @@
-<div class="page">
-  <div class="page-head">
-    <div>
-      <div class="kicker">{{ t.app.subtitle }}</div>
-      <h1>{{ t.control.title }}</h1>
-      <div class="lead">{{ t.control.lead }}</div>
-    </div>
-    <div class="row">
-      <a class="btn ghost" routerLink="/files"><span class="ms">folder_open</span>{{ t.nav.files }}</a>
-      <button class="btn" (click)="openUpload()"><span class="ms">cloud_upload</span>{{ t.control.uploadButton }}</button>
-    </div>
-  </div>
+<div class="cc">
+  <fg-village [summary]="summary.data()" [health]="health.data()" [meter]="meter.data()" (focusFile)="onFocus($event)" />
 
-  <!-- KPI tiles -->
-  <div class="grid g6 mb">
-    <div class="card kpi info">
-      <span class="label"><span class="ms">electric_meter</span>{{ t.control.kpiMeterRate }} <fg-origin [origin]="meter.data()?.dataOrigin" /></span>
-      <span class="value">{{ meter.data()?.readingsLastMinute | num }}</span>
-      <span class="sub">{{ meter.data()?.readingsStored | num }} {{ t.control.kpiReadingsTotal }} · {{ meter.data()?.activeMeters | num }} contoare</span>
-    </div>
-    <div class="card kpi ok">
-      <span class="label"><span class="ms">verified</span>{{ t.control.kpiStored }}</span>
-      <span class="value">{{ summary.data() ? (stored() | num) : '—' }}</span>
-      <span class="sub">{{ t.status['STORED_VERIFIED'] }}</span>
-    </div>
-    <div class="card kpi" [class.ok]="meter.data()?.duplicatesWritten === 0" [class.bad]="(meter.data()?.duplicatesWritten ?? 0) > 0">
-      <span class="label"><span class="ms">content_copy</span>{{ t.control.kpiDuplicates }}</span>
-      <span class="value">{{ meter.data()?.duplicatesWritten ?? '—' }}</span>
-      <span class="sub">{{ meter.data()?.duplicatesRejected | num }} {{ t.control.kpiRejected }} · {{ meter.data()?.gaps | num }} goluri</span>
-    </div>
-    <a class="card kpi" routerLink="/files" [queryParams]="{ status: 'PENDING' }" [class.warn]="pending() > 0" [class.ok]="summary.data() && pending() === 0">
-      <span class="label"><span class="ms">hourglass_top</span>{{ t.control.kpiPending }}</span>
-      <span class="value">{{ summary.data() ? pending() : '—' }}</span>
-      <span class="sub">{{ t.status['PENDING'] }}</span>
-    </a>
-    <a class="card kpi" routerLink="/incidents" [class.bad]="(openIncidents() ?? 0) > 0" [class.ok]="openIncidents() === 0">
-      <span class="label"><span class="ms">shield</span>{{ t.control.kpiIncidents }}</span>
-      <span class="value">{{ openIncidents() ?? '—' }}</span>
-      <span class="sub">@if (incidents.unavailable()) { {{ t.storage['UNKNOWN'] }} } @else { {{ criticalIncidents() }} critice }</span>
-    </a>
-    <a class="card kpi" routerLink="/grid" [class.warn]="(anomalies() ?? 0) > 0" [class.ok]="anomalies() === 0">
-      <span class="label"><span class="ms">insights</span>{{ t.control.kpiAnomalies }} <span class="badge sim tiny">{{ t.app.simulated }}</span></span>
-      <span class="value">{{ anomalies() ?? '—' }}</span>
-      <span class="sub">Agent 02 · Grid Intelligence</span>
-    </a>
-  </div>
-
-  <div class="grid side">
-    <div class="col">
-      <fg-village [summary]="summary.data()" [health]="health.data()" [meter]="meter.data()" (files)="openUpload($event)" (focusFile)="onFocus($event)" />
-
-      <!-- Decision Explorer drop-down under the agent -->
-      <div class="card" [class.glow]="!!decision()">
-        <button class="dd-head" (click)="decisionOpen.set(!decisionOpen())">
-          <span class="ms">account_tree</span><b>{{ t.control.decision }}</b>
-          @if (decision(); as d) { <fg-storage [storage]="d.selectedStorage" /> <span class="muted small ellipsis">{{ d.explanationRo }}</span> }
-          @else { <span class="muted small">{{ t.decision.none }}</span> }
-          <span class="grow"></span>
-          @if (focusId()) { <a class="btn ghost sm" [routerLink]="['/files', focusId()]" (click)="$event.stopPropagation()">{{ t.control.openPassport }}</a> }
-          <span class="ms">{{ decisionOpen() ? 'expand_less' : 'expand_more' }}</span>
-        </button>
-        @if (decisionOpen() && decision()) { <div class="mt"><fg-decision [d]="decision()" [compact]="true" /></div> }
+  @if (messageFor(); as id) {
+    <section class="decision-msg" [class.ok]="verified()" aria-live="polite">
+      <header>
+        <span class="ms">account_tree</span>
+        <h2>{{ t.control.decision }}</h2>
+        <span class="grow"></span>
+        <button class="btn ghost sm icon" (click)="dismiss()" [title]="t.control.dismiss" [attr.aria-label]="t.control.dismiss"><span class="ms">close</span></button>
+      </header>
+      <div class="file row">
+        <span class="ms">description</span><span class="grow ellipsis"><b>{{ fileName() || id }}</b></span>
+        @if (fileStatus(); as s) { <fg-status [status]="s" /> }
       </div>
-    </div>
-
-    <div class="col">
-      <div class="card">
-        <div class="card-head"><h3>{{ t.control.storageHealth }}</h3></div>
-        @if (health.data(); as hs) {
-          @for (h of hs; track h.storage) {
-            <div class="sh row">
-              <span class="dot" [class.ok]="h.status === 'UP'" [class.bad]="h.status === 'DOWN'"></span>
-              <fg-storage [storage]="h.storage" />
-              <span class="grow small">{{ t.storage[h.status] }}</span>
-              <span class="mono tiny muted">{{ h.latencyMs ?? '—' }} ms · {{ h.lastCheck | tm }}</span>
-            </div>
-          }
-        } @else {
-          <fg-state [loading]="health.loading()" [unavailable]="health.unavailable()" [error]="health.error()" (retry)="health.load()" />
-        }
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h3>{{ t.upload.queue }}</h3><a class="small" routerLink="/upload">{{ t.nav.upload }}</a></div>
-        <fg-upload-tracker [compact]="true" [limit]="3" />
-      </div>
-
-      <div class="card feed">
-        <div class="card-head"><h3>{{ t.control.liveFeed }}</h3>
-          <span class="row tiny muted"><span class="dot" [class.ok]="events.connected()"></span>{{ events.meterEvents() | num }} citiri contor (agregat)</span></div>
-        <div class="feed-list">
-          @for (e of events.feed(); track $index) {
-            <a class="fe" [routerLink]="['/files', e.fileId]">
-              <span class="mono tiny muted">{{ e.timestamp | tm }}</span>
-              <fg-status [status]="e.status" />
-              <span class="small ellipsis grow">{{ e.message || (e.category | cat) }}</span>
-              @if (e.storage) { <fg-storage [storage]="e.storage" /> }
-            </a>
-          } @empty {
-            <div class="muted small state">{{ t.control.liveFeedEmpty }}</div>
-          }
+      @if (decision(); as d) {
+        <div class="verdict row">
+          <fg-storage [storage]="d.selectedStorage" />
+          @if (d.category) { <span class="small muted">{{ d.category | cat }}</span> }
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grid Intelligence teaser (far below the village) -->
-  <div class="grid g2 mt">
-    <div class="card">
-      <div class="card-head">
-        <div><h2><span class="ms">electric_bolt</span> {{ t.control.gridTitle }} <fg-origin [origin]="gridModel()?.dataOrigin" /></h2><div class="muted small">{{ t.control.gridLead }}</div></div>
-        <a class="btn ghost sm" routerLink="/grid">{{ t.control.openGrid }}</a>
-      </div>
-      @if (gridModel()) { <fg-grid-map [model]="gridModel()" [mini]="true" /> }
-      @else { <fg-state [loading]="grid.loading()" [unavailable]="grid.unavailable()" [error]="grid.error()" (retry)="grid.load()" /> }
-    </div>
-    <div class="card">
-      <div class="card-head"><h2><span class="ms">shield</span> {{ t.incidents.title }}</h2><a class="btn ghost sm" routerLink="/incidents">{{ t.app.open }}</a></div>
-      @if (incidents.data()) {
-        @for (i of incidentsList(); track i.id) {
-          <a class="inc row" [routerLink]="['/incidents', i.id]">
-            <fg-severity [value]="i.severity" [label]="i.severityLabel" />
-            <span class="mono small">{{ i.code }}</span>
-            <span class="grow ellipsis small">{{ i.title || i.typeLabel }}</span>
-            <span class="badge tone-muted">{{ i.statusLabel }}</span>
-            <fg-origin [origin]="i.dataOrigin" />
-          </a>
-        } @empty { <div class="state muted small">{{ t.app.empty }}</div> }
+        <p class="why" [class.clamp]="!details()">{{ d.explanationRo || d.explanation }}</p>
+        @if (details()) { <div class="details"><fg-decision [d]="d" [compact]="true" /></div> }
+        <div class="row actions">
+          <button class="btn ghost sm" (click)="details.set(!details())">
+            <span class="ms">{{ details() ? 'expand_less' : 'expand_more' }}</span>{{ details() ? t.control.decisionHide : t.control.decisionDetails }}
+          </button>
+          <span class="grow"></span>
+          @if (verified()) { <a class="btn sm" [routerLink]="['/files', id]"><span class="ms">badge</span>{{ t.control.openPassport }}</a> }
+        </div>
       } @else {
-        <fg-state [loading]="incidents.loading()" [unavailable]="incidents.unavailable()" [error]="incidents.error()" (retry)="incidents.load()" />
+        <p class="why muted">{{ t.control.decisionWaiting }}</p>
       }
-    </div>
-  </div>
+    </section>
+  }
 </div>

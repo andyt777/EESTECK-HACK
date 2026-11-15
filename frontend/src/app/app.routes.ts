@@ -3,9 +3,7 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./pages/control/control-center').then((m) => m.ControlCenter), title: 'Control Center — FileGrid' },
   { path: 'village', redirectTo: '' },
-  { path: 'upload', loadComponent: () => import('./pages/upload/upload-page').then((m) => m.UploadPage), title: 'Încărcare — FileGrid' },
-  { path: 'files', loadComponent: () => import('./pages/files/file-explorer').then((m) => m.FileExplorer), title: 'File Explorer — FileGrid' },
-  { path: 'categories/:category', loadComponent: () => import('./pages/files/file-explorer').then((m) => m.FileExplorer), title: 'Categorie — FileGrid' },
+  { path: 'categories/:category', loadComponent: () => import('./pages/category/category-page').then((m) => m.CategoryPage), title: 'Categorie — FileGrid' },
   { path: 'files/:id', loadComponent: () => import('./pages/passport/passport-page').then((m) => m.PassportPage), title: 'File Passport — FileGrid' },
   { path: 'decisions', loadComponent: () => import('./pages/decisions/decisions-page').then((m) => m.DecisionsPage), title: 'Decision Explorer — FileGrid' },
   { path: 'policies', loadComponent: () => import('./pages/policies/policies-page').then((m) => m.PoliciesPage), title: 'Politici — FileGrid' },

@@ -30,24 +30,24 @@ export class App {
   readonly sections: { title: string; items: NavItem[] }[] = [
     { title: T.nav.sectionOps, items: [
       { path: '/', label: T.nav.control, icon: 'hub', exact: true },
-      { path: '/upload', label: T.nav.upload, icon: 'cloud_upload' },
       { path: '/incidents', label: T.nav.incidents, icon: 'shield' },
       { path: '/field', label: T.nav.field, icon: 'support_agent' },
-    ] },
-    { title: T.nav.sectionData, items: [
-      { path: '/files', label: T.nav.files, icon: 'folder_open' },
-      { path: '/decisions', label: T.nav.decisions, icon: 'account_tree' },
-      { path: '/policies', label: T.nav.policies, icon: 'rule' },
     ] },
     { title: T.nav.sectionIntel, items: [
       { path: '/grid', label: T.nav.grid, icon: 'electric_bolt' },
       { path: '/assistant', label: T.nav.assistant, icon: 'smart_toy' },
       { path: '/performance', label: T.nav.performance, icon: 'speed' },
     ] },
+    { title: T.nav.sectionAdmin, items: [
+      { path: '/decisions', label: T.nav.decisions, icon: 'account_tree' },
+      { path: '/policies', label: T.nav.policies, icon: 'rule' },
+    ] },
   ];
 
   readonly url = signal('/');
   readonly onVillage = computed(() => this.url() === '/' || this.url().startsWith('/?'));
+  /** The sidebar is hidden by default and slides in from the menu button. */
+  readonly menuOpen = signal(false);
   readonly searchOpen = signal(false);
   readonly searchQ = signal('');
   readonly searchResults = signal<FileSummary[]>([]);
@@ -59,6 +59,7 @@ export class App {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe((e) => {
       this.url.set((e as NavigationEnd).urlAfterRedirects);
       this.ui.simulatedOnPage.set(false);
+      this.menuOpen.set(false);
     });
     this.search$.pipe(
       debounceTime(180),
@@ -82,6 +83,8 @@ export class App {
       this.openSearch();
     } else if (e.key === 'Escape' && this.searchOpen()) {
       this.searchOpen.set(false);
+    } else if (e.key === 'Escape' && this.menuOpen()) {
+      this.menuOpen.set(false);
     }
   }
 

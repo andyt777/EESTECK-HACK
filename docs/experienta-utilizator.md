@@ -46,13 +46,16 @@ Interfața trebuie să fie ușor de înțeles chiar și pentru un utilizator car
 
 ## 3.1 Conceptul vizual
 
-Ecranul principal este construit ca un mic sat digital, văzut dintr-o perspectivă izometrică sau ușor de sus. În sat se află:
+Ecranul principal este construit ca un mic sat digital și ocupă tot ecranul: harta este singurul lucru din Control Center (fără panou de statistici, fără liste laterale). În sat se află:
 
-- patru case distincte, fiecare reprezentând o categorie de date;
+- patru case distincte (pereți albi, acoperiș roz), fiecare reprezentând o categorie de date;
 - un personaj central — **Agent 01**, responsabil de preluarea și rutarea fișierelor;
 - trei servere vizibile în partea opusă a satului, reprezentând cele trei destinații de stocare: FTP, S3 și Database;
-- cabluri sau trasee luminoase care conectează casele cu serverele;
-- o zonă de activitate recentă și un rezumat al fișierelor procesate.
+- un fir care apare între casă și serverul ales doar cât timp un fișier este transportat (plus firul permanent, agregat, al citirilor de contor).
+
+Paleta interfeței: albastru închis (deep blue), alb pur și roz bubblegum ca accent. Titlurile sunt scrise cu italic; textul obișnuit rămâne drept, pentru lizibilitate. Culorile verde/galben/roșu se folosesc doar pentru stări (succes, avertizare, eroare).
+
+Statisticile nu mai apar în Control Center; ele sunt în Grid Intelligence și Performance, accesibile din meniu.
 
 Cele patru case trebuie diferențiate prin simbol, denumire și aspect vizual:
 
@@ -69,14 +72,14 @@ Cele trei servere trebuie să fie ușor de recunoscut și să aibă etichete viz
 
 Când un fișier intră în FileGrid, utilizatorul trebuie să poată urmări vizual întregul traseu:
 
-1. Fișierul apare în zona de intrare, iar Agent 01 se deplasează către el.
-2. Agentul preia fișierul și afișează că îl analizează.
-3. Agentul identifică tipul de date și se deplasează către casa categoriei corespunzătoare.
-4. La sosirea în dreptul casei, categoria fișierului este confirmată vizual.
-5. Agentul consultă decizia de rutare, iar pe ecran este evidențiat serverul ales.
-6. Un pachet luminos de date pornește din zona casei și călătorește pe cablul corespunzător către server.
-7. Serverul luminează sau își schimbă starea când primește fișierul.
-8. După încheierea operației, utilizatorul vede confirmarea și poate deschide fișierul în categoria sa.
+1. Fișierul lăsat de utilizator pe Agent 01 este preluat direct de el (fișierele din alte surse apar la intrarea satului, iar Agent 01 merge după ele).
+2. Agentul afișează că analizează fișierul.
+3. Agentul identifică tipul de date și merge efectiv, pe alee, până la ușa casei categoriei corespunzătoare.
+4. La sosirea în dreptul casei, casa se aprinde (ferestre și ușă luminate).
+5. Agentul stabilește destinația și conectează un fir de la casă la serverul ales.
+6. Un pachet luminos de date călătorește pe fir către server.
+7. Serverul luminează când primește fișierul.
+8. După încheierea operației, utilizatorul vede confirmarea și mesajul cu decizia (vezi capitolul 7).
 
 Animația trebuie să comunice clar că fișierul trece printr-un proces de analiză, clasificare, direcționare și stocare. Ea nu trebuie să fie doar decorativă: starea vizuală trebuie să corespundă rezultatului real al operației.
 
@@ -97,7 +100,7 @@ Succesul nu trebuie afișat înainte ca stocarea și verificarea să fie închei
 
 ## 3.4 Interacțiunea cu casele
 
-Fiecare casă este un element interactiv. La selectarea ei, utilizatorul intră în categoria respectivă și vede toate fișierele asociate acelei categorii.
+Fiecare casă este un element interactiv. La click pe ea, utilizatorul intră în categoria respectivă și vede toate fișierele asociate acelei categorii, cu căutare și filtre. Acesta este singurul mod de a răsfoi fișierele: nu mai există un File Explorer separat. Serverele nu sunt clicabile.
 
 De exemplu, selectarea Casei dronelor deschide lista tuturor video-urilor de inspecție, indiferent de serverul pe care se află fiecare fișier.
 
@@ -113,15 +116,17 @@ Pe fiecare casă poate apărea un mic rezumat:
 
 ## 4.1 Încărcarea unui fișier
 
-Drag and Drop pe omuletul din mijlocul ecranului
+Singura cale de încărcare este drag and drop pe Agent 01 (omulețul din mijlocul satului). Nu există pagină de încărcare, formular sau fereastră de confirmare.
 
 Fluxul este următorul:
 
-1. Utilizatorul selectează fișierul de pe dispozitiv.
-2. Confirmă încărcarea.
-3. Agentul analizează și clasifică fișierul.
-4. Utilizatorul vede casa în care a fost încadrat și serverul selectat.
-5. La final primește confirmarea și poate deschide pașaportul fișierului.
+1. Utilizatorul trage unul sau mai multe fișiere de pe dispozitiv peste Agent 01; platforma din jurul robotului se aprinde.
+2. La eliberare pe robot, încărcarea pornește imediat (reluabilă, pe bucăți). Dacă fișierul este lăsat în altă parte a hărții, nu se încarcă nimic, iar Agent 01 spune: „Lasă fișierul chiar pe Agent 01.”
+3. Cât timp fișierul urcă din browser, balonul agentului arată procentul („Primesc fișierul… 42%”).
+4. Agentul analizează și clasifică fișierul (categoria este detectată automat), apoi merge la casa în care l-a încadrat și conectează firul către serverul selectat.
+5. La final apar confirmarea și mesajul cu decizia, din care se poate deschide pașaportul fișierului.
+
+Dacă încărcarea se întrerupe definitiv (după reîncercările automate), agentul anunță asta; utilizatorul trage din nou același fișier pe robot, iar încărcarea se reia de unde a rămas.
 
 
 ---
@@ -136,8 +141,9 @@ Această pagină conține:
 - cele mai recente fișiere;
 - câmp de căutare;
 - filtre;
-- lista fișierelor;
-- buton de încărcare, unde categoria permite upload manual.
+- lista fișierelor.
+
+Pagina casei nu are buton de încărcare: fișierele se încarcă doar prin Agent 01, în Village.
 
 ## 5.1 Lista de fișiere
 
@@ -255,7 +261,9 @@ Documentele personale nu trebuie expuse utilizatorilor care nu au drept de acces
 
 # 7. Decision Explorer — explicarea deciziei Agentului 01
 
-Este un drop-down dupa ce incarci fisierul si agentul incepe procesul de trasport.
+Decizia apare în Control Center ca un mesaj peste hartă, imediat ce Agent 01 a ales destinația pentru fișierul încărcat de utilizator. Mesajul arată numele fișierului, starea lui reală, storage-ul ales și explicația; butonul „Criterii și alternative” deschide detaliile complete. După verificare apare și „Deschide pașaportul”. Mesajul rămâne până când utilizatorul îl închide sau încarcă alt fișier.
+
+Pagina **Decision Explorer** (istoricul tuturor deciziilor) rămâne disponibilă din meniul lateral, fără să fie afișată pe ecranul principal.
 
 Pentru fișierul selectat, afișează:
 - categoria identificată;
@@ -640,10 +648,10 @@ Dacă un incident critic nu este confirmat în intervalul stabilit de responsabi
 
 ## 11.3 Exemplu: încărcarea unui video mare de dronă
 
-1. Utilizatorul intră în Casa dronelor.
-2. Selectează videoclipul și completează locația/echipamentul inspectat.
-3. Pornește încărcarea și vede progresul.
-4. Agent 01 preia fișierul și îl încadrează în categoria video.
+1. Utilizatorul deschide Control Center (FileGrid Village).
+2. Trage videoclipul peste Agent 01.
+3. Încărcarea pornește imediat, iar balonul agentului arată progresul.
+4. Agent 01 încadrează fișierul în categoria video și merge la Casa dronelor.
 5. Interfața arată destinația selectată.
 6. Pachetul de date parcurge traseul vizual către server.
 7. Dacă transferul este întrerupt, interfața indică pauza și apoi reluarea.
@@ -664,17 +672,20 @@ Dacă un incident critic nu este confirmat în intervalul stabilit de responsabi
 
 # 12. Organizarea meniului principal
 
-Meniul principal trebuie să ofere acces rapid la:
+Meniul principal este un **sidebar ascuns**: nu stă permanent pe ecran, ci se deschide din butonul ☰ din bara de sus și se închide la alegerea unei pagini, la click în afara lui sau cu Esc. Conține:
 
-1. **Village** — ecranul animat principal și cele patru categorii.
-2. **File Explorer** — căutare generală în toate fișierele.
-3. **Decision Explorer** — explicațiile deciziilor de rutare.
+1. **Control Center (Village)** — harta animată, cele patru case și încărcarea prin Agent 01.
+2. **Security & Incident Center** — incidente, alerte, notificări și confirmări.
+3. **Comunicare teren**.
 4. **Grid Intelligence** — analiza datelor de rețea realizată de Agent 02.
 5. **AI Assistant** — întrebări în limbaj natural despre datele disponibile.
-6. **Security & Incident Center** — incidente, alerte, notificări și confirmări.
-7. **Performance Overview** — starea generală și performanța operațiunilor.
+6. **Performance Overview** — starea generală și performanța operațiunilor.
+7. **Decision Explorer** — istoricul deciziilor de rutare.
+8. **Politici** — politica de rutare per categorie, editabilă din interfață (fără modificare de cod).
 
-Indiferent de pagina în care se află, utilizatorul trebuie să poată reveni ușor la Village și să poată deschide un fișier direct în File Passport.
+Bara de sus rămâne minimă: meniul, numele aplicației, căutarea rapidă (Ctrl+K, în toate fișierele), insigna de date simulate, starea conexiunii live și butonul Asistent AI. Căutarea rapidă înlocuiește File Explorer pentru găsirea unui fișier oriunde s-ar afla; rezultatul se deschide direct în File Passport.
+
+Indiferent de pagina în care se află, utilizatorul poate reveni ușor la Village și poate deschide un fișier direct în File Passport.
 
 ---
 
@@ -703,9 +714,9 @@ FileGrid trebuie să fie perceput ca un centru unic de control pentru fișierele
 - **Agent 01** gestionează parcursul fiecărui fișier.
 - **Cele patru case** organizează fișierele pe categorii.
 - **Cele trei servere** reprezintă destinațiile de stocare.
-- **File Explorer** permite găsirea fișierelor.
+- **Casele** (click) și **căutarea rapidă** (Ctrl+K) permit găsirea fișierelor.
 - **File Passport** oferă identitatea, traseul, integritatea și istoricul fiecărui fișier.
-- **Decision Explorer** explică de ce a fost aleasă o anumită destinație.
+- **Decizia Agentului 01** apare după încărcare și explică de ce a fost aleasă o anumită destinație; istoricul complet este în Decision Explorer.
 - **Agent 02 / Grid Intelligence** analizează datele și semnalează anomalii sau posibile corelări.
 - **AI Operations Assistant** răspunde la întrebări despre informațiile disponibile.
 - **Security & Incident Center** centralizează evenimentele critice.

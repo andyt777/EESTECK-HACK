@@ -1,50 +1,50 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { KeyValuePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subject, debounceTime } from 'rxjs';
 import { Api, Loader, Params } from '../../core/api.service';
 import { EventStream } from '../../core/events.service';
 import { CATEGORIES, Category, FILE_STATUSES, INTEGRITIES, STORAGES } from '../../core/models';
 import { T } from '../../core/texts';
 import { UiState } from '../../core/ui-state.service';
-import { UploadDialog } from '../../features/upload-form';
 import { SHARED } from '../../shared/ui';
 
-const KEYS = ['q', 'category', 'from', 'to', 'sizeMin', 'sizeMax', 'zone', 'station', 'contentType', 'storage', 'status', 'integrity', 'dataOrigin', 'excludeMeters', 'sort', 'dir', 'page'];
+const KEYS = ['q', 'from', 'to', 'sizeMin', 'sizeMax', 'zone', 'station', 'contentType', 'storage', 'status', 'integrity', 'dataOrigin', 'sort', 'dir', 'page'];
 
+/** A house of the Village: search, filter and open the files of one category. */
 @Component({
-  selector: 'fg-file-explorer',
-  imports: [RouterLink, MatDialogModule, KeyValuePipe, ...SHARED],
-  templateUrl: './file-explorer.html',
+  selector: 'fg-category-page',
+  imports: [RouterLink, KeyValuePipe, ...SHARED],
+  templateUrl: './category-page.html',
 })
-export class FileExplorer {
+export class CategoryPage {
   readonly t = T;
-  readonly cats = CATEGORIES;
   readonly storages = STORAGES;
   readonly statuses = FILE_STATUSES;
   readonly integrities = INTEGRITIES;
   private readonly api = inject(Api);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly dialog = inject(MatDialog);
   private readonly ui = inject(UiState);
   private readonly events = inject(EventStream);
 
-  readonly fixedCat = signal<Category | null>(null);
+  readonly category = signal<Category>('FAULT_RECORD');
   readonly f = signal<Record<string, string | undefined>>({});
+  readonly showFilters = signal(false);
   readonly list = new Loader(() => this.api.files(this.query()));
   readonly summary = new Loader(() => this.api.categories());
-  readonly catSummary = computed(() => (this.summary.data() ?? []).find((s) => s.category === this.fixedCat()) ?? null);
+  readonly catSummary = computed(() => (this.summary.data() ?? []).find((s) => s.category === this.category()) ?? null);
   readonly size = 25;
   readonly pages = computed(() => Math.max(1, Math.ceil((this.list.data()?.total ?? 0) / this.size)));
+  readonly activeFilters = computed(() => Object.keys(this.f()).filter((k) => !['q', 'sort', 'dir', 'page'].includes(k)).length);
   private readonly typing$ = new Subject<void>();
 
   constructor() {
     this.route.paramMap.subscribe((p) => {
       const c = p.get('category') as Category | null;
-      this.fixedCat.set(c && CATEGORIES.includes(c) ? c : null);
-      if (c) this.summary.load();
+      if (!c || !CATEGORIES.includes(c)) { this.router.navigate(['/']); return; }
+      this.category.set(c);
+      this.summary.load();
     });
     this.route.queryParamMap.subscribe((q) => {
       const v: Record<string, string> = {};
@@ -54,7 +54,7 @@ export class FileExplorer {
     });
     this.typing$.pipe(debounceTime(350)).subscribe(() => this.push());
     const sub = this.events.fileEvents$.pipe(debounceTime(1500)).subscribe((e) => {
-      if (e.category !== 'METER_READING' && ['STORED_VERIFIED', 'PENDING', 'TRANSFER_FAILED', 'RECEIVED'].includes(e.status)) this.list.load(true);
+      if (e.category === this.category() && ['STORED_VERIFIED', 'PENDING', 'TRANSFER_FAILED', 'RECEIVED'].includes(e.status)) this.list.load(true);
     });
     inject(DestroyRef).onDestroy(() => sub.unsubscribe());
     effect(() => this.ui.simulatedOnPage.set(this.hasSim()));
@@ -62,8 +62,7 @@ export class FileExplorer {
 
   query(): Params {
     const v = this.f();
-    const p: Params = { ...v, size: this.size };
-    if (this.fixedCat()) p['category'] = this.fixedCat();
+    const p: Params = { ...v, size: this.size, category: this.category() };
     for (const k of ['from', 'to']) if (v[k]) p[k] = new Date(v[k]).toISOString();
     if (v['sizeMin']) p['sizeMin'] = Math.round(Number(v['sizeMin']) * 1024 * 1024);
     if (v['sizeMax']) p['sizeMax'] = Math.round(Number(v['sizeMax']) * 1024 * 1024);
@@ -93,6 +92,5 @@ export class FileExplorer {
     const cur = this.f()['sort'] ?? 'receivedAt';
     return cur === k ? ((this.f()['dir'] ?? 'desc') === 'desc' ? '↓' : '↑') : '';
   }
-  upload(): void { this.dialog.open(UploadDialog, { data: { category: this.fixedCat() }, maxWidth: '96vw' }); }
   readonly hasSim = computed(() => (this.list.data()?.items ?? []).some((i) => i.dataOrigin === 'SIMULATED'));
 }

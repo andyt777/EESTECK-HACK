@@ -1,5 +1,28 @@
 # Jurnalul etapelor
 
+## Redesign UI — Village pe tot ecranul, încărcare doar pe Agent 01, sidebar (2026-11-15)
+
+### Ce s-a făcut
+- **Paletă nouă**: deep blue (fundal), alb pur (text, case, robot), roz bubblegum (accent: butoane, fir, stare activă). Verde/galben/roșu rămân doar pentru stări. Titlurile (h1–h4, etichete de secțiune) sunt italice; textul obișnuit rămâne drept. Token nou `--pink` în `styles.scss` (`--cyan` e acum alias).
+- **Control Center = doar harta**: panoul de statistici (KPI), starea storage-urilor, „Fișiere în lucru”, activitatea live, teaserul Grid Intelligence și lista de incidente au fost scoase. Statisticile rămân în Grid Intelligence și Performance.
+- **Village redesenat**: case reale (pereți albi, acoperiș roz, ușă, ferestre, coș, priză), alei de la piață la fiecare casă. Agent 01 merge efectiv până la ușa casei categoriei, apoi apare un fir animat de la casă la storage-ul ales, iar pachetul de date circulă pe fir. Rămâne doar firul permanent al citirilor de contor (agregat, cu rata/min). Animația e condusă exclusiv de evenimentele SSE reale; „Stocat și verificat” doar la `STORED_VERIFIED`.
+- **Încărcare doar prin drag & drop pe Agent 01**: pagina `/upload`, formularul și dialogul de confirmare au fost șterse (`upload-page.ts`, `upload-form.ts`, `upload-tracker.ts`). Drop-ul e acceptat doar pe robot (zona robotului se testează la eliberare); în altă parte, agentul spune „Lasă fișierul chiar pe Agent 01.” Progresul tus apare în balonul robotului. Categoria e detectată automat de Agent 01.
+- **Decizia Agentului 01** apare ca mesaj peste hartă după încărcare (fișier, stare reală, storage, explicație, „Criterii și alternative”, „Deschide pașaportul” după verificare). Pagina Decision Explorer rămâne în meniu.
+- **File Explorer șters** (`/files`): click pe o casă deschide `/categories/:category` (căutare + filtre pliabile, fără buton de încărcare); căutarea globală rămâne Ctrl+K. Serverele nu mai sunt clicabile.
+- **Sidebar ascuns**: meniul nu mai stă pe ecran; se deschide din ☰ și se închide la navigare, Esc sau click în afară. Comutatorul de animații și telefonul simulat s-au mutat în sidebar. **Politicile rămân editabile din UI** (în sidebar, secțiunea „Rutare & administrare”).
+- `docs/experienta-utilizator.md` actualizat (§3, §4.1, §5, §7, §11.3, §12, §14), plus README, `frontend/README.md`, `docs/COMPLIANCE.md`, `docs/HANDOFF.md`.
+
+### Cum se verifică
+- `cd frontend && npx ng build` (fără erori).
+- `docker compose up -d --build --no-deps frontend`, apoi https://localhost: trage un fișier pe Agent 01 → robotul merge la casă, firul se conectează la storage, apare mesajul cu decizia și, după verificare, „Deschide pașaportul”. Un fișier lăsat lângă robot nu se încarcă.
+- Click pe o casă → lista fișierelor din categorie; ☰ → sidebar cu toate paginile, inclusiv Politici și Decision Explorer.
+
+### Limitări cunoscute
+- Frontend-ul nu are teste automate; fluxul a fost verificat manual în browser (drop pe robot și lângă robot, fișiere reale ajunse „Stocat și verificat” pe FTP și S3).
+- Fără formular, metadatele opționale (zonă, stație, echipament, descriere) nu mai pot fi completate la încărcare din UI; rămân disponibile prin API (`Upload-Metadata`).
+- Pauza/reluarea manuală a unui upload a dispărut odată cu pagina de încărcare; tus reîncearcă automat, iar după un eșec definitiv utilizatorul trage din nou fișierul pe robot și încărcarea continuă de la offset.
+- Pe ecrane foarte înguste harta se micșorează proporțional; mesajul cu decizia poate acoperi o parte din hartă până este închis.
+
 ## Etapa 11 (partea Python) — autentificare în intelligence și simulator (2026-11-14)
 
 Contractul: `docs/AUTH-DESIGN.md` (§3 matricea endpoint → permisiune, §4 „/api/intelligence”, „Assistant tools”, „Simulator”).

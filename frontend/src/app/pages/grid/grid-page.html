@@ -19,21 +19,21 @@
       <div class="card agent2 st-{{ agent() }}">
         <svg viewBox="0 0 120 140" class="tech" aria-hidden="true">
           <ellipse cx="60" cy="132" rx="30" ry="6" fill="rgba(0,0,0,.4)"/>
-          <rect x="40" y="76" width="40" height="46" rx="10" fill="#1f3b63" stroke="#fbbf24" stroke-width="1.5"/>
+          <rect x="40" y="76" width="40" height="46" rx="10" fill="#264a9e" stroke="#fbbf24" stroke-width="1.5"/>
           <rect x="44" y="84" width="32" height="5" fill="#fbbf24" opacity=".8"/>
           <circle cx="60" cy="56" r="20" fill="#f1c9a5"/>
           <path d="M38 52 Q38 30 60 30 Q82 30 82 52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
           <rect x="34" y="50" width="52" height="5" rx="2.5" fill="#f59e0b"/>
           <rect x="56" y="33" width="8" height="10" rx="2" fill="#fde68a"/>
-          <circle cx="53" cy="60" r="2.4" fill="#0b1730"/><circle cx="67" cy="60" r="2.4" fill="#0b1730"/>
-          <path [attr.d]="agent() === 'found' ? 'M53 68 q7 -3 14 0' : agent() === 'insufficient' ? 'M53 69 h14' : 'M53 67 q7 5 14 0'" stroke="#0b1730" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <circle cx="53" cy="60" r="2.4" fill="#0c1f5a"/><circle cx="67" cy="60" r="2.4" fill="#0c1f5a"/>
+          <path [attr.d]="agent() === 'found' ? 'M53 68 q7 -3 14 0' : agent() === 'insufficient' ? 'M53 69 h14' : 'M53 67 q7 5 14 0'" stroke="#0c1f5a" stroke-width="2" fill="none" stroke-linecap="round"/>
           <g class="tablet">
-            <rect x="66" y="84" width="34" height="26" rx="4" fill="#0b1730" stroke="#22d3ee" stroke-width="1.5" transform="rotate(-12 83 97)"/>
-            <polyline points="71,100 77,94 82,98 88,89 94,93" fill="none" stroke="#22d3ee" stroke-width="1.6" transform="rotate(-12 83 97)" class="spark"/>
+            <rect x="66" y="84" width="34" height="26" rx="4" fill="#0c1f5a" stroke="#ff77bc" stroke-width="1.5" transform="rotate(-12 83 97)"/>
+            <polyline points="71,100 77,94 82,98 88,89 94,93" fill="none" stroke="#ff77bc" stroke-width="1.6" transform="rotate(-12 83 97)" class="spark"/>
           </g>
-          <path d="M42 86 q-10 10 -4 24" stroke="#1f3b63" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M42 86 q-10 10 -4 24" stroke="#264a9e" stroke-width="7" fill="none" stroke-linecap="round"/>
           @if (agent() === 'found') { <path d="M24 26 l10 6 l-10 6" fill="none" stroke="#f43f5e" stroke-width="3" class="point"/> }
-          @if (agent() === 'analyzing') { <circle cx="22" cy="34" r="10" fill="none" stroke="#22d3ee" stroke-width="2" class="radar"/> }
+          @if (agent() === 'analyzing') { <circle cx="22" cy="34" r="10" fill="none" stroke="#ff77bc" stroke-width="2" class="radar"/> }
         </svg>
         <div class="col grow">
           <b class="who">{{ t.grid.agent02 }}</b>

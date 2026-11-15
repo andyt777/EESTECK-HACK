@@ -325,10 +325,14 @@ Niciun secret nu se află în repository. `.env` și `infra/certs/` sunt ignorat
 ## Frontend (Smart Grid Control Center)
 
 https://localhost (certificat self-signed). Angular 21 servit de nginx (`frontend`, intern :8080) în spatele Traefik
-(ruta `/`, prioritate 1 — `/api` și `/grafana` au prioritate). Pagini: Control Center/Village (`/`), Încărcare (`/upload`),
-File Explorer (`/files`, `/categories/:category`), File Passport (`/files/:id`), Decision Explorer (`/decisions`),
-Politici (`/policies`), Incidente (`/incidents`, `/incidents/:id`, telefon WhatsApp simulat), Grid Intelligence (`/grid`),
-AI Assistant (`/assistant` + panou lateral global), Comunicare teren (`/field`), Performance (`/performance`).
+(ruta `/`, prioritate 1 — `/api` și `/grafana` au prioritate).
+
+- **Control Center** (`/`) este doar harta FileGrid Village, pe tot ecranul: Agent 01, cele 4 case (categorii) și cele 3 storage-uri.
+- **Încărcarea** se face exclusiv prin drag & drop al fișierelor **pe Agent 01** (fără formular sau confirmare; upload tus reluabil, categoria detectată automat). Robotul merge la casa categoriei și trage un fir către storage-ul ales; după decizie apare mesajul „Decizia Agentului 01”.
+- **Click pe o casă** deschide fișierele categoriei (`/categories/:category`, căutare + filtre); căutarea globală este Ctrl+K în bara de sus. File Passport: `/files/:id`.
+- **Meniul** este un sidebar ascuns (butonul ☰): Security & Incidents (`/incidents`), Comunicare teren (`/field`), Grid Intelligence (`/grid`), AI Assistant (`/assistant`), Performance (`/performance`), Decision Explorer (`/decisions`), Politici (`/policies`, editabile din UI).
+- Paleta: deep blue, alb, roz bubblegum; titlurile sunt italice.
+
 Toate textele UI sunt în `frontend/src/app/core/texts.ts`. Detalii: `frontend/README.md`.
 
 Rebuild doar frontend: `docker compose up -d --build --no-deps frontend`.

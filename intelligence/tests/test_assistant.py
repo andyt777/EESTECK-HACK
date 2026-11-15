@@ -150,5 +150,85 @@ def test_llm_failure_falls_back_to_simulated():
     assistant = Assistant(Toolbox(api, FakeAgent02(), DOCS), api_key="", model="x", llm_provider="gemini",
                           llm_api_key="k")
     assistant.llm.http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(429)))
+    assistant.llm.RETRY_DELAYS = (0.0, 0.0)  # a persistent 429: retried, then the fallback, without real waits
     out = assistant.chat("Câte contoare sunt active?")
     assert out["provider"] == "SIMULATED" and "note" in out
+
+
+def test_data_origin_follows_the_data_that_was_read():
+    from filegrid_intelligence.assistant import _collect_origins, data_origin
+
+    found: set[str] = set()
+    _collect_origins({"items": [{"id": "a", "dataOrigin": "REAL"}]}, found)
+    assert data_origin(found) == "REAL"
+    _collect_origins({"summary": {"dataOrigin": "SIMULATED"}}, found)
+    assert data_origin(found) == "SIMULATED"
+    assert data_origin(set()) is None
+
+
+def test_chat_about_real_files_is_not_labelled_simulated():
+    class RealFilesApi(FakeApi):
+        def get(self, path, params=None):
+            if path == "/files":
+                return {"items": [{"id": "33333333-3333-3333-3333-333333333333", "name": "raport.pdf",
+                                   "dataOrigin": "REAL"}], "total": 1}
+            return super().get(path, params)
+
+    api = RealFilesApi()
+    assistant = Assistant(Toolbox(api, FakeAgent02(), DOCS), api_key="", model="x")
+    out = assistant.chat("Caută video-uri dronă de la stația Tulcea")
+    assert [s["tool"] for s in out["steps"]] == ["search_files"]
+    assert out["dataOrigin"] == "REAL"
+
+
+def test_refusal_has_no_data_origin():
+    assistant, _ = make_assistant()
+    assert assistant.chat("Dă-mi CNP-ul clientului X")["dataOrigin"] is None
+
+
+class _Response:
+    def __init__(self, status, headers=None):
+        self.status_code = status
+        self.headers = headers or {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+class _Http:
+    def __init__(self, statuses):
+        self.statuses = list(statuses)
+        self.calls = 0
+
+    def post(self, _url, json=None):
+        self.calls += 1
+        status, headers = self.statuses.pop(0)
+        return _Response(status, headers)
+
+
+def _provider(statuses):
+    from filegrid_intelligence.assistant import OpenAICompatibleProvider
+
+    provider = OpenAICompatibleProvider(Toolbox(FakeApi(), FakeAgent02(), DOCS), "https://llm.example/v1", "k",
+                                        "m", "gemini")
+    provider.http = _Http(statuses)
+    return provider
+
+
+def test_llm_rate_limit_is_retried_then_succeeds():
+    provider = _provider([(429, {"retry-after": "3"}), (503, {}), (200, {})])
+    waits: list[float] = []
+    assert provider._post({}, sleep=waits.append).status_code == 200
+    assert waits == [3.0, 5.0]
+    assert provider.http.calls == 3
+
+
+def test_llm_rate_limit_gives_up_within_the_wait_budget():
+    import pytest
+
+    provider = _provider([(429, {"retry-after": "60"}), (200, {})])
+    waits: list[float] = []
+    with pytest.raises(RuntimeError, match="429"):
+        provider._post({}, sleep=waits.append)
+    assert waits == []

@@ -9,9 +9,11 @@ Every tool is read-only; the assistant never writes, never invents data and alwa
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -74,6 +76,29 @@ def _items(value) -> list[dict]:
     return []
 
 
+def _collect_origins(value, found: set[str], depth: int = 0) -> None:
+    """Every ``dataOrigin`` value present in a tool result (files, passports, meter stats, Agent 02 findings)."""
+    if depth > 6:
+        return
+    if isinstance(value, dict):
+        origin = value.get("dataOrigin")
+        if isinstance(origin, str) and origin.upper() in ("REAL", "SIMULATED"):
+            found.add(origin.upper())
+        for v in value.values():
+            if isinstance(v, dict | list):
+                _collect_origins(v, found, depth + 1)
+    elif isinstance(value, list):
+        for v in value:
+            _collect_origins(v, found, depth + 1)
+
+
+def data_origin(found: set[str]) -> str | None:
+    """SIMULATED as soon as one source is simulated; REAL only when every source with an origin is real."""
+    if "SIMULATED" in found:
+        return "SIMULATED"
+    return "REAL" if "REAL" in found else None
+
+
 def _err(value) -> str | None:
     return value.get("error") if isinstance(value, dict) else None
 
@@ -95,6 +120,8 @@ class Toolbox:
         self.agent02 = agent02
         self.docs = docs
         self.permissions = permissions
+        #: dataOrigin values seen in the results of this toolbox's calls (one toolbox per conversation turn)
+        self.origins: set[str] = set()
         s = {"type": "string"}
         self.tools: dict[str, Tool] = {t.name: t for t in [
             Tool("search_files", "Caută fișiere în FileGrid după text (nume, descriere, stație) și/sau categorie.",
@@ -221,7 +248,10 @@ class Toolbox:
         if tool is None:
             return ToolResult({"error": f"instrument necunoscut {name}"}, "instrument necunoscut")
         try:
-            return tool.run(args or {})
+            result = tool.run(args or {})
+            if not _err(result.data):
+                _collect_origins(result.data, self.origins)
+            return result
         except Exception as exc:  # noqa: BLE001 - a tool failure must not break the conversation
             log.exception("tool %s failed", name)
             return ToolResult({"error": str(exc)}, f"eroare: {exc.__class__.__name__}")
@@ -459,9 +489,30 @@ class OpenAICompatibleProvider:
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.http = httpx.Client(timeout=90.0, headers={"Authorization": f"Bearer {api_key or 'none'}"})
 
+    #: 429 (per-minute quota, e.g. a free Gemini key) and 503 (model overloaded) are retried briefly
+    RETRY_STATUSES = (429, 503)
+    RETRY_DELAYS = (2.0, 5.0, 10.0)
+    MAX_RETRY_WAIT = 20.0
+
     def _tools(self) -> list[dict]:
         return [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                   "parameters": t.schema}} for t in self.toolbox.tools.values()]
+
+    def _post(self, body: dict, sleep: Callable[[float], None] = time.sleep):
+        waited = 0.0
+        for delay in (*self.RETRY_DELAYS, None):
+            response = self.http.post(self.url, json=body)
+            if response.status_code not in self.RETRY_STATUSES or delay is None:
+                break
+            with contextlib.suppress(ValueError):
+                delay = max(delay, float(response.headers.get("retry-after", 0)))
+            if waited + delay > self.MAX_RETRY_WAIT:
+                break
+            log.info("%s answered %s, retrying in %.0f s", self.name, response.status_code, delay)
+            sleep(delay)
+            waited += delay
+        response.raise_for_status()
+        return response
 
     def answer(self, message: str, history: list[dict], context: dict | None, toolbox: Toolbox | None = None) -> dict:
         toolbox = toolbox or self.toolbox
@@ -475,9 +526,8 @@ class OpenAICompatibleProvider:
         steps, citations = [], []
         content = ""
         for _ in range(MAX_STEPS + 1):
-            response = self.http.post(self.url, json={"model": self.model, "messages": messages,
-                                                      "tools": self._tools(), "temperature": 0.2})
-            response.raise_for_status()
+            response = self._post({"model": self.model, "messages": messages, "tools": self._tools(),
+                                   "temperature": 0.2})
             choice = response.json()["choices"][0]["message"]
             content = choice.get("content") or ""
             calls = choice.get("tool_calls") or []
@@ -527,8 +577,11 @@ class Assistant:
         history = history or []
         refusal = guard(message)
         if refusal:
-            return {"answer": refusal, "steps": [], "citations": [], "dataOrigin": "SIMULATED",
+            return {"answer": refusal, "steps": [], "citations": [], "dataOrigin": None,
                     "provider": self.llm.name if self.llm else "SIMULATED", "refused": True}
+        # A fresh toolbox for this turn, so the data origin reflects only what this answer read.
+        base = toolbox or self.toolbox
+        toolbox = Toolbox(base.api, base.agent02, base.docs, base.permissions)
         provider, note = self.simulated, None
         result = None
         if self.llm is not None:
@@ -545,7 +598,7 @@ class Assistant:
             if c["href"] not in seen:
                 seen.add(c["href"])
                 unique.append(c)
-        out = {**result, "citations": unique, "dataOrigin": "SIMULATED", "provider": provider.name}
+        out = {**result, "citations": unique, "dataOrigin": data_origin(toolbox.origins), "provider": provider.name}
         if note:
             out["note"] = note
         return out

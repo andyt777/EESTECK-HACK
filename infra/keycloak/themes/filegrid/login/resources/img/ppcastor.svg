@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-62 -100 124 112" role="img" aria-label="PPCastor">
+  <!-- PPCastor waving: same drawing and colours as the Village mascot (frontend village.html / village.scss) -->
+  <g stroke="#12305e" stroke-linejoin="round">
+    <ellipse cy="6" rx="30" ry="5" fill="#12305e" opacity=".10" stroke="none"/>
+    <!-- tail, feet -->
+    <ellipse cx="-25" cy="-9" rx="15" ry="8" transform="rotate(-22 -25 -9)" fill="#6f4424" stroke-width="1.3"/>
+    <path d="M-34 -8 l8 -7 M-28 -4 l8 -7 M-22 0 l7 -6" fill="none" stroke-width=".9" opacity=".55" stroke-linecap="round"/>
+    <ellipse cx="-9" cy="-2" rx="8" ry="4" fill="#6f4424" stroke-width="1.3"/>
+    <ellipse cx="9" cy="-2" rx="8" ry="4" fill="#6f4424" stroke-width="1.3"/>
+    <!-- body, belly, high-visibility vest -->
+    <ellipse cy="-25" rx="19" ry="22" fill="#9b6238" stroke-width="1.3"/>
+    <ellipse cy="-21" rx="11" ry="14" fill="#f1d9b5" stroke="none"/>
+    <path d="M-4 -44 Q-17 -42 -18.5 -26 Q-18.5 -14 -13 -8 H-4 Z" fill="#ff77bc" stroke-width="1.2"/>
+    <path d="M4 -44 Q17 -42 18.5 -26 Q18.5 -14 13 -8 H4 Z" fill="#ff77bc" stroke-width="1.2"/>
+    <path d="M-18.4 -24 H-4 M4 -24 H18.4" fill="none" stroke="#ffffff" stroke-width="3"/>
+    <!-- arms: the right one waves -->
+    <path d="M-16 -36 q-9 6 -7 16" fill="none" stroke="#6f4424" stroke-width="6" stroke-linecap="round"/>
+    <path d="M16 -38 q12 -6 14 -22" fill="none" stroke="#6f4424" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="30.5" cy="-62" r="5" fill="#6f4424" stroke-width="1.2"/>
+    <path d="M38 -70 q4 4 3 9 M42 -74 q6 6 4 14" fill="none" stroke="#ff77bc" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- head -->
+    <circle cx="-17" cy="-66" r="4.6" fill="#6f4424" stroke-width="1.3"/>
+    <circle cx="17" cy="-66" r="4.6" fill="#6f4424" stroke-width="1.3"/>
+    <circle cy="-58" r="19" fill="#9b6238" stroke-width="1.3"/>
+    <ellipse cy="-51" rx="11" ry="8" fill="#f1d9b5" stroke="none"/>
+    <rect x="-4" y="-49" width="8" height="7.5" rx="1.6" fill="#ffffff" stroke-width="1"/>
+    <path d="M0 -49 V-41.5" stroke-width=".9"/>
+    <ellipse cy="-55.5" rx="4.2" ry="3" fill="#12305e" stroke="none"/>
+    <!-- happy eyes -->
+    <path d="M-12 -63 q3.5 -5 7 0 M5 -63 q3.5 -5 7 0" fill="none" stroke-width="2.2" stroke-linecap="round"/>
+    <!-- hard hat with the pink stripe -->
+    <path d="M-19 -69 Q-19 -90 0 -90 Q19 -90 19 -69 Z" fill="#ffffff" stroke-width="1.4"/>
+    <rect x="-3.2" y="-90" width="6.4" height="21" fill="#ff77bc" stroke="none"/>
+    <rect x="-23" y="-71" width="46" height="5" rx="2.5" fill="#ffffff" stroke-width="1.4"/>
+  </g>
+</svg>

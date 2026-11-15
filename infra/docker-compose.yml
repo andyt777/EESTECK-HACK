@@ -523,6 +523,8 @@ services:
       KC_DEMO_ADMIN_PASSWORD: ${KC_DEMO_ADMIN_PASSWORD:?run scripts/init-env.sh first}
     volumes:
       - ./keycloak/realm-filegrid.json:/opt/keycloak/data/import/realm-filegrid.json:ro
+      # Login page theme (PPCastor, app palette); selected by loginTheme in the realm.
+      - ./keycloak/themes/filegrid:/opt/keycloak/themes/filegrid:ro
     networks: [internal]
     healthcheck:
       # No curl in the image: raw HTTP over bash /dev/tcp to the management port.

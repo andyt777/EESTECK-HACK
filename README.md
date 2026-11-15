@@ -166,6 +166,7 @@ apoi rulează `wsl --shutdown` într-un terminal și repornește Docker Desktop.
 Accesul la API este autentificat cu **Keycloak OIDC** (Etapa 11, design în `docs/AUTH-DESIGN.md`, ADR-0007). O cerere fără token valid primește `401` ca problem details (`application/problem+json`), iar o permisiune lipsă primește `403`.
 
 - **Browser:** aplicația te trimite la login (code + PKCE, clientul public `filegrid-web`); tokenul de acces trăiește 5 minute și este reînnoit automat cu refresh token. Fluxul SSE și upload-ul tus trimit și ele tokenul. Previzualizarea și descărcarea folosesc linkuri semnate HMAC, de scurtă durată (`POST /api/files/{id}/content-link`).
+- **Pagina de login** are tema FileGrid (PPCastor, paleta aplicației, orașul verde): `infra/keycloak/themes/filegrid/` (temă copil a `keycloak.v2`, doar CSS și imagini). Pe un realm importat înainte de temă: `bash scripts/keycloak-login-theme.sh` (o singură dată; rulat din nou după o modificare de CSS, golește și cache-ul gzip al Keycloak, apoi Ctrl+F5 în browser).
 - **Servicii:** simulatorul, intelligence și Alertmanager primesc tokenuri prin client credentials (`KC_*_SECRET` în `.env`).
 - **Utilizatori demo** (parolele sunt în `.env`, generate la `init-env`):
 

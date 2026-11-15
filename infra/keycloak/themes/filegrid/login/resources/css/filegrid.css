@@ -1,0 +1,241 @@
+/*
+ * FileGrid PPC login: same palette as the app (frontend/src/styles.scss) and PPCastor (PRODUCT.md).
+ * Baby blue + white, navy text, bubblegum pink accent; the green-energy town on the horizon.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --fg-bg: #eef7ff;
+  --fg-panel: #ffffff;
+  --fg-inset: #f6fbff;
+  --fg-line: #d3e6f8;
+  --fg-text: #12305e;
+  --fg-muted: #4f6a92;
+  --fg-sky: #bfe2ff;
+  --fg-blue: #1f63c2;
+  --fg-pink: #ff77bc;
+  --fg-pink-ink: #c2327e;
+  --fg-red: #c81e45;
+
+  --keycloak-card-top-color: var(--fg-pink);
+  --pf-v5-global--FontFamily--text: Inter, 'Segoe UI', Roboto, sans-serif;
+  --pf-v5-global--FontFamily--heading: Inter, 'Segoe UI', Roboto, sans-serif;
+  --pf-v5-global--Color--100: var(--fg-text);
+  --pf-v5-global--Color--200: var(--fg-muted);
+  --pf-v5-global--link--Color: var(--fg-blue);
+  --pf-v5-global--link--Color--hover: var(--fg-pink-ink);
+  --pf-v5-global--primary-color--100: var(--fg-text);
+}
+
+/* ---------- page: sky, then the town on the horizon ---------- */
+html, .login-pf body, body#keycloak-bg {
+  background: var(--fg-bg);
+}
+.login-pf body, body#keycloak-bg {
+  background:
+    url('../img/town.svg') no-repeat center bottom / 100% auto,
+    linear-gradient(180deg, #e3f2ff 0%, #f4faff 55%, #ffffff 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--fg-text);
+  font-family: Inter, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pf-v5-c-login {
+  min-height: 100vh;
+  padding: 16px 16px 120px;
+  align-items: flex-start;
+}
+.pf-v5-c-login__container {
+  grid-template-columns: minmax(0, 27rem);
+  padding-top: clamp(4px, 3vh, 40px);
+}
+
+/* ---------- brand: PPCastor waving above the name ---------- */
+#kc-header {
+  margin-bottom: 0;
+  padding: 0;
+}
+#kc-header-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  line-height: 1.1;
+  padding: 0 0 14px;
+}
+/* PatternFly paints the brand white for its dark background: the name must stay navy here. */
+#kc-header-wrapper,
+#kc-header-wrapper * {
+  color: var(--fg-text) !important;
+  text-shadow: none;
+}
+#kc-header-wrapper::before {
+  content: '';
+  width: 100px;
+  height: 90px;
+  background: url('../img/ppcastor.svg') no-repeat center / contain;
+}
+#kc-header-wrapper::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fg-pink);
+  margin-top: 6px;
+}
+
+/* ---------- card ---------- */
+.pf-v5-c-login__main {
+  background: var(--fg-panel);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(18, 48, 94, .06), 0 18px 48px rgba(18, 48, 94, .12);
+  border: 1px solid var(--fg-line);
+  overflow: hidden;
+}
+.pf-v5-c-login__main-header {
+  border-top: 5px solid var(--keycloak-card-top-color);
+  padding-top: 22px;
+  align-items: center;
+}
+#kc-page-title {
+  color: var(--fg-text);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.pf-v5-c-login__main-body,
+.pf-v5-c-login__main-footer {
+  color: var(--fg-text);
+}
+
+/* language select: a small pill sized to its text, not a full form field */
+.pf-v5-c-login__main-header-utilities {
+  align-self: center;
+}
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
+  --pf-v5-c-form-control--BorderRadius: 999px;
+  --pf-v5-c-form-control--before--BorderColor: var(--fg-line);
+  --pf-v5-c-form-control--after--BorderColor: transparent;
+  --pf-v5-c-form-control--PaddingTop: 2px;
+  --pf-v5-c-form-control--PaddingBottom: 2px;
+  --pf-v5-c-form-control--PaddingLeft: 12px;
+  --pf-v5-c-form-control--PaddingRight: 28px;
+  min-height: 0;
+  height: 30px;
+  width: auto;
+  border-radius: 999px;
+  background: var(--fg-inset);
+  font-size: .8125rem;
+  font-weight: 600;
+}
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control > select {
+  height: 100%;
+  padding-block: 0;
+  padding-inline: 12px 28px;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--fg-text);
+  cursor: pointer;
+}
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control__utilities {
+  padding-right: 10px;
+}
+/* PatternFly draws the field border with ::before (all sides) and ::after (bottom line): round both */
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control::before,
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control::after {
+  border-radius: 999px;
+}
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control::after {
+  border-bottom-width: 0;
+}
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control:hover::before {
+  border-color: var(--fg-sky);
+}
+
+/* ---------- fields ---------- */
+.pf-v5-c-form__label-text {
+  color: var(--fg-text);
+  font-weight: 600;
+}
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BorderRadius: 10px;
+  --pf-v5-c-form-control--before--BorderColor: var(--fg-line);
+  --pf-v5-c-form-control--after--BorderColor: transparent;
+  --pf-v5-c-form-control--hover--after--BorderColor: var(--fg-sky);
+  --pf-v5-c-form-control--focus--after--BorderColor: var(--fg-blue);
+  --pf-v5-c-form-control--BackgroundColor: var(--fg-inset);
+  border-radius: 10px;
+  background-color: var(--fg-inset);
+  color: var(--fg-text);
+  min-height: 44px;
+}
+.pf-v5-c-form-control > input,
+.pf-v5-c-form-control > select {
+  color: var(--fg-text);
+}
+.pf-v5-c-form-control:focus-within {
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(31, 99, 194, .18);
+}
+.pf-v5-c-form-control.pf-m-error {
+  --pf-v5-c-form-control--before--BorderColor: var(--fg-red);
+}
+
+/* show / hide password */
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  border-radius: 0 10px 10px 0;
+  color: var(--fg-muted);
+  background: var(--fg-inset);
+}
+
+/* ---------- primary action ---------- */
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--fg-text);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--fg-blue);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--fg-blue);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--fg-blue);
+  border-radius: 10px;
+  min-height: 46px;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: .01em;
+  margin-top: 6px;
+}
+
+/* keyboard focus, visible everywhere (WCAG 2.1 AA, PRODUCT.md) */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--fg-pink-ink);
+  outline-offset: 2px;
+}
+/* text fields already show focus with the blue halo of .pf-v5-c-form-control:focus-within */
+.pf-v5-c-form-control input:focus-visible,
+.pf-v5-c-form-control input:focus {
+  outline: none;
+}
+.pf-v5-c-form-control:focus-within {
+  box-shadow: 0 0 0 3px rgba(31, 99, 194, .28);
+}
+
+/* messages (wrong password, session expired...) */
+.pf-v5-c-alert {
+  border-radius: 10px;
+}
+
+/* ---------- small screens ---------- */
+@media (max-width: 480px) {
+  .pf-v5-c-login { padding: 12px 12px 110px; }
+  #kc-header-wrapper { font-size: 1.5rem; }
+  #kc-header-wrapper::before { width: 104px; height: 94px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

@@ -1,6 +1,7 @@
 {
   "realm": "filegrid",
   "displayName": "FileGrid PPC",
+  "loginTheme": "filegrid",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,

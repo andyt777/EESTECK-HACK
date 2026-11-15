@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" preserveAspectRatio="xMidYMax slice">
+  <!-- The green-energy town of the Village, reduced to a calm horizon behind the login card. -->
+  <defs>
+    <g id="turbine" stroke="#12305e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-3 0 L-1.5 -120 H1.5 L3 0 Z" fill="#ffffff"/>
+      <circle cy="-120" r="5" fill="#ffffff"/>
+      <path d="M0 -120 L-4 -176 Q0 -184 4 -176 Z" fill="#ffffff"/>
+      <path d="M0 -120 L49 -94 Q53 -86 44 -86 Z" fill="#ffffff"/>
+      <path d="M0 -120 L-46 -91 Q-52 -95 -44 -100 Z" fill="#ffffff"/>
+    </g>
+    <g id="tree" stroke="#12305e" stroke-width="1.6">
+      <rect x="-3" y="-14" width="6" height="16" fill="#9b6238"/>
+      <circle cy="-28" r="18" fill="#8fd3a6"/>
+      <circle cx="-6" cy="-33" r="7" fill="#b9e8c6" stroke="none"/>
+    </g>
+  </defs>
+  <path d="M0 260 Q240 170 520 230 T1040 210 T1600 190 V420 H0 Z" fill="#cdeedb"/>
+  <use href="#turbine" x="300" y="226"/>
+  <use href="#turbine" x="1250" y="206"/>
+  <use href="#turbine" x="1370" y="196"/>
+  <path d="M0 320 Q300 250 640 300 T1280 290 T1600 280 V420 H0 Z" fill="#a8e0bd"/>
+  <use href="#tree" x="140" y="300"/>
+  <use href="#tree" x="190" y="306"/>
+  <use href="#tree" x="1460" y="286"/>
+  <use href="#tree" x="1510" y="292"/>
+  <!-- solar roof -->
+  <g transform="translate(1080 300)" stroke="#12305e" stroke-width="1.8" stroke-linejoin="round">
+    <rect x="-36" y="-36" width="72" height="38" fill="#ffffff"/>
+    <path d="M-44 -34 L0 -64 L44 -34 Z" fill="#bfe2ff"/>
+    <path d="M-24 -42 L0 -58 M-8 -36 L16 -52 M8 -36 L28 -49" stroke="#ffffff" stroke-width="2"/>
+    <rect x="-8" y="-16" width="16" height="18" fill="#ff77bc"/>
+  </g>
+  <!-- creek -->
+  <path d="M520 420 Q600 380 760 372 T1000 352" fill="none" stroke="#bfe2ff" stroke-width="16" stroke-linecap="round"/>
+  <path d="M0 370 Q360 330 760 360 T1600 350 V420 H0 Z" fill="#8fd3a6"/>
+</svg>

@@ -492,6 +492,25 @@ Consum măsurat în repaus (niciun container OOMKilled):
 - Pe Windows, `umask 077` nu restrânge permisiunile fișierelor generate pe NTFS; directorul rămâne ignorat de git.
 - Keycloak, Toxiproxy și drill-urile de haos nu sunt portate în k8s.
 
+## Design — pagina de login FileGrid (2026-11-15)
+
+### Ce s-a făcut
+- Temă Keycloak `filegrid` (`infra/keycloak/themes/filegrid/login/`): copil al `keycloak.v2` (PatternFly 5), fără șabloane
+  FTL proprii — doar `css/filegrid.css` și imaginile `ppcastor.svg` (PPCastor făcând cu mâna, același desen ca în Village) și
+  `town.svg` (orașul cu energie verde la orizont). Paleta aplicației (baby blue, alb, bleumarin, roz), Inter, mod luminos
+  forțat (`darkMode=false`), focus vizibil, layout pentru telefon.
+- Montată în `keycloak` (`infra/docker-compose.yml`), selectată în `realm-filegrid.json` (`loginTheme`); pe realm-uri deja
+  importate: `scripts/keycloak-login-theme.sh`.
+
+### Cum se verifică
+- https://localhost → pagina de login cu PPCastor, „FileGrid PPC”, card alb cu bara roz, buton bleumarin (verificat în Chrome,
+  1536 px lățime).
+
+### Limitări cunoscute
+- Keycloak păstrează pe disc copii gzip ale resurselor temei (`data/tmp/kc-gzip-cache`), care supraviețuiesc repornirii, iar
+  browserele le țin 30 de zile: după o modificare de CSS rulează scriptul (golește cache-ul) și Ctrl+F5.
+- Neverificat pe ecran de telefon și pe paginile secundare (parolă greșită, sesiune expirată).
+
 ## Etapa 8 — Observabilitate și alerte de business (2026-11-15)
 
 ### Ce s-a făcut

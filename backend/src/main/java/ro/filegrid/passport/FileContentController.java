@@ -29,7 +29,10 @@ import ro.filegrid.file.FileEventType;
 import ro.filegrid.file.FileRecord;
 import ro.filegrid.file.IntegrityStatus;
 import ro.filegrid.file.Sensitivity;
+import java.time.Instant;
+import org.springframework.web.bind.annotation.RequestBody;
 import ro.filegrid.security.AccessPolicy;
+import ro.filegrid.security.ContentLinkSigner;
 import ro.filegrid.security.CurrentActorProvider;
 import ro.filegrid.storage.Sha256;
 import ro.filegrid.storage.StorageException;
@@ -59,12 +62,14 @@ public class FileContentController {
     private final Texts texts;
     private final long verifyFirstMaxBytes;
     private final Path downloadDir;
+    private final ContentLinkSigner links;
 
     public FileContentController(FileContentService content, FileLifecycle lifecycle, CurrentActorProvider actors,
-                                 AccessPolicy access, Texts texts,
+                                 AccessPolicy access, Texts texts, ContentLinkSigner links,
                                  @Value("${filegrid.retrieval.verify-before-serve-max-bytes:209715200}")
                                  long verifyFirstMaxBytes,
                                  @Value("${filegrid.staging.directory}") String stagingDirectory) {
+        this.links = links;
         this.content = content;
         this.lifecycle = lifecycle;
         this.actors = actors;
@@ -79,6 +84,32 @@ public class FileContentController {
         String actor = actors.currentActor();
         require(actor, PERMISSION_VERIFY);
         return content.verify(id, actor, "ON_DEMAND");
+    }
+
+    public record LinkRequest(String disposition, Boolean acknowledgeSuspect) {
+    }
+
+    /**
+     * {@code POST /api/files/{id}/content-link}: a short-lived signed URL for the content, for
+     * places that cannot send the bearer token (img/video/iframe/new tab). The same checks as the
+     * download itself are applied now; the link carries only what was allowed.
+     */
+    @PostMapping("/files/{id}/content-link")
+    public ContentLinkSigner.SignedLink contentLink(@PathVariable UUID id,
+                                                    @RequestBody(required = false) LinkRequest body) {
+        String actor = actors.currentActor();
+        require(actor, PERMISSION_READ);
+        FileRecord file = content.require(id);
+        if (file.getSensitivity() == Sensitivity.PERSONAL_DATA) {
+            require(actor, PERMISSION_PII);
+        }
+        content.requireStored(file);
+        boolean acknowledge = body != null && Boolean.TRUE.equals(body.acknowledgeSuspect());
+        if (file.getIntegrityStatus() == IntegrityStatus.MISMATCH
+                && !(acknowledge && access.isAllowed(actor, PERMISSION_SUSPECT))) {
+            throw new ProblemException(HttpStatus.CONFLICT, "integrity-mismatch", texts.get("file.error.suspect"));
+        }
+        return links.sign(id, body == null ? null : body.disposition(), actor, acknowledge, Instant.now());
     }
 
     @GetMapping("/files/{id}/content")

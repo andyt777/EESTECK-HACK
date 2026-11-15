@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
+import ro.filegrid.testsupport.TestTokens;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -136,7 +137,7 @@ class EventStreamingE2EIT {
     @DisplayName("T1-F22-01: GET /api/events/stream connects with text/event-stream content type")
     void sseStreamConnectionHeaders() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest request = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(URI.create("http://localhost:" + port + "/api/events/stream"))
                 .header("Accept", "text/event-stream")
                 .GET()

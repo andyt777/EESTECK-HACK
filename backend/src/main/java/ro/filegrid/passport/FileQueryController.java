@@ -119,7 +119,8 @@ public class FileQueryController {
             @RequestParam(defaultValue = "desc") String dir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        require(FileContentController.PERMISSION_READ);
+        String actor = require(FileContentController.PERMISSION_READ);
+        boolean pii = access.isAllowed(actor, FileContentController.PERMISSION_PII);
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         int pageIndex = Math.max(0, page);
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -127,7 +128,10 @@ public class FileQueryController {
         if (q != null && !q.isBlank()) {
             String term = q.trim();
             params.addValue("q", "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
-            where.append(" AND (f.original_name ILIKE :q OR c.description ILIKE :q OR c.station ILIKE :q"
+            // Without pii:read the name and description of personal documents are not searchable either.
+            String personalText = pii ? "(f.original_name ILIKE :q OR c.description ILIKE :q)"
+                    : "(f.sensitivity <> 'PERSONAL_DATA' AND (f.original_name ILIKE :q OR c.description ILIKE :q))";
+            where.append(" AND (" + personalText + " OR c.station ILIKE :q"
                     + " OR c.zone ILIKE :q OR c.equipment ILIKE :q OR c.meter_id ILIKE :q");
             try {
                 params.addValue("qId", UUID.fromString(term));
@@ -197,8 +201,22 @@ public class FileQueryController {
         params.addValue("limit", pageSize).addValue("offset", (long) pageIndex * pageSize);
         List<FileSummary> items = jdbc.query("SELECT " + FILE_COLUMNS + from_ + where + " ORDER BY " + orderColumn
                 + " " + direction + ", f.id LIMIT :limit OFFSET :offset", params, FileQueryController::summary);
+        if (!pii) {
+            items = items.stream().map(this::masked).toList();
+        }
         Long total = jdbc.queryForObject("SELECT count(*)" + from_ + where, params, Long.class);
         return new Page<>(items, pageIndex, pageSize, total == null ? 0 : total);
+    }
+
+    /** The name of a personal document, as shown to someone without {@code pii:read}. */
+    private FileSummary masked(FileSummary s) {
+        if (s.sensitivity() != Sensitivity.PERSONAL_DATA) {
+            return s;
+        }
+        return new FileSummary(s.id(), texts.get("file.maskedName"), s.category(), s.contentType(), s.sizeBytes(),
+                s.receivedAt(), s.storedAt(), s.status(), s.integrityStatus(), s.storage(), s.dataOrigin(),
+                s.source(), s.sensitivity(), s.encrypted(), s.uploadedBy(), s.zone(), s.station(), s.equipment(),
+                s.meterId(), s.eventType(), s.eventTime());
     }
 
     private static FileSummary summary(ResultSet rs, int row) throws SQLException {
@@ -329,13 +347,19 @@ public class FileQueryController {
             all = events.findByFileIdOrderByAtAsc(id);
         }
 
-        Identity identity = new Identity(file.getId(), file.getOriginalName(), file.getCategory(),
+        boolean hidePersonal = file.getSensitivity() == Sensitivity.PERSONAL_DATA
+                && !access.isAllowed(actor, FileContentController.PERMISSION_PII);
+        Identity identity = new Identity(file.getId(),
+                hidePersonal ? texts.get("file.maskedName") : file.getOriginalName(), file.getCategory(),
                 texts.get("category." + file.getCategory().name()), file.getContentType(), file.getSizeBytes(),
                 file.getReceivedAt(), file.getSource().name(), file.getUploadedBy(), file.getDataOrigin(),
                 file.getSensitivity(), file.isEncrypted(), file.getTraceId());
 
         Map<String, Object> context = new LinkedHashMap<>();
         contexts.findById(id).ifPresent(c -> fillContext(context, c));
+        if (hidePersonal) {
+            context.remove("description"); // free text, may contain personal data
+        }
 
         DecisionView decision = decisions.findFirstByFileIdOrderByDecidedAtDesc(id)
                 .map(FileQueryController::decisionView).orElse(null);
@@ -348,7 +372,7 @@ public class FileQueryController {
         List<AuditEntry> entries = all.stream()
                 .filter(e -> auditType == null || e.getType() == auditType)
                 .map(e -> new AuditEntry(e.getId(), e.getType(), texts.get("event." + e.getType().name()),
-                        e.getActor(), e.getDetails(), e.getAt()))
+                        e.getActor(), hidePersonal ? withoutName(e.getDetails()) : e.getDetails(), e.getAt()))
                 .toList();
         int size = Math.max(1, Math.min(auditSize, MAX_PAGE_SIZE));
         int pageIndex = Math.max(0, auditPage);
@@ -358,6 +382,15 @@ public class FileQueryController {
 
         return new Passport(identity, file.getStatus(), texts.get("status." + file.getStatus().name()), context,
                 journey(file, all, decision), storage, decision, integrity, audit, actions(file, actor));
+    }
+
+    private static JsonNode withoutName(JsonNode details) {
+        if (details instanceof com.fasterxml.jackson.databind.node.ObjectNode object && object.has("originalName")) {
+            com.fasterxml.jackson.databind.node.ObjectNode copy = object.deepCopy();
+            copy.remove("originalName");
+            return copy;
+        }
+        return details;
     }
 
     private static void fillContext(Map<String, Object> context, FileContext c) {
@@ -470,7 +503,9 @@ public class FileQueryController {
                                            @RequestParam(required = false) Boolean fallback,
                                            @RequestParam(defaultValue = "0") int page,
                                            @RequestParam(defaultValue = "25") int size) {
-        require(FileContentController.PERMISSION_READ);
+        String actor = require(FileContentController.PERMISSION_READ);
+        boolean pii = access.isAllowed(actor, FileContentController.PERMISSION_PII);
+        String masked = texts.get("file.maskedName");
         int pageSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         int pageIndex = Math.max(0, page);
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -492,12 +527,15 @@ public class FileQueryController {
         }
         params.addValue("limit", pageSize).addValue("offset", (long) pageIndex * pageSize);
         List<DecisionSummary> items = jdbc.query("""
-                SELECT d.id, d.file_id, f.original_name, f.category, f.status, f.size_bytes, d.policy_version,
-                       d.selected_storage, d.fallback_used, d.fallback_reason, d.explanation_ro, d.decided_at
+                SELECT d.id, d.file_id, f.original_name, f.sensitivity, f.category, f.status, f.size_bytes,
+                       d.policy_version, d.selected_storage, d.fallback_used, d.fallback_reason, d.explanation_ro,
+                       d.decided_at
                 """ + where + " ORDER BY d.decided_at DESC LIMIT :limit OFFSET :offset", params, (rs, row) -> {
             String selected = rs.getString("selected_storage");
+            boolean personal = Sensitivity.PERSONAL_DATA.name().equals(rs.getString("sensitivity"));
             return new DecisionSummary(rs.getObject("id", UUID.class), rs.getObject("file_id", UUID.class),
-                    rs.getString("original_name"), FileCategory.valueOf(rs.getString("category")),
+                    personal && !pii ? masked : rs.getString("original_name"),
+                    FileCategory.valueOf(rs.getString("category")),
                     FileStatus.valueOf(rs.getString("status")), rs.getLong("size_bytes"),
                     rs.getString("policy_version"), selected == null ? null : StorageType.valueOf(selected),
                     rs.getBoolean("fallback_used"), rs.getString("fallback_reason"), rs.getString("explanation_ro"),

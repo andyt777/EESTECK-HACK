@@ -25,7 +25,7 @@ import ro.filegrid.file.FileCategory;
 public class SseHub {
 
     private static final Logger log = LoggerFactory.getLogger(SseHub.class);
-    static final Duration EMITTER_TIMEOUT = Duration.ofMinutes(30);
+    public static final Duration EMITTER_TIMEOUT = Duration.ofMinutes(30);
 
     private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
 
@@ -37,7 +37,12 @@ public class SseHub {
     }
 
     public SseEmitter subscribe(UUID fileId, FileCategory category) {
-        SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT.toMillis());
+        return subscribe(fileId, category, EMITTER_TIMEOUT);
+    }
+
+    /** @param timeout how long the stream stays open (at most until the caller's token expires) */
+    public SseEmitter subscribe(UUID fileId, FileCategory category, Duration timeout) {
+        SseEmitter emitter = new SseEmitter(Math.min(timeout.toMillis(), EMITTER_TIMEOUT.toMillis()));
         Subscription subscription = new Subscription(emitter, fileId, category);
         subscriptions.add(subscription);
         emitter.onCompletion(() -> subscriptions.remove(subscription));

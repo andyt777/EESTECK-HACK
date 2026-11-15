@@ -81,7 +81,7 @@ public class TusTestClient {
      * Sends OPTIONS to /uploads endpoint to discover server Tus capabilities.
      */
     public HttpResponse<String> sendOptions() throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest request = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(URI.create(resolveEndpoint("/uploads")))
                 .header("Tus-Resumable", "1.0.0")
                 .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
@@ -95,7 +95,7 @@ public class TusTestClient {
     public HttpResponse<String> sendCreateUpload(Long uploadLength, Map<String, String> metadata,
                                                 Map<String, String> customHeaders)
             throws IOException, InterruptedException {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest.Builder builder = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(URI.create(resolveEndpoint("/uploads")));
 
         Map<String, String> defaults = new LinkedHashMap<>();
@@ -133,7 +133,7 @@ public class TusTestClient {
      */
     public HttpResponse<Void> sendHead(URI uploadUri, Map<String, String> customHeaders)
             throws IOException, InterruptedException {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest.Builder builder = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(uploadUri);
 
         applyHeaders(builder, Map.of("Tus-Resumable", "1.0.0"), customHeaders);
@@ -162,7 +162,7 @@ public class TusTestClient {
     public HttpResponse<String> sendPatch(URI uploadUri, InputStream chunkStream, long offset,
                                           String contentType, Map<String, String> customHeaders)
             throws IOException, InterruptedException {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest.Builder builder = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(uploadUri);
 
         Map<String, String> defaults = new LinkedHashMap<>();
@@ -204,7 +204,7 @@ public class TusTestClient {
      */
     public HttpResponse<String> sendDelete(URI uploadUri, Map<String, String> customHeaders)
             throws IOException, InterruptedException {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest.Builder builder = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(uploadUri);
 
         applyHeaders(builder, Map.of("Tus-Resumable", "1.0.0"), customHeaders);

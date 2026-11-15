@@ -84,6 +84,16 @@ springdoc:
     enabled: false
 
 filegrid:
+  # Stage 11: JWT from Keycloak (realm filegrid). Browser tokens carry the public issuer,
+  # service tokens fetched inside the Docker network the internal one.
+  security:
+    issuers:
+      - ${FILEGRID_OIDC_ISSUER:https://localhost/auth/realms/filegrid}
+      - ${FILEGRID_OIDC_INTERNAL_ISSUER:http://keycloak:8080/auth/realms/filegrid}
+    jwk-set-uri: ${FILEGRID_OIDC_JWK_SET_URI:http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/certs}
+    audience: filegrid-api
+    # HMAC key for signed download/preview links (base64, 256 bit).
+    link-key: ${FILEGRID_LINK_KEY:}
   crypto:
     # Key-encryption key (256 bit, base64). Wraps the per-file data keys of personal data.
     kek: ${FILEGRID_KEK:}

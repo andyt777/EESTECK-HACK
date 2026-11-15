@@ -21,6 +21,8 @@ import ro.filegrid.file.FileRecord;
  * @param sha256Plain      plaintext SHA-256 hash (if calculated during upload)
  * @param fileRecord       persisted database record (if persisted by controller)
  * @param completedAt      timestamp when upload finished
+ * @param actor            who uploaded the file, captured in the HTTP request (ingestion runs
+ *                         asynchronously, outside the request); {@code null} = the current actor
  */
 public record UploadCompletedEvent(
         UUID fileId,
@@ -32,7 +34,8 @@ public record UploadCompletedEvent(
         Map<String, String> metadata,
         String sha256Plain,
         FileRecord fileRecord,
-        Instant completedAt
+        Instant completedAt,
+        String actor
 ) {
     public UploadCompletedEvent(
             UUID fileId,
@@ -43,7 +46,14 @@ public record UploadCompletedEvent(
             FileCategory category,
             Map<String, String> metadata
     ) {
-        this(fileId, stagingPath, sizeBytes, originalFilename, contentType, category, metadata, null, null, Instant.now());
+        this(fileId, stagingPath, sizeBytes, originalFilename, contentType, category, metadata, null, null,
+                Instant.now(), null);
+    }
+
+    /** The same event, attributed to the person who uploaded the file. */
+    public UploadCompletedEvent withActor(String uploader) {
+        return new UploadCompletedEvent(fileId, stagingPath, sizeBytes, originalFilename, contentType, category,
+                metadata, sha256Plain, fileRecord, completedAt, uploader);
     }
 
     public UploadCompletedEvent(
@@ -62,6 +72,7 @@ public record UploadCompletedEvent(
                 Map.of(),
                 sha256Plain,
                 fileRecord,
-                completedAt);
+                completedAt,
+                null);
     }
 }

@@ -159,8 +159,10 @@ public class IngestionService {
         Map<String, String> meta = event.metadata() == null ? Map.of() : event.metadata();
         String name = event.originalFilename() == null ? "upload-" + event.fileId() : event.originalFilename();
         FileCategory provisional = event.category() == null ? FileCategory.CONNECTION_DOCUMENT : event.category();
+        // Ingestion is asynchronous: the uploader was captured in the HTTP request.
+        String uploader = event.actor() != null ? event.actor() : actors.currentActor();
         FileRecord file = new FileRecord(event.fileId(), provisional, name, event.sizeBytes(),
-                dataOrigin(meta.get("dataOrigin")), FileSource.UI, actors.currentActor(),
+                dataOrigin(meta.get("dataOrigin")), FileSource.UI, uploader,
                 event.completedAt() == null ? Instant.now() : event.completedAt());
         file.setContentType(event.contentType());
         file.setSha256Plain(event.sha256Plain());
@@ -183,7 +185,7 @@ public class IngestionService {
         }
         contexts.save(context);
 
-        return lifecycle.changeStatus(file, FileStatus.RECEIVED, FileEventType.RECEIVED, actors.currentActor(),
+        return lifecycle.changeStatus(file, FileStatus.RECEIVED, FileEventType.RECEIVED, uploader,
                 lifecycle.details().put("originalName", name).put("sizeBytes", event.sizeBytes())
                         .put("source", "TUS"),
                 null, lifecycle.message("RECEIVED"));

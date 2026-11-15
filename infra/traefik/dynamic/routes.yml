@@ -30,6 +30,22 @@ http:
       service: intelligence
       priority: 500
 
+    # Keycloak (Stage 11): only the realm endpoints and static resources.
+    # The admin console (/auth/admin) is deliberately NOT routed.
+    auth:
+      rule: "PathPrefix(`/auth/realms`) || PathPrefix(`/auth/resources`)"
+      entryPoints: [websecure]
+      service: keycloak
+      priority: 600
+
+    # Token endpoint and login form submissions: rate limited (brute force).
+    auth-sensitive:
+      rule: "PathRegexp(`^/auth/realms/[^/]+/(protocol/openid-connect/token|login-actions/)`)"
+      entryPoints: [websecure]
+      service: keycloak
+      middlewares: [auth-ratelimit]
+      priority: 700
+
     # Frontend (Angular SPA). Lowest priority: /api and /grafana always win.
     frontend:
       rule: "PathPrefix(`/`)"
@@ -41,6 +57,11 @@ http:
     api-health-path:
       replacePath:
         path: /actuator/health
+    auth-ratelimit:
+      rateLimit:
+        average: 10
+        period: 1s
+        burst: 30
 
   services:
     grafana:
@@ -63,3 +84,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://frontend:8080"
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"

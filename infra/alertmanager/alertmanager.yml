@@ -1,6 +1,8 @@
 # Business alerts go to the api, which opens / resolves incidents in the
 # Security & Incident Center. The receiver URL is internal (Docker network);
 # the api refuses calls to this endpoint that come through the public gateway.
+# Stage 11: the webhook authenticates with a client_credentials token from
+# Keycloak (client filegrid-alertmanager, role svc-alert-ingest).
 route:
   receiver: filegrid-incidents
   group_by: [alertname, category]
@@ -13,3 +15,8 @@ receivers:
     webhook_configs:
       - url: http://api:8080/api/incidents/alertmanager
         send_resolved: true
+        http_config:
+          oauth2:
+            client_id: filegrid-alertmanager
+            client_secret_file: /run/secrets/kc_alertmanager_secret
+            token_url: http://keycloak:8080/auth/realms/filegrid/protocol/openid-connect/token

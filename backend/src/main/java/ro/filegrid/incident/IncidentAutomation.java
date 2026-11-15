@@ -102,7 +102,8 @@ public class IncidentAutomation {
 
     void integrity() {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT DISTINCT ON (e.file_id) e.file_id, f.original_name, f.category, e.details->>'storage' AS storage
+                SELECT DISTINCT ON (e.file_id) e.file_id, f.category, e.details->>'storage' AS storage,
+                       CASE WHEN f.sensitivity = 'PERSONAL_DATA' THEN :masked ELSE f.original_name END AS original_name
                   FROM file_event e JOIN file_record f ON f.id = e.file_id
                  WHERE e.type = 'INTEGRITY_INCIDENT' AND e.at > now() - interval '1 day'
                    AND NOT EXISTS (SELECT 1 FROM incident_file x JOIN incident i ON i.id = x.incident_id
@@ -110,7 +111,7 @@ public class IncidentAutomation {
                                       AND i.created_at >= e.at - interval '1 minute')
                  ORDER BY e.file_id, e.at DESC
                  LIMIT 20
-                """, new MapSqlParameterSource());
+                """, new MapSqlParameterSource("masked", texts.get("file.maskedName")));
         for (Map<String, Object> row : rows) {
             UUID fileId = (UUID) row.get("file_id");
             String storage = (String) row.get("storage");
@@ -129,12 +130,14 @@ public class IncidentAutomation {
 
     void transferFailed() {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT f.id, f.original_name, f.category, f.data_origin FROM file_record f
+                SELECT f.id, f.category, f.data_origin,
+                       CASE WHEN f.sensitivity = 'PERSONAL_DATA' THEN :masked ELSE f.original_name END AS original_name
+                  FROM file_record f
                  WHERE f.status = 'TRANSFER_FAILED' AND f.received_at > now() - interval '1 day'
                    AND NOT EXISTS (SELECT 1 FROM incident_file x JOIN incident i ON i.id = x.incident_id
                                     WHERE x.file_id = f.id AND i.type = 'TRANSFER_FAILED')
                  LIMIT 20
-                """, new MapSqlParameterSource());
+                """, new MapSqlParameterSource("masked", texts.get("file.maskedName")));
         for (Map<String, Object> row : rows) {
             UUID fileId = (UUID) row.get("id");
             incidents.open(new NewIncident(IncidentType.TRANSFER_FAILED, Severity.MEDIUM,

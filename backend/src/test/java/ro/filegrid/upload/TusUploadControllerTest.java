@@ -54,7 +54,8 @@ class TusUploadControllerTest {
 
         FileRecordRepository files = org.mockito.Mockito.mock(FileRecordRepository.class);
         controller = new TusUploadController(tusFileUploadService, stagingProperties, metadataParser, eventPublisher,
-                files);
+                files,
+                () -> "test-user", (actor, permission) -> true);
     }
 
     private String encode(String val) {

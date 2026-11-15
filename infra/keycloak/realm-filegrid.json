@@ -1,0 +1,160 @@
+{
+  "realm": "filegrid",
+  "displayName": "FileGrid PPC",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "loginWithEmailAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["ro", "en"],
+  "defaultLocale": "ro",
+  "roles": {
+    "realm": [
+      { "name": "field", "description": "Echipă de teren" },
+      { "name": "dispatcher", "description": "Dispecerat" },
+      { "name": "connections", "description": "Procesare racordări (acces la date personale)" },
+      { "name": "analyst", "description": "Analist date rețea" },
+      { "name": "incident-manager", "description": "Manager de incident" },
+      { "name": "admin", "description": "Administrator platformă" },
+      { "name": "svc-meter-ingest", "description": "Serviciu: simulatorul de contoare" },
+      { "name": "svc-alert-ingest", "description": "Serviciu: Alertmanager" },
+      { "name": "svc-intelligence", "description": "Serviciu: Agent 02 / intelligence" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "filegrid-web",
+      "name": "FileGrid web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["https://localhost/*", "http://localhost:4200/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://localhost/*##http://localhost:4200/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-filegrid-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "filegrid-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "filegrid-simulator",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_SIMULATOR_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-filegrid-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "filegrid-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "filegrid-alertmanager",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_ALERTMANAGER_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-filegrid-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "filegrid-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "filegrid-intelligence",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_INTELLIGENCE_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-filegrid-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "filegrid-api", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "field.demo", "firstName": "Echipa", "lastName": "Teren", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_FIELD_PASSWORD}", "temporary": false }],
+      "realmRoles": ["field"]
+    },
+    {
+      "username": "dispatcher.demo", "firstName": "Dispecer", "lastName": "Demo", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_DISPATCHER_PASSWORD}", "temporary": false }],
+      "realmRoles": ["dispatcher"]
+    },
+    {
+      "username": "connections.demo", "firstName": "Racordari", "lastName": "Demo", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_CONNECTIONS_PASSWORD}", "temporary": false }],
+      "realmRoles": ["connections"]
+    },
+    {
+      "username": "analyst.demo", "firstName": "Analist", "lastName": "Demo", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_ANALYST_PASSWORD}", "temporary": false }],
+      "realmRoles": ["analyst"]
+    },
+    {
+      "username": "incident-manager.demo", "firstName": "Manager", "lastName": "Incident", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_INCIDENT_MANAGER_PASSWORD}", "temporary": false }],
+      "realmRoles": ["incident-manager"]
+    },
+    {
+      "username": "admin.demo", "firstName": "Admin", "lastName": "Demo", "enabled": true,
+      "credentials": [{ "type": "password", "value": "${KC_DEMO_ADMIN_PASSWORD}", "temporary": false }],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "service-account-filegrid-simulator", "enabled": true,
+      "serviceAccountClientId": "filegrid-simulator", "realmRoles": ["svc-meter-ingest"]
+    },
+    {
+      "username": "service-account-filegrid-alertmanager", "enabled": true,
+      "serviceAccountClientId": "filegrid-alertmanager", "realmRoles": ["svc-alert-ingest"]
+    },
+    {
+      "username": "service-account-filegrid-intelligence", "enabled": true,
+      "serviceAccountClientId": "filegrid-intelligence", "realmRoles": ["svc-intelligence"]
+    }
+  ]
+}

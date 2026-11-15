@@ -75,7 +75,7 @@ public class SseTestReceiver implements AutoCloseable {
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
 
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest request = HttpRequest.newBuilder().header("Authorization", TestTokens.bearerAdmin())
                 .uri(sseEndpoint)
                 .header("Accept", "text/event-stream")
                 .header("Cache-Control", "no-cache")

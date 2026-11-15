@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import ro.filegrid.file.FileRecordRepository;
+import ro.filegrid.security.AccessPolicy;
+import ro.filegrid.security.CurrentActorProvider;
+import ro.filegrid.security.RolePermissions;
 
 /**
  * Resumable upload controller handling Tus 1.0 protocol methods ({@code POST}, {@code PATCH},
@@ -35,18 +38,24 @@ public class TusUploadController {
     private final TusMetadataParser metadataParser;
     private final ApplicationEventPublisher eventPublisher;
     private final FileRecordRepository files;
+    private final CurrentActorProvider actors;
+    private final AccessPolicy access;
 
     public TusUploadController(
             TusFileUploadService tusFileUploadService,
             StagingProperties stagingProperties,
             TusMetadataParser metadataParser,
             ApplicationEventPublisher eventPublisher,
-            FileRecordRepository files) {
+            FileRecordRepository files,
+            CurrentActorProvider actors,
+            AccessPolicy access) {
         this.tusFileUploadService = tusFileUploadService;
         this.files = files;
         this.stagingProperties = stagingProperties;
         this.metadataParser = metadataParser;
         this.eventPublisher = eventPublisher;
+        this.actors = actors;
+        this.access = access;
     }
 
     @RequestMapping(
@@ -60,6 +69,13 @@ public class TusUploadController {
             }
     )
     public void processTus(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // Stage 11: uploading needs file:write; OPTIONS (capability discovery) stays open to any signed-in user.
+        String actor = actors.currentActor();
+        if (!"OPTIONS".equalsIgnoreCase(request.getMethod()) && !access.isAllowed(actor, PERMISSION_WRITE)) {
+            response.setHeader("Tus-Resumable", TUS_VERSION);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         // tus 1.0.0: a PATCH without Content-Type application/offset+octet-stream SHOULD get 415
         // (tus-java-server answers 406 Not Acceptable, which is meant for the Accept header).
         if ("PATCH".equalsIgnoreCase(request.getMethod()) && !isTusPatchContentType(request.getContentType())) {
@@ -67,7 +83,9 @@ public class TusUploadController {
             response.setStatus(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE);
             return;
         }
-        tusFileUploadService.process(request, response);
+        // The owner key ties every upload to the person who created it: nobody else can
+        // resume, inspect (HEAD) or delete it (tus-java-server answers 404 to them).
+        tusFileUploadService.process(request, response, actor);
 
         // Only the request that wrote the last bytes completes an upload: a PATCH, or a
         // POST creating an empty upload. HEAD and OPTIONS never trigger ingestion again.
@@ -82,9 +100,9 @@ public class TusUploadController {
             return;
         }
         try {
-            UploadInfo uploadInfo = tusFileUploadService.getUploadInfo(uri);
+            UploadInfo uploadInfo = tusFileUploadService.getUploadInfo(uri, actor);
             if (uploadInfo != null && uploadInfo.getLength() != null && !uploadInfo.isUploadInProgress()) {
-                handleUploadComplete(uploadInfo, uri);
+                handleUploadComplete(uploadInfo, uri, actor);
             }
         } catch (TusException ex) {
             log.debug("No upload info available at uri '{}': {}", uri, ex.getMessage());
@@ -92,6 +110,7 @@ public class TusUploadController {
     }
 
     private static final String TUS_VERSION = "1.0.0";
+    static final String PERMISSION_WRITE = RolePermissions.FILE_WRITE;
     private static final String TUS_PATCH_CONTENT_TYPE = "application/offset+octet-stream";
 
     static boolean isTusPatchContentType(String contentType) {
@@ -109,7 +128,7 @@ public class TusUploadController {
      * expires, so that a client asking HEAD after completion still gets
      * {@code Upload-Offset == Upload-Length} as the protocol requires.
      */
-    private void handleUploadComplete(UploadInfo uploadInfo, String uploadUri) throws IOException {
+    private void handleUploadComplete(UploadInfo uploadInfo, String uploadUri, String actor) throws IOException {
         String uploadIdStr = uploadInfo.getId().toString();
         UUID fileId;
         try {
@@ -168,7 +187,7 @@ public class TusUploadController {
                 contentType,
                 parsed.category().orElse(null),
                 parsed.toContextMap()
-        );
+        ).withActor(actor);
         eventPublisher.publishEvent(event);
 
     }

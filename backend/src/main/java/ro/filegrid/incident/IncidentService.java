@@ -633,11 +633,20 @@ public class IncidentService {
         return list.get(0);
     }
 
+    /** Detail with the names of personal documents hidden (the safe default for any caller). */
     public IncidentDetail detail(UUID id) {
+        return detail(id, false);
+    }
+
+    /** @param personalNames whether the viewer may see the names of personal documents ({@code pii:read}) */
+    public IncidentDetail detail(UUID id, boolean personalNames) {
         IncidentSummary summary = summary(id);
-        MapSqlParameterSource p = new MapSqlParameterSource("id", id);
+        MapSqlParameterSource p = new MapSqlParameterSource("id", id)
+                .addValue("pii", personalNames).addValue("masked", texts.get("file.maskedName"));
         List<IncidentFile> files = jdbc.query("""
-                SELECT f.id, f.original_name, f.category, f.integrity_status
+                SELECT f.id, f.category, f.integrity_status,
+                       CASE WHEN f.sensitivity = 'PERSONAL_DATA' AND NOT :pii THEN :masked
+                            ELSE f.original_name END AS original_name
                   FROM incident_file x JOIN file_record f ON f.id = x.file_id WHERE x.incident_id = :id
                  ORDER BY f.received_at
                 """, p, (rs, i) -> new IncidentFile(rs.getObject("id", UUID.class), rs.getString("original_name"),

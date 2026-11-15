@@ -214,7 +214,7 @@ class PolicyAndRoutingIT {
         assertThat(okResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(okResponse.getBody().get("version").asLong()).isEqualTo(3L);
         assertThat(okResponse.getBody().get("source").asText()).isEqualTo("ADMIN");
-        assertThat(okResponse.getBody().get("author").asText()).isEqualTo("demo-user");
+        assertThat(okResponse.getBody().get("author").asText()).isEqualTo(ro.filegrid.testsupport.TestTokens.ADMIN);
         assertThat(okResponse.getBody().get("changed").asBoolean()).isTrue();
         assertThat(okResponse.getBody().get("policy")
                 .at("/categories/METER_READING/constraints/maxSizeBytes/DATABASE").asLong())

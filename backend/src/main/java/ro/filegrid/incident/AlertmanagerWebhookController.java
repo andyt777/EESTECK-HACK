@@ -26,9 +26,11 @@ import ro.filegrid.incident.Incidents.Source;
 public class AlertmanagerWebhookController {
 
     private final IncidentService incidents;
+    private final ro.filegrid.security.Authorizer authorizer;
 
-    public AlertmanagerWebhookController(IncidentService incidents) {
+    public AlertmanagerWebhookController(IncidentService incidents, ro.filegrid.security.Authorizer authorizer) {
         this.incidents = incidents;
+        this.authorizer = authorizer;
     }
 
     public record Alert(String status, Map<String, String> labels, Map<String, String> annotations,
@@ -47,6 +49,8 @@ public class AlertmanagerWebhookController {
             throw new ro.filegrid.passport.ProblemException(org.springframework.http.HttpStatus.FORBIDDEN,
                     "internal-only", "Endpoint intern.");
         }
+        // Stage 11: client_credentials token of filegrid-alertmanager (role svc-alert-ingest).
+        authorizer.require(ro.filegrid.security.RolePermissions.ALERTS_INGEST);
         int opened = 0;
         int resolved = 0;
         for (Alert alert : payload.alerts() == null ? List.<Alert>of() : payload.alerts()) {

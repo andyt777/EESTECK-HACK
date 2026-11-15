@@ -1,4 +1,62 @@
-# Predare — FileGrid PPC (actualizat 2026-11-14, noaptea)
+# Predare — FileGrid PPC
+
+## ⏩ STARE CURENTĂ (2026-11-15) — citește întâi asta
+
+Nimic din ce urmează NU e commit-uit încă. Pe laptopul vechi: `git add -A && git commit` (mesajele propuse sunt mai jos), apoi push.
+
+### A. Redesign UI — GATA și verificat în browser
+Village pe tot ecranul, paletă deep blue/alb/roz bubblegum, titluri italice, case reale, robotul merge la casă și trage firul spre storage,
+încărcare DOAR prin drag & drop pe Agent 01 (fără formular), mesaj „Decizia Agentului 01” după upload, File Explorer șters
+(click pe casă → `/categories/:category`, Ctrl+K rămâne), sidebar ascuns (☰) cu Decision Explorer și Politici (editabile din UI).
+Detalii: `docs/CHANGELOG-ETAPE.md` (prima secțiune), `docs/experienta-utilizator.md` actualizat.
+Commit propus: `feat(frontend): full-screen village, drop-on-agent upload, hidden sidebar`.
+
+### B. Etapa 11 — autentificare (design: `docs/AUTH-DESIGN.md`, aprobat) — ÎN LUCRU
+Făcut (necompilat în stack, netestat cap-coadă):
+- **Infra:** `infra/keycloak/init-db.sh` (rol+DB `keycloak` în meta-db, one-shot), `infra/keycloak/realm-filegrid.json`
+  (6 roluri + `svc-*`, clienți `filegrid-web` PKCE / simulator / alertmanager / intelligence, audience `filegrid-api`, utilizatori demo),
+  `infra/docker-compose.yml` (servicii `keycloak-db-init`, `keycloak` 26.8.2; meta-db max_connections 80; env KC_* pentru api/simulator/
+  intelligence; secret Alertmanager), `infra/alertmanager/alertmanager.yml` (oauth2 client_credentials),
+  `infra/traefik/dynamic/routes.yml` (rute `/auth/realms`, `/auth/resources` + rate limit pe token/login-actions), `.env.example` (variabile noi).
+- **Backend (compilează: `./mvnw -q compile` OK):** `pom.xml` (+oauth2-resource-server, +spring-security-test);
+  `security/`: `SecurityConfiguration` (lanț actuator deschis pe portul intern, lanț API JWT; issuer public+intern, audience),
+  `SecurityProperties`, `RolePermissions` (matricea §3), `RolePermissionAccessPolicy` (înlocuiește Permissive; metrica
+  `filegrid_access_denied_total`), `SecurityContextActorProvider` (înlocuiește Demo; fără auth → `system`), `MeController` (`GET /api/me`),
+  `ContentLinkSigner` + `SignedContentLinkFilter` (linkuri HMAC; `POST /api/files/{id}/content-link`), `TokenLifetime` (SSE se închide la expirarea tokenului),
+  `Authorizer`, `ProblemResponses` (401/403 ca problem details). Controllere: `events/stream` cere file:read; `storage/health` storage:read;
+  webhook Alertmanager alerts:ingest; `POST /incidents` incident:create; tus cere file:write + ownerKey = actor; actorul e capturat în
+  `UploadCompletedEvent.actor` (ingestia e async); nume de documente PII mascate fără pii:read în `/files`, passport (+audit, descriere),
+  `/decisions`, detaliu incident, incidente automate. Texte noi în `i18n/texts_ro.properties` (`auth.error.*`, `file.maskedName`).
+- **Teste backend (scrise, NERULATE):** `testsupport/TestTokens` (JWT RS256 cu cheie generată la rulare),
+  `TestSecurityContextCustomizerFactory` + `src/test/resources/META-INF/spring.factories` (toate testele Spring validează cu cheia de test,
+  TestRestTemplate trimite automat tokenul `test-admin`), HttpClient din TusTestClient/SseTestReceiver/EventStreamingE2EIT trimit tokenul,
+  TusUploadControllerTest și PolicyAndRoutingIT (author = `test-admin`) adaptate.
+
+Rămas (în ordine):
+1. `cd backend && ./mvnw -B clean verify` → repară ce pică.
+2. Teste noi: unit `RolePermissions` (doar connections+admin au pii:read), `ContentLinkSigner` (valid/alterat/expirat/alt fișier);
+   în `RetrievalAndPassportIT` (sau IT nou): fără token → 401 problem; token expirat / audience greșită / issuer greșit → 401;
+   field.demo pe document PII → 403 la conținut + nume mascat în `/files`; connections vede numele; content-link → descărcare fără header;
+   `/me`; actuator pe portul de management fără token → 200.
+3. **Frontend** (§5 din AUTH-DESIGN): `angular-auth-oidc-client` (authority din `window.location.origin + /auth/realms/filegrid`,
+   clientId `filegrid-web`, code+PKCE, refresh token, `secureRoutes: ['/api/']`), interceptor, guard auto-login, `AuthzService` din `/api/me`
+   (ascunde acțiuni fără permisiune), user + rol + logout în bara de sus/sidebar; SSE prin `fetch` cu header Authorization
+   (`core/events.service.ts` folosește acum EventSource → de rescris, reconectare la expirare); tus `onBeforeRequest` cu token proaspăt;
+   descărcare/preview prin `POST /api/files/{id}/content-link` (passport-page).
+4. `.\start.ps1` (Keycloak importă realm-ul doar la prima pornire) → toate serviciile healthy; login în browser cu fiecare rol
+   (parolele demo sunt în `.env`: `KC_DEMO_*_PASSWORD`); simulatorul trebuie să trimită cu token (verifică `duplicatesWritten = 0`
+   și citiri/min > 0); Grid Intelligence nu mai dă 401 după login; alerta Alertmanager → incident.
+5. Docs: README secțiunea „Autentificare” (utilizatori demo, reset realm: `docker compose down keycloak && docker compose exec meta-db
+   psql ... DROP DATABASE keycloak` sau ștergerea realm-ului), `docs/ARCHITECTURE.md` A.1 (componenta keycloak — direcție aprobată),
+   `docs/COMPLIANCE.md` (accesul este autentificat, PII), `docs/CHANGELOG-ETAPE.md`, actualizează această secțiune.
+Commit propus la final: `feat(auth): keycloak oidc, jwt resource server, role permissions, signed content links` (+ frontend separat).
+
+Capcane: fișierele Java/TS au CRLF — înlocuirile PowerShell cu `` `n `` nu se aplică, folosește editări exacte; dacă gateway-ul nu vede
+rutele noi: `bash scripts/reload-config.sh`; `.env` existent primește variabilele noi automat la `.\start.ps1` (doar cele lipsă).
+
+---
+
+# Predare anterioară (2026-11-14, noaptea)
 
 ## 0. Prompt de lipit în Claude Code pe laptopul nou
 
@@ -59,7 +117,7 @@ Document de continuare pe alt laptop. Citește-l împreună cu `CLAUDE.md`, `doc
 
 | Cerință demo | Stare | Cum se arată |
 | --- | --- | --- |
-| 1. Upload + clasificare | ✅ | pagina `/upload` sau „Încarcă fișier” din Control Center (tus reluabil) |
+| 1. Upload + clasificare | ✅ | drag & drop pe Agent 01 în Control Center (tus reluabil, fără formular) |
 | 2. Rutare automată (Agent 01, determinist) | ✅ | Decision Explorer în passport, `/decisions`, `/policies` |
 | 3. Stocare + verificare SHA-256 | ✅ | timeline live până la „Stocat și verificat”; „Verifică integritatea” în passport |
 | 4. File Passport | ✅ | `/files/:id` |

@@ -244,7 +244,7 @@ public class MultipartFileController {
 
         // 13. Publish UploadCompletedEvent (triggers Milestone 2 Ingestion pipeline)
         eventPublisher.publishEvent(new UploadCompletedEvent(
-                fileId, finalPath, totalBytesWritten, sha256Hex, resolvedCategory, record, now));
+                fileId, finalPath, totalBytesWritten, sha256Hex, resolvedCategory, record, now).withActor(actor));
 
         log.info("Multipart upload complete: fileId={}, size={}, sha256={}, category={}",
                 fileId, totalBytesWritten, sha256Hex, resolvedCategory);

@@ -118,18 +118,19 @@ public class IncidentController {
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
         authorize("incident:read");
-        return hub.subscribe();
+        // The stream ends when the caller's token expires; the client reconnects with a fresh one.
+        return hub.subscribe(ro.filegrid.security.TokenLifetime.remaining(java.time.Duration.ofMinutes(30)));
     }
 
     @GetMapping("/{id}")
     public IncidentDetail detail(@PathVariable UUID id) {
         authorize("incident:read");
-        return incidents.detail(id);
+        return incidents.detail(id, access.isAllowed(actors.currentActor(), "pii:read"));
     }
 
     @PostMapping
     public IncidentDetail open(@RequestBody IncidentRequest body) {
-        authorize("incident:write");
+        authorize("incident:create");
         return incidents.open(toNew(body));
     }
 

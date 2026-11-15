@@ -21,7 +21,12 @@ public class IncidentHub {
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     public SseEmitter subscribe() {
-        SseEmitter emitter = new SseEmitter(TIMEOUT.toMillis());
+        return subscribe(TIMEOUT);
+    }
+
+    /** @param timeout how long the stream stays open (at most until the caller's token expires) */
+    public SseEmitter subscribe(Duration timeout) {
+        SseEmitter emitter = new SseEmitter(Math.min(timeout.toMillis(), TIMEOUT.toMillis()));
         emitters.add(emitter);
         emitter.onCompletion(() -> emitters.remove(emitter));
         emitter.onTimeout(() -> {
